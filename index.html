@@ -4,10 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>HMP — Event & Money Management Platform</title>
-<meta name="description" content="HMP helps event organizers, churches, and teams track guest payments, upload proof of payment, send receipts, and export clean financial records — all in one trusted platform.">
+<meta name="description" content="HMP helps event organizers, churches, and teams track guest payments, upload proof of payment, send receipts, and export clean financial records, all in one trusted platform.">
 
 <meta property="og:title" content="HMP — Event & Money Management Platform">
-<meta property="og:description" content="Track guest payments, upload proof of payment, send receipts, and export clean records — all in one trusted, organized place.">
+<meta property="og:description" content="Track guest payments, upload proof of payment, send receipts, and export clean records in one trusted, organized place.">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 
@@ -15,46 +15,41 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Calistoga&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Calistoga&family=Fraunces:ital,opsz,wght@0,9..144,300..700;1,9..144,300..700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
+<div class="grain" aria-hidden="true"></div>
+
 <header class="site-header" id="siteHeader">
-  <div class="header-inner">
+  <nav class="floating-nav">
     <a href="#home" class="brand">
       <span class="brand-badge">H</span>
       <span class="brand-word">HMP</span>
     </a>
 
-    <nav class="main-nav">
+    <div class="main-nav">
       <a href="#about">About</a>
       <a href="#features">Features</a>
       <a href="#how-it-works">How It Works</a>
       <a href="#pricing">Pricing</a>
       <a href="#faq">FAQ</a>
-    </nav>
-
-    <div class="header-actions">
-      <a href="https://hmp1.netlify.app/login" class="btn btn-ghost">Sign In</a>
-      <a href="#contact" class="btn btn-dark">Request Access</a>
     </div>
 
     <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">
-      <span></span><span></span><span></span>
+      <span></span><span></span>
     </button>
-  </div>
+  </nav>
 
   <div class="mobile-nav" id="mobileNav">
-    <a href="#about">About</a>
-    <a href="#features">Features</a>
-    <a href="#how-it-works">How It Works</a>
-    <a href="#pricing">Pricing</a>
-    <a href="#faq">FAQ</a>
-    <div class="mobile-actions">
-      <a href="https://hmp1.netlify.app/login" class="btn btn-outline">Sign In</a>
-      <a href="#contact" class="btn btn-dark">Request Access</a>
+    <div class="mobile-nav-inner">
+      <a href="#about">About</a>
+      <a href="#features">Features</a>
+      <a href="#how-it-works">How It Works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#faq">FAQ</a>
     </div>
   </div>
 </header>
@@ -64,8 +59,8 @@
   <!-- Home / Hero -->
   <section id="home" class="hero">
     <div class="hero-inner">
-      <div class="hero-copy">
-        <p class="eyebrow"><span class="rule"></span>Event &amp; Money Management</p>
+      <div class="hero-copy reveal">
+        <span class="eyebrow"><span class="eyebrow-dot"></span>Event &amp; Money Management</span>
         <h1 class="display">
           Run your events.<br>
           <span class="swash-wrap">Track every dollar.
@@ -74,48 +69,50 @@
             </svg>
           </span>
         </h1>
-        <p class="lede">HMP is a professional event and money-management platform. Track guest payments, upload proof of payment, send receipts, and export clean records — all in one trusted, organized place.</p>
+        <p class="lede">HMP is a professional event and money-management platform. Track guest payments, upload proof of payment, send receipts, and export clean records in one trusted, organized place.</p>
         <div class="hero-ctas">
-          <a href="#contact" class="btn btn-dark btn-lg">Book a Demo <svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          <a href="#contact" class="btn btn-outline btn-lg">Request Access</a>
+          <a href="#contact" class="btn btn-dark btn-lg">Book a Demo <span class="icon-ring"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
+          <a href="#contact" class="btn btn-outline btn-plain">Request Access</a>
         </div>
         <div class="trust-row">
-          <span><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z"/></svg>Secure, invite-only access</span>
-          <span><svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Instant receipts</span>
-          <span><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V10M13 17V6M18 17v-4"/></svg>Audit-ready exports</span>
+          <span><svg class="icon" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z"/></svg>Secure, invite-only access</span>
+          <span><svg class="icon" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>Instant receipts</span>
+          <span><svg class="icon" viewBox="0 0 24 24"><path d="M3 3v18h18M8 17V10M13 17V6M18 17v-4"/></svg>Audit-ready exports</span>
         </div>
       </div>
 
-      <div class="dash-mock">
-        <div class="dash-head">
-          <div>
-            <p class="dash-label">Event</p>
-            <p class="dash-title">Spring Fundraiser Gala</p>
+      <div class="dash-shell reveal reveal-delay-2">
+        <div class="dash-mock">
+          <div class="dash-head">
+            <div>
+              <p class="dash-label">Event</p>
+              <p class="dash-title">Spring Fundraiser Gala</p>
+            </div>
+            <span class="badge badge-active">Active</span>
           </div>
-          <span class="badge badge-active">Active</span>
-        </div>
-        <div class="dash-stats">
-          <div class="dash-stat dash-stat-pink">
-            <p class="dash-label">Total Collected</p>
-            <p class="dash-figure">$18,420</p>
+          <div class="dash-stats">
+            <div class="dash-stat dash-stat-pink">
+              <p class="dash-label">Total Collected</p>
+              <p class="dash-figure">$18,420</p>
+            </div>
+            <div class="dash-stat dash-stat-dark">
+              <p class="dash-label dash-label-light">Guests Paid</p>
+              <p class="dash-figure dash-figure-light">142 / 160</p>
+            </div>
           </div>
-          <div class="dash-stat dash-stat-dark">
-            <p class="dash-label dash-label-light">Guests Paid</p>
-            <p class="dash-figure dash-figure-light">142 / 160</p>
-          </div>
-        </div>
-        <div class="dash-rows">
-          <div class="dash-row">
-            <div><p class="dash-name">Maria Thompson</p><p class="dash-method">Zelle</p></div>
-            <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
-          </div>
-          <div class="dash-row">
-            <div><p class="dash-name">David Chen</p><p class="dash-method">Cash</p></div>
-            <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
-          </div>
-          <div class="dash-row">
-            <div><p class="dash-name">Priya Patel</p><p class="dash-method">Cash App</p></div>
-            <div class="dash-amount"><span>$120</span><span class="badge badge-pending">Pending</span></div>
+          <div class="dash-rows">
+            <div class="dash-row">
+              <div><p class="dash-name">Maria Thompson</p><p class="dash-method">Zelle</p></div>
+              <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
+            </div>
+            <div class="dash-row">
+              <div><p class="dash-name">David Chen</p><p class="dash-method">Cash</p></div>
+              <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
+            </div>
+            <div class="dash-row">
+              <div><p class="dash-name">Priya Patel</p><p class="dash-method">Cash App</p></div>
+              <div class="dash-amount"><span>$120</span><span class="badge badge-pending">Pending</span></div>
+            </div>
           </div>
         </div>
       </div>
@@ -123,138 +120,144 @@
   </section>
 
   <!-- About -->
-  <section id="about" class="section section-border">
+  <section id="about" class="section">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow center"><span class="rule"></span>About HMP</p>
+      <div class="section-head reveal">
+        <span class="eyebrow-wrap"><span class="eyebrow"><span class="eyebrow-dot"></span>About HMP</span></span>
         <h2 class="display section-title">Collecting money for an event shouldn't feel like guesswork</h2>
         <p class="section-desc">Between cash handed off in person, Zelle screenshots buried in a group chat, and spreadsheets that go stale the moment someone forgets to update them, it's nearly impossible to know exactly who's paid and how much you've actually collected.</p>
       </div>
 
-      <div class="grid-3 bordered-grid">
-        <div class="about-card">
+      <div class="grid-3">
+        <div class="about-card reveal">
           <svg class="icon icon-gold icon-lg" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
           <h3 class="display card-title">For organizers</h3>
-          <p class="card-text">One dashboard for every event — no more chasing payment screenshots across five apps.</p>
+          <p class="card-text">One dashboard for every event, so you're no longer chasing payment screenshots across five apps.</p>
         </div>
-        <div class="about-card">
+        <div class="about-card reveal reveal-delay-1">
           <svg class="icon icon-gold icon-lg" viewBox="0 0 24 24"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h1M14 9h1M9 13h1M14 13h1M9 17h1M14 17h1"/></svg>
           <h3 class="display card-title">For organizations</h3>
           <p class="card-text">Churches, nonprofits, and teams get a shared source of truth their whole team can trust.</p>
         </div>
-        <div class="about-card">
+        <div class="about-card reveal reveal-delay-2">
           <svg class="icon icon-gold icon-lg" viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.5 9 8 11 4.5-2 8-6 8-11V5l-8-3Z"/></svg>
           <h3 class="display card-title">For accountability</h3>
-          <p class="card-text">Every payment has proof attached and a receipt trail — nothing gets lost or disputed.</p>
+          <p class="card-text">Every payment has proof attached and a receipt trail, so nothing gets lost or disputed.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Features -->
-  <section id="features" class="section section-border">
+  <section id="features" class="section">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow center"><span class="rule"></span>Features</p>
+      <div class="section-head reveal">
+        <span class="eyebrow-wrap"><span class="eyebrow"><span class="eyebrow-dot"></span>Features</span></span>
         <h2 class="display section-title">Everything you need to manage event money</h2>
         <p class="section-desc">From the moment an event is created to the final export, HMP keeps every dollar and every guest accounted for.</p>
       </div>
 
-      <div class="grid-3 bordered-grid features-grid">
-        <div class="feature-card">
-          <div class="feature-top"><svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M9 21V9"/></svg><span class="index-num">01</span></div>
+      <div class="grid-3">
+        <div class="feature-card reveal">
+          <svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M9 21V9"/></svg>
           <h3 class="display card-title">Event Dashboard</h3>
-          <p class="card-text">A live, at-a-glance view of every event — total collected, guests paid, and what's still outstanding.</p>
+          <p class="card-text">A live view of every event: total collected, guests paid, and what's still outstanding.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-top"><svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span class="index-num">02</span></div>
+        <div class="feature-card reveal reveal-delay-1">
+          <svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           <h3 class="display card-title">Payment Tracking</h3>
           <p class="card-text">Log cash, Zelle, Cash App, or card payments per guest and see who's paid, who's pending, at a glance.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-top"><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"/><path d="m3 15 5-5 4 4 5-5 4 4"/><path d="M3 15v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg><span class="index-num">03</span></div>
+        <div class="feature-card reveal reveal-delay-2">
+          <svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"/><path d="m3 15 5-5 4 4 5-5 4 4"/><path d="M3 15v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
           <h3 class="display card-title">Proof of Payment Uploads</h3>
-          <p class="card-text">Guests or organizers attach a screenshot or receipt as proof — no more "I already sent it" disputes.</p>
+          <p class="card-text">Guests or organizers attach a screenshot or receipt as proof, ending every "I already sent it" dispute.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-top"><svg class="icon icon-gold" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span class="index-num">04</span></div>
+        <div class="feature-card reveal">
+          <svg class="icon icon-gold" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           <h3 class="display card-title">Guest Search</h3>
           <p class="card-text">Instantly search and filter your guest list by name, payment status, or amount owed.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-top"><svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h6M9 11h6M9 15h4"/></svg><span class="index-num">05</span></div>
+        <div class="feature-card reveal reveal-delay-1">
+          <svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
           <h3 class="display card-title">Automatic Receipts</h3>
           <p class="card-text">Every confirmed payment can generate a clean, branded receipt sent straight to the guest.</p>
         </div>
-        <div class="feature-card">
-          <div class="feature-top"><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg><span class="index-num">06</span></div>
+        <div class="feature-card reveal reveal-delay-2">
+          <svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
           <h3 class="display card-title">Reports &amp; Exports</h3>
-          <p class="card-text">Export CSV or PDF records in a click — ready to hand to a treasurer, board, or accountant.</p>
+          <p class="card-text">Export CSV or PDF records in a click, ready to hand to a treasurer, board, or accountant.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- How It Works -->
-  <section id="how-it-works" class="section section-border">
+  <section id="how-it-works" class="section">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow center"><span class="rule"></span>How It Works</p>
+      <div class="section-head reveal">
+        <span class="eyebrow-wrap"><span class="eyebrow"><span class="eyebrow-dot"></span>How It Works</span></span>
         <h2 class="display section-title">From event setup to final report, in five steps</h2>
       </div>
       <div class="steps-grid">
-        <div class="step"><span class="step-num">01</span><h3 class="display card-title">Create your event</h3><p class="card-text">Set up an event in minutes — name, date, location, and a starting bank amount if needed.</p></div>
-        <div class="step"><span class="step-num">02</span><h3 class="display card-title">Add your guest list</h3><p class="card-text">Import or add guests, track who owes what, and keep everyone organized in one place.</p></div>
-        <div class="step"><span class="step-num">03</span><h3 class="display card-title">Collect &amp; verify payments</h3><p class="card-text">Record payments as they come in and attach proof — cash, Zelle, Cash App, or card.</p></div>
-        <div class="step"><span class="step-num">04</span><h3 class="display card-title">Send receipts automatically</h3><p class="card-text">Confirmed payments trigger a clean receipt so guests always have a record.</p></div>
-        <div class="step"><span class="step-num">05</span><h3 class="display card-title">Export clean reports</h3><p class="card-text">Pull a CSV or PDF summary any time — for your team, your board, or your books.</p></div>
+        <div class="step reveal"><span class="step-num">01</span><h3 class="display card-title">Create your event</h3><p class="card-text">Set up an event in minutes: name, date, location, and a starting bank amount if needed.</p></div>
+        <div class="step reveal reveal-delay-1"><span class="step-num">02</span><h3 class="display card-title">Add your guest list</h3><p class="card-text">Import or add guests, track who owes what, and keep everyone organized in one place.</p></div>
+        <div class="step reveal reveal-delay-2"><span class="step-num">03</span><h3 class="display card-title">Collect &amp; verify payments</h3><p class="card-text">Record payments as they come in and attach proof: cash, Zelle, Cash App, or card.</p></div>
+        <div class="step reveal reveal-delay-3"><span class="step-num">04</span><h3 class="display card-title">Send receipts automatically</h3><p class="card-text">Confirmed payments trigger a clean receipt so guests always have a record.</p></div>
+        <div class="step reveal reveal-delay-4"><span class="step-num">05</span><h3 class="display card-title">Export clean reports</h3><p class="card-text">Pull a CSV or PDF summary any time, for your team, your board, or your books.</p></div>
       </div>
     </div>
   </section>
 
-  <!-- Event Dashboard -->
-  <section id="dashboard" class="section section-border">
-    <div class="wrap two-col">
-      <div>
-        <p class="eyebrow"><span class="rule"></span>Event Dashboard</p>
-        <h2 class="display section-title left">See every event at a glance</h2>
-        <p class="section-desc left">Total collected, guests paid, and what's still outstanding — updated in real time as payments come in. No more digging through spreadsheets to answer "where do we stand?"</p>
-        <ul class="check-list">
-          <li><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Live totals for money collected and guests paid</li>
-          <li><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Upcoming and past events organized in one place</li>
-          <li><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Search and filter guests by name or payment status</li>
-        </ul>
-      </div>
-      <div class="dash-mock">
-        <div class="dash-head">
+  <!-- Event Dashboard (white panel break) -->
+  <section id="dashboard" class="section">
+    <div class="wrap">
+      <div class="panel reveal">
+        <div class="two-col">
           <div>
-            <p class="dash-label">Event</p>
-            <p class="dash-title">Spring Fundraiser Gala</p>
+            <span class="eyebrow-wrap left"><span class="eyebrow on-white"><span class="eyebrow-dot"></span>Event Dashboard</span></span>
+            <h2 class="display section-title left">See every event at a glance</h2>
+            <p class="section-desc left">Total collected, guests paid, and what's still outstanding, updated in real time as payments come in. No more digging through spreadsheets to answer "where do we stand?"</p>
+            <ul class="check-list">
+              <li><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Live totals for money collected and guests paid</li>
+              <li><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Upcoming and past events organized in one place</li>
+              <li><svg class="icon" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Search and filter guests by name or payment status</li>
+            </ul>
           </div>
-          <span class="badge badge-active">Active</span>
-        </div>
-        <div class="dash-stats">
-          <div class="dash-stat dash-stat-pink">
-            <p class="dash-label">Total Collected</p>
-            <p class="dash-figure">$18,420</p>
-          </div>
-          <div class="dash-stat dash-stat-dark">
-            <p class="dash-label dash-label-light">Guests Paid</p>
-            <p class="dash-figure dash-figure-light">142 / 160</p>
-          </div>
-        </div>
-        <div class="dash-rows">
-          <div class="dash-row">
-            <div><p class="dash-name">Maria Thompson</p><p class="dash-method">Zelle</p></div>
-            <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
-          </div>
-          <div class="dash-row">
-            <div><p class="dash-name">David Chen</p><p class="dash-method">Cash</p></div>
-            <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
-          </div>
-          <div class="dash-row">
-            <div><p class="dash-name">Priya Patel</p><p class="dash-method">Cash App</p></div>
-            <div class="dash-amount"><span>$120</span><span class="badge badge-pending">Pending</span></div>
+          <div class="dash-shell">
+            <div class="dash-mock">
+              <div class="dash-head">
+                <div>
+                  <p class="dash-label">Event</p>
+                  <p class="dash-title">Spring Fundraiser Gala</p>
+                </div>
+                <span class="badge badge-active">Active</span>
+              </div>
+              <div class="dash-stats">
+                <div class="dash-stat dash-stat-pink">
+                  <p class="dash-label">Total Collected</p>
+                  <p class="dash-figure">$18,420</p>
+                </div>
+                <div class="dash-stat dash-stat-dark">
+                  <p class="dash-label dash-label-light">Guests Paid</p>
+                  <p class="dash-figure dash-figure-light">142 / 160</p>
+                </div>
+              </div>
+              <div class="dash-rows">
+                <div class="dash-row">
+                  <div><p class="dash-name">Maria Thompson</p><p class="dash-method">Zelle</p></div>
+                  <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
+                </div>
+                <div class="dash-row">
+                  <div><p class="dash-name">David Chen</p><p class="dash-method">Cash</p></div>
+                  <div class="dash-amount"><span>$120</span><span class="badge badge-verified">Verified</span></div>
+                </div>
+                <div class="dash-row">
+                  <div><p class="dash-name">Priya Patel</p><p class="dash-method">Cash App</p></div>
+                  <div class="dash-amount"><span>$120</span><span class="badge badge-pending">Pending</span></div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -262,43 +265,43 @@
   </section>
 
   <!-- Payment Tracking / Proof Uploads / Receipts / Reports -->
-  <section class="section section-border">
+  <section class="section">
     <div class="wrap">
-      <div class="grid-2 bordered-grid">
-        <div class="detail-card" id="payment-tracking">
+      <div class="grid-2">
+        <div class="detail-card reveal" id="payment-tracking">
           <svg class="icon icon-gold icon-lg" viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           <h3 class="display card-title-lg">Payment Tracking</h3>
-          <p class="card-text">Log every payment against the guest who made it — cash, Zelle, Cash App, or card. See who's paid in full, who's partial, and who hasn't paid at all, without cross-referencing a separate spreadsheet.</p>
+          <p class="card-text">Log every payment against the guest who made it: cash, Zelle, Cash App, or card. See who's paid in full, who's partial, and who hasn't paid at all, without cross-referencing a separate spreadsheet.</p>
         </div>
-        <div class="detail-card" id="proof-uploads">
+        <div class="detail-card reveal reveal-delay-1" id="proof-uploads">
           <svg class="icon icon-gold icon-lg" viewBox="0 0 24 24"><path d="M21 15V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9"/><path d="m3 15 5-5 4 4 5-5 4 4"/><path d="M3 15v2a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2"/></svg>
           <h3 class="display card-title-lg">Proof of Payment Uploads</h3>
           <p class="card-text">Attach a screenshot or photo as proof for any payment. Every transaction has a paper trail, so there's never a question about whether a payment actually came through.</p>
         </div>
-        <div class="detail-card" id="receipts">
+        <div class="detail-card reveal" id="receipts">
           <svg class="icon icon-gold icon-lg" viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="1"/><path d="M9 7h6M9 11h6M9 15h4"/></svg>
           <h3 class="display card-title-lg">Receipts</h3>
-          <p class="card-text">Once a payment is confirmed, a clean receipt can be generated and sent to the guest automatically — a professional touch that builds trust with every attendee.</p>
+          <p class="card-text">Once a payment is confirmed, a clean receipt can be generated and sent to the guest automatically: a professional touch that builds trust with every attendee.</p>
         </div>
-        <div class="detail-card" id="reports">
+        <div class="detail-card reveal reveal-delay-1" id="reports">
           <svg class="icon icon-gold icon-lg" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
           <h3 class="display card-title-lg">Reports &amp; Exports</h3>
-          <p class="card-text">Export guest lists, payment logs, and financial summaries as CSV or PDF in a single click — ready to hand off to a treasurer, board, or accountant.</p>
+          <p class="card-text">Export guest lists, payment logs, and financial summaries as CSV or PDF in a single click, ready to hand off to a treasurer, board, or accountant.</p>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Pricing -->
-  <section id="pricing" class="section section-border">
+  <section id="pricing" class="section">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow center"><span class="rule"></span>Pricing</p>
+      <div class="section-head reveal">
+        <span class="eyebrow-wrap"><span class="eyebrow"><span class="eyebrow-dot"></span>Pricing</span></span>
         <h2 class="display section-title">Plans for organizers of every size</h2>
         <p class="section-desc">HMP is currently invite-only. Request access and we'll help you find the right plan for your events.</p>
       </div>
       <div class="pricing-grid">
-        <div class="plan">
+        <div class="plan reveal">
           <h3 class="display plan-name">Starter</h3>
           <p class="display plan-price">Free</p>
           <p class="plan-desc">For a single organizer running a handful of events a year.</p>
@@ -308,9 +311,9 @@
             <li><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Payment tracking &amp; receipts</li>
             <li><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>CSV export</li>
           </ul>
-          <a href="#contact" class="btn btn-dark plan-cta">Request Access</a>
+          <a href="#contact" class="btn btn-dark plan-cta">Request Access <span class="icon-ring"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
         </div>
-        <div class="plan plan-highlight">
+        <div class="plan plan-highlight reveal reveal-delay-1">
           <span class="plan-badge">Most Popular</span>
           <h3 class="display plan-name">Organization</h3>
           <p class="display plan-price">Custom</p>
@@ -322,9 +325,9 @@
             <li><svg class="icon icon-gold-light" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>CSV + PDF exports</li>
             <li><svg class="icon icon-gold-light" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Priority support</li>
           </ul>
-          <a href="#contact" class="btn btn-gold plan-cta">Book a Demo</a>
+          <a href="#contact" class="btn btn-gold plan-cta">Book a Demo <span class="icon-ring"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
         </div>
-        <div class="plan">
+        <div class="plan reveal reveal-delay-2">
           <h3 class="display plan-name">Enterprise</h3>
           <p class="display plan-price">Custom</p>
           <p class="plan-desc">For larger organizations that need custom onboarding and controls.</p>
@@ -334,36 +337,36 @@
             <li><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>Dedicated onboarding</li>
             <li><svg class="icon icon-gold" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>SLA &amp; priority support</li>
           </ul>
-          <a href="#contact" class="btn btn-dark plan-cta">Talk to Sales</a>
+          <a href="#contact" class="btn btn-dark plan-cta">Talk to Sales <span class="icon-ring"><svg class="icon" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span></a>
         </div>
       </div>
     </div>
   </section>
 
   <!-- Testimonials -->
-  <section class="section section-border">
+  <section class="section">
     <div class="wrap">
-      <div class="section-head">
-        <p class="eyebrow center"><span class="rule"></span>Testimonials</p>
+      <div class="section-head reveal">
+        <span class="eyebrow-wrap"><span class="eyebrow"><span class="eyebrow-dot"></span>Testimonials</span></span>
         <h2 class="display section-title">Trusted by organizers who take money seriously</h2>
       </div>
       <!-- Sample quotes — placeholders, replace with real customer testimonials before wide launch. -->
-      <div class="grid-3 bordered-grid">
-        <div class="testimonial-card">
+      <div class="grid-3">
+        <div class="testimonial-card reveal">
           <div class="stars">★★★★★</div>
-          <p class="display quote">"We used to track ticket money across three group chats and a spreadsheet. HMP gave us one place where everyone can see who's paid."</p>
+          <p class="serif-italic quote">"We used to track ticket money across three group chats and a spreadsheet. HMP gave us one place where everyone can see who's paid."</p>
           <p class="quote-name">Event Coordinator</p>
           <p class="quote-org">Community Fundraiser Team</p>
         </div>
-        <div class="testimonial-card">
+        <div class="testimonial-card reveal reveal-delay-1">
           <div class="stars">★★★★★</div>
-          <p class="display quote">"Proof of payment uploads ended every 'I already sent it' conversation. Our treasurer finally trusts the numbers."</p>
+          <p class="serif-italic quote">"Proof of payment uploads ended every 'I already sent it' conversation. Our treasurer finally trusts the numbers."</p>
           <p class="quote-name">Ministry Administrator</p>
           <p class="quote-org">Local Church</p>
         </div>
-        <div class="testimonial-card">
+        <div class="testimonial-card reveal reveal-delay-2">
           <div class="stars">★★★★★</div>
-          <p class="display quote">"The export feature alone saved us hours at year-end. Clean records, ready for the board, in one click."</p>
+          <p class="serif-italic quote">"The export feature alone saved us hours at year-end. Clean records, ready for the board, in one click."</p>
           <p class="quote-name">Program Director</p>
           <p class="quote-org">Nonprofit Organization</p>
         </div>
@@ -372,20 +375,20 @@
   </section>
 
   <!-- FAQ -->
-  <section id="faq" class="section section-border">
+  <section id="faq" class="section">
     <div class="wrap wrap-narrow">
-      <div class="section-head">
-        <p class="eyebrow center"><span class="rule"></span>FAQ</p>
+      <div class="section-head reveal">
+        <span class="eyebrow-wrap"><span class="eyebrow"><span class="eyebrow-dot"></span>FAQ</span></span>
         <h2 class="display section-title">Frequently asked questions</h2>
       </div>
-      <div class="accordion" id="accordion">
+      <div class="accordion reveal" id="accordion">
         <div class="acc-item">
           <button class="acc-trigger display">What kinds of payments can HMP track?</button>
           <div class="acc-panel"><div class="acc-panel-inner"><p>Cash, Zelle, Cash App, card, or any other method your guests use. Organizers log each payment against a guest and attach proof if one was provided.</p></div></div>
         </div>
         <div class="acc-item">
           <button class="acc-trigger display">Do guests need to create an account?</button>
-          <div class="acc-panel"><div class="acc-panel-inner"><p>No. Guests don't need to sign up or log in — organizers manage the event, and guests can be sent receipts by email once a payment is confirmed.</p></div></div>
+          <div class="acc-panel"><div class="acc-panel-inner"><p>No. Guests don't need to sign up or log in. Organizers manage the event, and guests can be sent receipts by email once a payment is confirmed.</p></div></div>
         </div>
         <div class="acc-item">
           <button class="acc-trigger display">Is HMP secure?</button>
@@ -396,7 +399,7 @@
           <div class="acc-panel"><div class="acc-panel-inner"><p>Yes. Organizations on the Organization and Enterprise plans can add multiple organizers to collaborate on the same events and guest lists.</p></div></div>
         </div>
         <div class="acc-item">
-          <button class="acc-trigger display">What does "Request Access" mean — is HMP open to everyone?</button>
+          <button class="acc-trigger display">What does "Request Access" mean, is HMP open to everyone?</button>
           <div class="acc-panel"><div class="acc-panel-inner"><p>HMP is currently invite-only while we onboard organizations directly. Request access below and our team will reach out to set up your account.</p></div></div>
         </div>
         <div class="acc-item">
@@ -408,49 +411,51 @@
   </section>
 
   <!-- Contact -->
-  <section id="contact" class="section section-border">
-    <div class="wrap two-col">
-      <div>
-        <p class="eyebrow"><span class="rule"></span>Contact</p>
-        <h2 class="display section-title left">Book a demo or request access</h2>
-        <p class="section-desc left">Tell us a bit about your events and we'll follow up to set up a walkthrough or get your organization access.</p>
-        <p class="privacy-note"><svg class="icon icon-gold" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Your information is only used to follow up about HMP access.</p>
-      </div>
+  <section id="contact" class="section">
+    <div class="wrap">
+      <div class="two-col">
+        <div class="reveal">
+          <span class="eyebrow-wrap left"><span class="eyebrow"><span class="eyebrow-dot"></span>Contact</span></span>
+          <h2 class="display section-title left">Book a demo or request access</h2>
+          <p class="section-desc left">Tell us a bit about your events and we'll follow up to set up a walkthrough or get your organization access.</p>
+          <p class="privacy-note"><svg class="icon" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>Your information is only used to follow up about HMP access.</p>
+        </div>
 
-      <form id="contactForm" class="contact-form">
-        <div class="form-row">
-          <div class="field">
-            <label for="name">Full name</label>
-            <input type="text" id="name" name="name" placeholder="Jordan Lee" required>
+        <form id="contactForm" class="contact-form reveal reveal-delay-1">
+          <div class="form-row">
+            <div class="field">
+              <label for="name">Full name</label>
+              <input type="text" id="name" name="name" placeholder="Jordan Lee" required>
+            </div>
+            <div class="field">
+              <label for="email">Work email</label>
+              <input type="email" id="email" name="email" placeholder="you@organization.com" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="field">
+              <label for="organization">Organization</label>
+              <input type="text" id="organization" name="organization" placeholder="Church, company, or event team">
+            </div>
+            <div class="field">
+              <label for="reason">I'm interested in</label>
+              <select id="reason" name="reason">
+                <option value="Book a Demo">Booking a demo</option>
+                <option value="Request Access" selected>Requesting access</option>
+                <option value="General Question">General question</option>
+              </select>
+            </div>
           </div>
           <div class="field">
-            <label for="email">Work email</label>
-            <input type="email" id="email" name="email" placeholder="you@organization.com" required>
+            <label for="message">Tell us about your events</label>
+            <textarea id="message" name="message" rows="4" placeholder="How many events per year, roughly how many guests, what you use today to track payments..."></textarea>
           </div>
-        </div>
-        <div class="form-row">
-          <div class="field">
-            <label for="organization">Organization</label>
-            <input type="text" id="organization" name="organization" placeholder="Church, company, or event team">
+          <div class="form-footer">
+            <button type="submit" class="btn btn-dark btn-plain" id="submitBtn">Send request</button>
+            <p class="form-note" id="formNote"></p>
           </div>
-          <div class="field">
-            <label for="reason">I'm interested in</label>
-            <select id="reason" name="reason">
-              <option value="Book a Demo">Booking a demo</option>
-              <option value="Request Access" selected>Requesting access</option>
-              <option value="General Question">General question</option>
-            </select>
-          </div>
-        </div>
-        <div class="field">
-          <label for="message">Tell us about your events</label>
-          <textarea id="message" name="message" rows="4" placeholder="How many events per year, roughly how many guests, what you use today to track payments..."></textarea>
-        </div>
-        <div class="form-footer">
-          <button type="submit" class="btn btn-dark" id="submitBtn">Send request</button>
-          <p class="form-note" id="formNote"></p>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   </section>
 
@@ -458,7 +463,7 @@
 
 <footer class="site-footer">
   <div class="wrap footer-inner">
-    <span class="brand brand-dark">
+    <span class="brand">
       <span class="brand-badge">H</span>
       <span class="brand-word">HMP</span>
     </span>
@@ -466,7 +471,6 @@
     <div class="footer-links">
       <a href="#features">Features</a>
       <a href="#pricing">Pricing</a>
-      <a href="https://hmp1.netlify.app/login">Sign In</a>
     </div>
   </div>
 </footer>

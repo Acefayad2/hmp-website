@@ -1,21 +1,17 @@
 document.getElementById('year').textContent = new Date().getFullYear();
 
-// Sticky header shadow/border on scroll
-const header = document.getElementById('siteHeader');
-const onScroll = () => header.classList.toggle('scrolled', window.scrollY > 8);
-onScroll();
-window.addEventListener('scroll', onScroll, { passive: true });
-
 // Mobile nav
 const navToggle = document.getElementById('navToggle');
 const mobileNav = document.getElementById('mobileNav');
 navToggle.addEventListener('click', () => {
   const isOpen = mobileNav.classList.toggle('open');
+  navToggle.classList.toggle('open', isOpen);
   navToggle.setAttribute('aria-expanded', String(isOpen));
 });
 mobileNav.querySelectorAll('a').forEach((link) => {
   link.addEventListener('click', () => {
     mobileNav.classList.remove('open');
+    navToggle.classList.remove('open');
     navToggle.setAttribute('aria-expanded', 'false');
   });
 });
@@ -30,6 +26,20 @@ accItems.forEach((item) => {
     if (!wasOpen) item.classList.add('open');
   });
 });
+
+// Scroll-reveal entrance animation
+const revealObserver = new IntersectionObserver(
+  (entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in-view');
+        revealObserver.unobserve(entry.target);
+      }
+    });
+  },
+  { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+);
+document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
 
 // Contact form -> Google Apps Script web app (appends a row to the HMP Access Requests sheet)
 const SHEET_ENDPOINT = 'https://script.google.com/macros/s/AKfycbxGs8pzM5KmBDptRWvC2_zdggZCnrL4fIBlSG__EEOhTiIHmbVrLU1OACR2sBsvZgdg/exec';
