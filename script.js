@@ -22,6 +22,48 @@ document.querySelectorAll('.service-toggle:not(.service-link)').forEach((button)
   });
 });
 
+document.querySelectorAll('input[type="date"]').forEach((input) => {
+  input.type = 'text';
+  input.inputMode = 'numeric';
+  input.placeholder = 'MM / DD / YYYY';
+  input.classList.add('date-entry');
+  input.setAttribute('aria-label', `${input.closest('label')?.childNodes[0]?.textContent.trim() || 'Date'}, MM DD YYYY`);
+  input.addEventListener('input', () => {
+    const digits = input.value.replace(/\D/g, '').slice(0, 8);
+    const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
+    input.value = parts.join(' / ');
+  });
+});
+
+document.querySelectorAll('input[type="time"]').forEach((input) => {
+  const group = document.createElement('div');
+  group.className = 'time-select-group';
+  const makeSelect = (label, placeholder, values) => {
+    const select = document.createElement('select');
+    select.setAttribute('aria-label', label);
+    select.required = input.required;
+    select.innerHTML = `<option value="">${placeholder}</option>` + values.map((value) => `<option value="${value}">${value}</option>`).join('');
+    return select;
+  };
+  const hour = makeSelect('Hour', 'Hour', Array.from({length: 12}, (_, index) => String(index + 1).padStart(2, '0')));
+  const minute = makeSelect('Minute', 'Min', Array.from({length: 12}, (_, index) => String(index * 5).padStart(2, '0')));
+  const period = makeSelect('AM or PM', 'AM / PM', ['AM', 'PM']);
+  group.append(hour, minute, period);
+  input.type = 'hidden';
+  input.insertAdjacentElement('afterend', group);
+  const hint = document.createElement('span');
+  hint.className = 'field-hint';
+  hint.textContent = 'Select hour, minute, and AM or PM';
+  group.insertAdjacentElement('afterend', hint);
+  const syncTime = () => {
+    if (!hour.value || !minute.value || !period.value) { input.value = ''; return; }
+    let hour24 = Number(hour.value) % 12;
+    if (period.value === 'PM') hour24 += 12;
+    input.value = `${String(hour24).padStart(2, '0')}:${minute.value}`;
+  };
+  [hour, minute, period].forEach((select) => select.addEventListener('change', syncTime));
+});
+
 const dialog = document.querySelector('#led-dialog');
 const serviceSelect = document.querySelector('#service-select');
 let acknowledged = false;
