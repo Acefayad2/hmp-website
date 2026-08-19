@@ -1,0 +1,38 @@
+.mobile-cta{display:none}
+
+@media (max-width:800px){
+  body{background-color:#f7f2e9;background-image:linear-gradient(rgba(75,22,45,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(75,22,45,.045) 1px,transparent 1px);background-size:72px 72px;padding-bottom:72px}
+  .site-header{position:absolute;height:92px;padding:0 20px;color:var(--ink);background:#f7f2e9;border-bottom:1px solid rgba(36,21,25,.1)}
+  .site-header .brand span{font-size:28px}.site-header .brand small{font-size:8px;max-width:64px}
+  .menu-toggle{width:48px;height:48px;padding:0;border:1px solid rgba(36,21,25,.35);color:var(--ink);font-size:0;position:relative}
+  .menu-toggle:before,.menu-toggle:after{content:'';position:absolute;left:12px;right:12px;height:1px;background:var(--ink);transition:.25s}
+  .menu-toggle:before{top:17px}.menu-toggle:after{bottom:17px}
+  .site-header nav{top:92px;padding:28px 24px;background:var(--paper);color:var(--ink);border-bottom:1px solid var(--line);gap:0}
+  .site-header nav a{font:34px/1.1 var(--serif);padding:15px 0;border-bottom:1px solid var(--line)}
+  .hero{display:flex;flex-direction:column;height:auto;min-height:0;padding:116px 20px 72px;color:var(--ink);background:transparent}
+  .hero-media{position:relative;inset:auto;width:100%;height:64vh;min-height:480px;max-height:620px;order:1;border-radius:22px;background-position:62% center;box-shadow:0 18px 45px rgba(36,21,25,.2);overflow:hidden}
+  .hero-media:after{content:'GUEST EXPERIENCE · HMP';position:absolute;left:16px;bottom:16px;padding:8px 13px;border:1px solid rgba(255,255,255,.65);border-radius:999px;background:rgba(22,11,15,.6);backdrop-filter:blur(8px);color:#fff;font-size:9px;letter-spacing:.18em}
+  .hero-shade{display:none}
+  .hero-copy{order:2;margin:0;padding:40px 4px 0;max-width:none}
+  .hero-copy .eyebrow{color:var(--plum2);margin-bottom:17px}
+  h1{font-size:clamp(48px,15vw,66px);line-height:.92;color:var(--ink)}
+  h1 br{display:none}h1 em{display:block;color:var(--plum2)}
+  .hero-copy>p:not(.eyebrow){font-size:15px;color:#67595b;margin:24px 0 28px;max-width:34ch}
+  .hero-actions{flex-direction:row;align-items:center;gap:22px}.button.light{background:var(--plum);color:#fff}.text-link{color:var(--ink);border-color:var(--ink);font-size:11px}
+  .marquee{padding:11px 0}.marquee div{animation-duration:16s}
+  .section{padding:86px 24px}
+  .about{gap:28px}.about h2,.section-head h2,.inquiry h2{font-size:clamp(44px,13vw,58px);line-height:.98}.about-copy p:first-child{font-size:19px}.about-copy p{font-size:15px}.arrow-link{margin-top:34px}
+  .section-head{margin-bottom:40px}.section-head .eyebrow{margin-bottom:16px}
+  .services{padding-left:20px;padding-right:20px;background:#401326}
+  .service-row{grid-template-columns:36px 1fr;padding:30px 0;gap:14px}.service-number{font-size:19px}.service-title h3{font-size:38px}.service-details{padding-right:5px}.service-details p{font-size:13px}.service-toggle{width:100%;min-height:48px;text-align:left;display:flex;justify-content:space-between;align-items:center}
+  .service-expanded>div{padding:24px 20px}.service-expanded h4{font-size:26px}.service-footnote{padding:20px}
+  .statement{display:flex;flex-direction:column;padding:78px 20px 88px;gap:72px}.screen-card{width:88%;min-height:440px;border-width:6px;transform:rotate(-2deg)}.screen-card span{font-size:48px}.statement h2{font-size:49px}.statement>div:last-child{width:100%}
+  .inquiry{gap:32px;padding-bottom:100px}.inquiry-intro>p:not(.eyebrow){font-size:14px}.form-grid{gap:22px}.form-grid label{font-size:9px}input,select,textarea{font-size:16px;min-height:46px}.submit{width:100%;min-height:58px}
+  footer{padding:56px 24px;gap:18px}
+  .mobile-cta{display:flex;position:fixed;z-index:35;left:14px;right:14px;bottom:12px;min-height:54px;padding:0 20px;align-items:center;justify-content:space-between;background:var(--gold);color:var(--ink);box-shadow:0 12px 40px rgba(36,21,25,.28);text-decoration:none;text-transform:uppercase;letter-spacing:.13em;font-size:10px;font-weight:600}
+  dialog{max-height:calc(100vh - 30px);overflow:auto;border-radius:18px}
+}
+
+@media (max-width:380px){
+  .hero{padding-left:14px;padding-right:14px}.hero-media{min-height:440px}.hero-actions{align-items:flex-start;flex-direction:column}.section{padding-left:20px;padding-right:20px}.screen-card{width:92%}
+}
