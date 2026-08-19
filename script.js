@@ -23,11 +23,26 @@ document.querySelectorAll('.service-toggle:not(.service-link)').forEach((button)
 });
 
 document.querySelectorAll('input[type="date"]').forEach((input) => {
+  const labelText = input.closest('label')?.childNodes[0]?.textContent.trim() || 'Date';
   input.type = 'text';
   input.inputMode = 'numeric';
   input.placeholder = 'MM / DD / YYYY';
   input.classList.add('date-entry');
-  input.setAttribute('aria-label', `${input.closest('label')?.childNodes[0]?.textContent.trim() || 'Date'}, MM DD YYYY`);
+  input.setAttribute('aria-label', `${labelText}, MM DD YYYY`);
+  const shell = document.createElement('div');
+  shell.className = 'date-shell';
+  input.parentNode.insertBefore(shell, input);
+  shell.appendChild(input);
+  const calendarButton = document.createElement('button');
+  calendarButton.type = 'button';
+  calendarButton.className = 'date-icon-button';
+  calendarButton.setAttribute('aria-label', `Enter ${labelText.toLowerCase()}`);
+  calendarButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg>';
+  shell.appendChild(calendarButton);
+  calendarButton.addEventListener('click', () => {
+    input.focus();
+    input.select();
+  });
   input.addEventListener('input', () => {
     const digits = input.value.replace(/\D/g, '').slice(0, 8);
     const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
