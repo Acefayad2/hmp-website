@@ -10,13 +10,14 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Italiana&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="mobile.css">
+  <link rel="stylesheet" href="pages.css">
 </head>
 <body>
   <header class="site-header" id="top">
-    <a class="brand" href="#top" aria-label="HMP home"><span>HMP</span><small>Luxury Event Services</small></a>
+    <a class="brand" href="/" aria-label="HMP home"><span>HMP</span><small>Luxury Event Services</small></a>
     <button class="menu-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button>
     <nav id="site-nav" aria-label="Main navigation">
-      <a href="#about">Our approach</a><a href="#services">Services</a><a href="#inquiry">Inquire</a>
+      <a href="/#about">Our approach</a><a href="/#services">Services</a><a href="/inquiry.html">Inquire</a>
     </nav>
   </header>
 
@@ -28,7 +29,7 @@
         <p class="eyebrow">Luxury, considered</p>
         <h1>Set the tone<br><em>before they arrive.</em></h1>
         <p>Thoughtful details and seamless guest experiences, curated for celebrations that deserve to be remembered.</p>
-        <div class="hero-actions"><a class="button light" href="#services">Explore services</a><a class="text-link" href="#inquiry">Plan your celebration <span>↗</span></a></div>
+        <div class="hero-actions"><a class="button light" href="#services">Explore services</a><a class="text-link" href="/inquiry.html">Plan your celebration <span>↗</span></a></div>
       </div>
       <div class="hero-note"><span>Laurel, Maryland</span><span>Serving celebrations near & far</span></div>
     </section>
@@ -37,7 +38,7 @@
 
     <section class="about section" id="about">
       <div><p class="eyebrow plum">Get to know HMP</p><h2>Every detail has<br>a place. Every guest<br>has a moment.</h2></div>
-      <div class="about-copy"><p>At HMP Luxury Event Services, we seek distinctive ways to elevate our clients’ events through thoughtful design, refined details, and intentional experiences.</p><p>From curated aesthetics to seamless execution, every element is considered so your celebration feels personal, immersive, and effortlessly sophisticated—for you and every guest in the room.</p><a class="arrow-link" href="#inquiry">Tell us what you’re planning <span>→</span></a></div>
+      <div class="about-copy"><p>At HMP Luxury Event Services, we seek distinctive ways to elevate our clients’ events through thoughtful design, refined details, and intentional experiences.</p><p>From curated aesthetics to seamless execution, every element is considered so your celebration feels personal, immersive, and effortlessly sophisticated—for you and every guest in the room.</p><a class="arrow-link" href="/inquiry.html">Tell us what you’re planning <span>→</span></a></div>
     </section>
 
     <section class="services section" id="services">
@@ -46,7 +47,7 @@
         <article class="service-row featured">
           <div class="service-number">01</div><div class="service-title"><p>Signature experience</p><h3>Guest Seating</h3></div>
           <div class="service-details"><p>Interactive arrival, check-in, and table lookup experiences presented on 27” Premium LED Signage.</p><p class="price">Starting at <strong>$800</strong></p></div>
-          <button class="service-toggle" aria-expanded="false" aria-controls="seating-detail">View options <span>+</span></button>
+          <a class="service-toggle service-link" href="/guest-seating.html">Explore service <span>→</span></a>
           <div class="service-expanded" id="seating-detail">
             <div><h4>Guest Arrival</h4><p>RSVP-based digital check-in paired with a polished, customized first impression.</p><span>LED signage only from $800 · With Standard-Lux decor from $1,350</span></div>
             <div><h4>Guest Directory</h4><p>An easy-to-navigate name and assigned-table lookup, tailored to your event aesthetic.</p><span>LED signage only from $800 · With Standard-Lux decor from $1,350</span></div>
@@ -56,19 +57,19 @@
         <article class="service-row">
           <div class="service-number">02</div><div class="service-title"><p>Celebrate out loud</p><h3>Celebration Accessories</h3></div>
           <div class="service-details"><p>High-energy details that turn your celebration into an atmosphere.</p><p class="price">Starting at <strong>$2</strong></p></div>
-          <button class="service-toggle" aria-expanded="false" aria-controls="accessory-detail">View options <span>+</span></button>
+          <a class="service-toggle service-link" href="/celebration-accessories.html">Explore service <span>→</span></a>
           <div class="service-expanded compact" id="accessory-detail"><div><h4>Club sign + strobe lights</h4><span>Rental from $130</span></div><div><h4>Money guns</h4><span>Rental from $10</span></div><div><h4>Whistles</h4><span>Purchase from $2</span></div><div><h4>Card box</h4><span>$10</span></div></div>
         </article>
         <article class="service-row">
           <div class="service-number">03</div><div class="service-title"><p>Tradition, refined</p><h3>Money Table</h3></div>
           <div class="service-details"><p>Dedicated associates keep every money-spraying moment organized, secure, and effortless.</p><p class="price">Starting at <strong>$65/hr</strong></p></div>
-          <button class="service-toggle" aria-expanded="false" aria-controls="money-detail">View options <span>+</span></button>
+          <a class="service-toggle service-link" href="/money-table.html">Explore service <span>→</span></a>
           <div class="service-expanded compact" id="money-detail"><div><h4>Money machine rental</h4><span>From $65/hr</span></div><div><h4>Money collecting</h4><span>From $330</span></div><div><h4>Money changing</h4><span>From $480</span></div><div><h4>Changing + collecting</h4><span>From $675</span></div><p class="service-footnote">All Money Table services include a minimum of four hours of service.</p></div>
         </article>
       </div>
     </section>
 
-    <section class="statement"><div class="screen-card"><div class="screen-glow"></div><span>HMP</span><p>Welcome beautifully.</p></div><div><p class="eyebrow">The guest experience</p><h2>Find your name.<br>Find your table.<br><em>Enjoy the celebration.</em></h2><p>Modern technology meets timeless elegance in a seamless experience from arrival to reception.</p><a class="button gold" href="#inquiry" data-service="Guest Seating Experience">Reserve your experience</a></div></section>
+    <section class="statement"><div class="screen-card"><div class="screen-glow"></div><span>HMP</span><p>Welcome beautifully.</p></div><div><p class="eyebrow">The guest experience</p><h2>Find your name.<br>Find your table.<br><em>Enjoy the celebration.</em></h2><p>Modern technology meets timeless elegance in a seamless experience from arrival to reception.</p><a class="button gold" href="/guest-seating.html">Explore guest seating</a></div></section>
 
     <section class="inquiry section" id="inquiry">
       <div class="inquiry-intro"><p class="eyebrow">Begin your celebration</p><h2>Let’s make it<br>feel unforgettable.</h2><p>Share the details below. We’ll review your celebration needs and respond with a curated quote within 48 hours.</p><p class="fine">Travel and lodging fees may apply for locations more than 40 miles from Laurel, MD.</p></div>
@@ -98,7 +99,7 @@
     </section>
   </main>
 
-  <a class="mobile-cta" href="#inquiry">Start an inquiry <span>↗</span></a>
+  <a class="mobile-cta" href="/inquiry.html">Start an inquiry <span>↗</span></a>
   <footer><a class="brand light-brand" href="#top"><span>HMP</span><small>Luxury Event Services</small></a><p>Thoughtfully designed. Seamlessly celebrated.</p><a href="mailto:info@hmpeds.com">info@hmpeds.com</a><p>© <span id="year"></span> HMP Luxury Event Services</p></footer>
 
   <dialog id="led-dialog"><button class="dialog-close" aria-label="Close">×</button><p class="eyebrow plum">A note before you continue</p><h2>Our seating experience currently features 27” Premium LED Signage.</h2><p>If that feels right for your celebration, we’d love to learn more.</p><button class="button dialog-confirm">Yes, continue my inquiry</button></dialog>
