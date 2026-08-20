@@ -213,7 +213,7 @@ const revealObserver = new IntersectionObserver((entries) => {
     }
   });
 }, {threshold: .12});
-document.querySelectorAll('.section,.service-row,.price-card,.process-step,.page-cta').forEach((element) => {
+document.querySelectorAll('.section,.service-row,.price-card,.process-step,.page-cta,.decor-gallery-head,.decor-shot').forEach((element) => {
   element.classList.add('scroll-reveal');
   revealObserver.observe(element);
 });
