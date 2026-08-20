@@ -22,12 +22,108 @@ document.querySelectorAll('.service-toggle:not(.service-link)').forEach((button)
   });
 });
 
+const calendarSheet = document.createElement('dialog');
+calendarSheet.className = 'calendar-sheet';
+calendarSheet.setAttribute('aria-labelledby', 'calendar-title');
+calendarSheet.innerHTML = `
+  <div class="calendar-handle" aria-hidden="true"></div>
+  <p class="calendar-eyebrow" id="calendar-title">Preferred date</p>
+  <div class="calendar-nav">
+    <button type="button" class="calendar-arrow calendar-prev" aria-label="Previous month">‹</button>
+    <strong class="calendar-month" aria-live="polite"></strong>
+    <button type="button" class="calendar-arrow calendar-next" aria-label="Next month">›</button>
+  </div>
+  <div class="calendar-weekdays" aria-hidden="true"><span>S</span><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+  <div class="calendar-grid" role="grid"></div>
+  <div class="calendar-actions"><button type="button" class="calendar-clear">Clear</button><button type="button" class="calendar-done">Done</button></div>`;
+document.body.appendChild(calendarSheet);
+
+let activeDateInput;
+let calendarCursor = new Date();
+let pendingDate;
+const today = new Date();
+today.setHours(0, 0, 0, 0);
+
+const formatDate = (date) => `${String(date.getMonth() + 1).padStart(2, '0')} / ${String(date.getDate()).padStart(2, '0')} / ${date.getFullYear()}`;
+const sameDay = (a, b) => a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+const parseDate = (value) => {
+  const parts = value.match(/\d+/g)?.map(Number);
+  if (!parts || parts.length !== 3) return null;
+  const date = new Date(parts[2], parts[0] - 1, parts[1]);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const renderCalendar = () => {
+  const year = calendarCursor.getFullYear();
+  const month = calendarCursor.getMonth();
+  calendarSheet.querySelector('.calendar-month').textContent = calendarCursor.toLocaleDateString('en-US', {month: 'long', year: 'numeric'});
+  const grid = calendarSheet.querySelector('.calendar-grid');
+  grid.innerHTML = '';
+  const firstDay = new Date(year, month, 1).getDay();
+  const days = new Date(year, month + 1, 0).getDate();
+  for (let index = 0; index < firstDay; index += 1) grid.appendChild(document.createElement('span'));
+  for (let day = 1; day <= days; day += 1) {
+    const date = new Date(year, month, day);
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.textContent = String(day);
+    button.className = 'calendar-day';
+    button.disabled = date < today;
+    button.setAttribute('role', 'gridcell');
+    button.setAttribute('aria-label', date.toLocaleDateString('en-US', {weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'}));
+    if (sameDay(date, today)) button.classList.add('is-today');
+    if (sameDay(date, pendingDate)) {
+      button.classList.add('is-selected');
+      button.setAttribute('aria-selected', 'true');
+    }
+    button.addEventListener('click', () => {
+      pendingDate = date;
+      renderCalendar();
+    });
+    grid.appendChild(button);
+  }
+  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+  calendarSheet.querySelector('.calendar-prev').disabled = new Date(year, month, 1) <= currentMonth;
+};
+
+const openCalendar = (input) => {
+  activeDateInput = input;
+  calendarSheet.querySelector('.calendar-eyebrow').textContent = input.dataset.calendarLabel || 'Preferred date';
+  pendingDate = parseDate(input.value);
+  calendarCursor = pendingDate ? new Date(pendingDate) : new Date(today);
+  renderCalendar();
+  calendarSheet.showModal();
+};
+
+calendarSheet.querySelector('.calendar-prev').addEventListener('click', () => { calendarCursor.setMonth(calendarCursor.getMonth() - 1); renderCalendar(); });
+calendarSheet.querySelector('.calendar-next').addEventListener('click', () => { calendarCursor.setMonth(calendarCursor.getMonth() + 1); renderCalendar(); });
+calendarSheet.querySelector('.calendar-clear').addEventListener('click', () => {
+  if (activeDateInput) {
+    activeDateInput.value = '';
+    activeDateInput.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  calendarSheet.close();
+});
+calendarSheet.querySelector('.calendar-done').addEventListener('click', () => {
+  if (activeDateInput && pendingDate) {
+    activeDateInput.value = formatDate(pendingDate);
+    activeDateInput.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  calendarSheet.close();
+});
+calendarSheet.addEventListener('click', (event) => {
+  if (event.target === calendarSheet) calendarSheet.close();
+});
+
 document.querySelectorAll('input[type="date"]').forEach((input) => {
   const labelText = input.closest('label')?.childNodes[0]?.textContent.trim() || 'Date';
   input.type = 'text';
   input.inputMode = 'numeric';
   input.placeholder = 'MM / DD / YYYY';
   input.classList.add('date-entry');
+  input.readOnly = true;
+  input.dataset.calendarLabel = labelText;
+  input.setAttribute('aria-haspopup', 'dialog');
   input.setAttribute('aria-label', `${labelText}, MM DD YYYY`);
   const shell = document.createElement('div');
   shell.className = 'date-shell';
@@ -37,17 +133,11 @@ document.querySelectorAll('input[type="date"]').forEach((input) => {
   calendarButton.type = 'button';
   calendarButton.className = 'date-icon-button';
   calendarButton.setAttribute('aria-label', `Enter ${labelText.toLowerCase()}`);
+  calendarButton.setAttribute('aria-haspopup', 'dialog');
   calendarButton.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3v3M17 3v3M4.5 9h15M6 5h12a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2Z"/></svg>';
   shell.appendChild(calendarButton);
-  calendarButton.addEventListener('click', () => {
-    input.focus();
-    input.select();
-  });
-  input.addEventListener('input', () => {
-    const digits = input.value.replace(/\D/g, '').slice(0, 8);
-    const parts = [digits.slice(0, 2), digits.slice(2, 4), digits.slice(4, 8)].filter(Boolean);
-    input.value = parts.join(' / ');
-  });
+  calendarButton.addEventListener('click', () => openCalendar(input));
+  input.addEventListener('click', () => openCalendar(input));
 });
 
 document.querySelectorAll('input[type="time"]').forEach((input) => {
@@ -114,3 +204,16 @@ if (form) {
 }
 
 document.querySelectorAll('#year').forEach((year) => { year.textContent = new Date().getFullYear(); });
+
+const revealObserver = new IntersectionObserver((entries) => {
+  entries.forEach((entry) => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('is-visible');
+      revealObserver.unobserve(entry.target);
+    }
+  });
+}, {threshold: .12});
+document.querySelectorAll('.section,.service-row,.price-card,.process-step,.page-cta').forEach((element) => {
+  element.classList.add('scroll-reveal');
+  revealObserver.observe(element);
+});
