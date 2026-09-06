@@ -53,7 +53,6 @@ const normalizeReview = (record: Record<string, unknown>) => ({
   service: record.service || "",
   rating: number(record.rating, 5),
   published: Boolean(record.published),
-  isPlaceholder: Boolean(record.is_placeholder),
   displayOrder: number(record.display_order),
   createdAt: record.created_at || "",
   updatedAt: record.updated_at || "",
@@ -72,7 +71,7 @@ const cleanPayload = (body: Record<string, unknown>) => {
     service: text(body.service, 160) || null,
     rating: Math.min(5, Math.max(1, Math.round(number(body.rating, 5)))),
     published: body.published !== false,
-    is_placeholder: body.isPlaceholder === true,
+    is_placeholder: false,
     display_order: Math.min(
       100000,
       Math.max(-100000, Math.round(number(body.displayOrder))),
@@ -101,6 +100,7 @@ export default async (request: Request, _context: Context) => {
     let query = client
       .from("hmp_admin_reviews")
       .select("*")
+      .eq("is_placeholder", false)
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: false })
       .limit(100);

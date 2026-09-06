@@ -519,7 +519,6 @@ document.querySelectorAll("[data-service-carousel]").forEach((carousel) => {
 const reviewsTrack = document.querySelector("#reviews-track");
 const reviewsMarquee = document.querySelector("[data-reviews-marquee]");
 const reviewsSection = reviewsTrack?.closest(".reviews-section");
-const reviewsStatus = document.querySelector("#reviews-status");
 
 const createReviewCard = (review, duplicate = false) => {
   const card = document.createElement("article");
@@ -552,12 +551,6 @@ const createReviewCard = (review, duplicate = false) => {
   const detail = document.createElement("span");
   detail.textContent = [...new Set([review.reviewerRole, review.service].filter(Boolean))].join(" - ") || "HMP celebration";
   footer.append(name, detail);
-  if (review.isPlaceholder) {
-    const label = document.createElement("small");
-    label.textContent = "Sample review";
-    footer.append(label);
-  }
-
   card.append(avatar, stars, quote, footer);
   return card;
 };
@@ -576,16 +569,13 @@ const syncReviewsMarquee = () => {
 const renderReviews = (reviews) => {
   if (!reviewsTrack || !reviews.length) {
     reviewsSection?.classList.add("is-empty");
+    if (reviewsSection) reviewsSection.hidden = true;
     if (reviewsMarquee) reviewsMarquee.hidden = true;
-    if (reviewsStatus) {
-      reviewsStatus.textContent = "Client stories are coming soon.";
-      reviewsStatus.hidden = false;
-    }
     return;
   }
   reviewsSection?.classList.remove("is-empty");
+  if (reviewsSection) reviewsSection.hidden = false;
   if (reviewsMarquee) reviewsMarquee.hidden = false;
-  if (reviewsStatus) reviewsStatus.hidden = true;
   const approximateCardWidth = window.matchMedia("(max-width: 760px)").matches ? 306 : 370;
   const minimumCards = Math.ceil(
     ((window.innerWidth + approximateCardWidth * 2) * 2) / approximateCardWidth,
@@ -624,11 +614,8 @@ if (reviewsTrack) {
     .then((data) => renderReviews(data.reviews || []))
     .catch(() => {
       reviewsSection?.classList.add("is-empty");
+      if (reviewsSection) reviewsSection.hidden = true;
       if (reviewsMarquee) reviewsMarquee.hidden = true;
-      if (reviewsStatus) {
-        reviewsStatus.textContent = "Current reviews will be available again shortly.";
-        reviewsStatus.hidden = false;
-      }
     });
 }
 

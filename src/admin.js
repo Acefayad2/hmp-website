@@ -667,7 +667,7 @@ const renderReviews = () => {
           <span><strong>${escapeHTML(review.reviewerName)}</strong><small>${escapeHTML(review.reviewerRole || "Client")}</small></span>
           <span>${escapeHTML(review.service || "General HMP experience")}</span>
           <span>${escapeHTML(review.displayOrder)}</span>
-          <span class="review-status"><span class="status-pill">${review.published ? "Published" : "Draft"}</span>${review.isPlaceholder ? '<span class="status-pill sample">Sample</span>' : ""}</span>
+          <span class="review-status"><span class="status-pill">${review.published ? "Published" : "Draft"}</span></span>
         </button>`,
     )
     .join("");
@@ -695,7 +695,6 @@ const openReviewEditor = (review = null) => {
   $("#review-order").value = review?.displayOrder ?? (Math.max(0, ...reviews.map((item) => Number(item.displayOrder) || 0)) + 10);
   $("#review-text").value = review?.reviewText || "";
   $("#review-published").checked = review ? Boolean(review.published) : true;
-  $("#review-placeholder").checked = Boolean(review?.isPlaceholder);
   $("#delete-review").hidden = !review;
   setMessage($("#review-editor-message"), "");
   $("#review-editor-dialog").showModal();
@@ -710,7 +709,6 @@ const reviewPayload = () => ({
   displayOrder: Number($("#review-order").value) || 0,
   reviewText: $("#review-text").value.trim(),
   published: $("#review-published").checked,
-  isPlaceholder: $("#review-placeholder").checked,
 });
 
 const saveReview = async (event) => {

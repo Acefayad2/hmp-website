@@ -1513,6 +1513,7 @@ textarea:focus {
 }
 
 .reviews-marquee[hidden] { display: none; }
+.reviews-section[hidden] { display: none; }
 .reviews-section.is-empty { min-height: 0; }
 
 .reviews-track {
