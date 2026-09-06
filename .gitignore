@@ -1,2 +1,7 @@
 .netlify/
+node_modules/
 .DS_Store
+dist/
+output/
+.playwright-cli/
+assets/admin.js

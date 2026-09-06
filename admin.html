@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <script>
+      if (window.location.protocol === "file:") {
+        window.location.replace("https://hmpeds.com/admin");
+      }
+    </script>
+    <title>HMP Admin Dashboard</title>
+    <link rel="icon" href="assets/brand/hmp-logo-2026.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=DM+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="admin.css" />
+  </head>
+  <body>
+    <main id="admin-root" aria-live="polite">
+      <section class="auth-shell" id="auth-shell">
+        <div class="auth-brand">
+          <a href="/" aria-label="HMP website home">
+            <img src="assets/brand/hmp-logo-2026.png" alt="HMP Luxury Event Services" />
+          </a>
+          <p>Private operations portal</p>
+          <h1>Welcome back,<br /><em>HMP team.</em></h1>
+          <p class="auth-copy">
+            Review every celebration inquiry in one secure, focused workspace.
+          </p>
+        </div>
+        <div class="auth-panel">
+          <form id="login-form">
+            <p class="kicker">Admin access</p>
+            <h2>Sign in</h2>
+            <p>Use your invited HMP administrator account.</p>
+            <label for="login-email">Email address</label>
+            <input id="login-email" name="email" type="email" autocomplete="username" required />
+            <label for="login-password">Password</label>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+            <button class="primary-button" type="submit">Open dashboard</button>
+            <button class="text-button" id="forgot-password" type="button">Forgot password?</button>
+            <p class="form-message" id="auth-message" role="status"></p>
+          </form>
+          <form id="password-form" hidden>
+            <p class="kicker">Secure your account</p>
+            <h2>Choose a password</h2>
+            <p>Use at least eight characters.</p>
+            <label for="new-password">New password</label>
+            <input id="new-password" type="password" autocomplete="new-password" minlength="8" required />
+            <label for="confirm-password">Confirm password</label>
+            <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required />
+            <button class="primary-button" type="submit">Save and continue</button>
+            <p class="form-message" id="password-message" role="status"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="dashboard" id="dashboard" hidden>
+        <aside class="dashboard-rail">
+          <a class="rail-logo" href="/" aria-label="HMP website home">
+            <img src="assets/brand/hmp-logo-2026.png" alt="HMP Luxury Event Services" />
+          </a>
+          <div>
+            <p class="rail-label">Workspace</p>
+            <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
+            <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices">Invoices</a>
+            <a class="rail-link" href="/admin?view=events" data-workspace-view="events">Events</a>
+            <a class="rail-link" href="/admin?view=reviews" data-workspace-view="reviews">Reviews</a>
+            <a class="rail-link" href="/" target="_blank">View website</a>
+          </div>
+          <div class="rail-footer">
+            <p id="viewer-email"></p>
+            <button id="logout-button" type="button">Sign out</button>
+          </div>
+        </aside>
+
+        <div class="dashboard-main">
+          <header class="dashboard-header">
+            <div>
+              <p class="kicker">HMP operations</p>
+              <h1>Inquiry dashboard</h1>
+              <p id="dashboard-date"></p>
+            </div>
+            <div class="header-actions">
+              <span class="sync-state" id="sync-state">Securely synced</span>
+              <button class="refresh-button" id="refresh-button" type="button">Refresh</button>
+            </div>
+          </header>
+
+          <section class="metrics" aria-label="Inquiry summary">
+            <article class="metric metric-featured">
+              <span>Total inquiries</span><strong id="metric-total">—</strong><small>All website submissions</small>
+            </article>
+            <article class="metric">
+              <span>New</span><strong id="metric-new">—</strong><small>Ready for follow-up</small>
+            </article>
+            <article class="metric">
+              <span>Upcoming</span><strong id="metric-upcoming">—</strong><small>Celebrations ahead</small>
+            </article>
+            <article class="metric">
+              <span>Largest event</span><strong id="metric-guests">—</strong><small>Guests in one inquiry</small>
+            </article>
+          </section>
+
+          <section class="dashboard-grid">
+            <div class="inquiry-panel">
+              <div class="panel-heading">
+                <div>
+                  <h2>Celebration inquiries</h2>
+                  <p id="result-count">Loading submissions…</p>
+                </div>
+                <div class="filters">
+                  <label class="search-field"><span>Search</span><input id="search-input" type="search" placeholder="Name, email, service…" /></label>
+                  <label><span>Service</span><select id="service-filter"><option value="">All services</option></select></label>
+                </div>
+              </div>
+              <div class="inquiry-list" id="inquiry-list"></div>
+              <div class="empty-state" id="empty-state" hidden>
+                <span>HMP</span><h3>No inquiries match</h3><p>Clear the filters to return to the full celebration list.</p>
+              </div>
+            </div>
+
+            <aside class="service-panel">
+              <p class="kicker">Service mix</p>
+              <h2>What clients are planning</h2>
+              <div id="service-mix" class="service-mix"></div>
+              <p class="service-note">Based on all inquiries currently in the dashboard.</p>
+            </aside>
+          </section>
+
+          <section class="invoice-workspace" id="invoice-workspace" hidden>
+            <div class="workspace-section-header">
+              <div>
+                <p class="kicker">Billing workspace</p>
+                <h2>Invoices</h2>
+                <p>Create, save, print, and send HMP invoices from one place.</p>
+              </div>
+              <button class="primary-button workspace-create-button" id="create-invoice-button" type="button">Create new invoice</button>
+            </div>
+            <div class="email-setup-notice" id="email-setup-notice" hidden>
+              <strong>Email setup needed</strong>
+              <span>Invoices can be saved and printed now. Connect a verified HMP sender to deliver them by email.</span>
+            </div>
+            <div class="invoice-list-panel">
+              <div class="invoice-list-heading">
+                <span>Invoice</span><span>Client</span><span>Due date</span><span>Total</span><span>Status</span>
+              </div>
+              <div id="invoice-list"></div>
+              <div class="invoice-empty" id="invoice-empty">
+                <span>HMP</span>
+                <h3>No invoices yet</h3>
+                <p>Create the first branded invoice for an HMP client.</p>
+                <button class="text-button" id="empty-create-invoice" type="button">Create new invoice</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="reviews-workspace" id="reviews-workspace" hidden>
+            <div class="workspace-section-header">
+              <div>
+                <p class="kicker">Website content</p>
+                <h2>Reviews</h2>
+                <p>Add, edit, publish, and arrange the testimonials shown on the HMP website.</p>
+              </div>
+              <button class="primary-button workspace-create-button" id="create-review-button" type="button">Add review</button>
+            </div>
+            <div class="review-admin-note">
+              <strong>Sample reviews are labeled</strong>
+              <span>Replace them with verified client feedback before removing the sample label.</span>
+            </div>
+            <div class="review-list-panel">
+              <div class="review-list-heading">
+                <span>Review</span><span>Client</span><span>Service</span><span>Order</span><span>Status</span>
+              </div>
+              <div id="review-list"></div>
+              <div class="review-empty" id="review-empty">
+                <span>HMP</span>
+                <h3>No reviews yet</h3>
+                <p>Add the first testimonial for the HMP website.</p>
+                <button class="text-button" id="empty-create-review" type="button">Add review</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="workspace-empty" id="workspace-empty" hidden>
+            <p class="kicker" id="workspace-empty-label"></p>
+            <h2 id="workspace-empty-title"></h2>
+            <p id="workspace-empty-copy"></p>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <dialog id="inquiry-dialog">
+      <div class="dialog-heading">
+        <div><p class="kicker">Inquiry details</p><h2 id="detail-name"></h2><p id="detail-service"></p></div>
+        <button id="dialog-close" type="button">Close</button>
+      </div>
+      <div class="detail-actions" id="detail-actions"></div>
+      <dl class="detail-grid" id="detail-grid"></dl>
+      <section class="detail-note" id="detail-note" hidden><h3>Additional information</h3><p></p></section>
+      <form class="inquiry-management" id="inquiry-management-form">
+        <div class="management-heading">
+          <div>
+            <p class="kicker">HMP team workspace</p>
+            <h3>Manage this inquiry</h3>
+          </div>
+          <p>Changes save securely to the HMP dashboard.</p>
+        </div>
+        <div class="management-grid">
+          <label>
+            <span>Status</span>
+            <select id="manage-status" name="status">
+              <option>New</option>
+              <option>Contacted</option>
+              <option>Quoted</option>
+              <option>Booked</option>
+              <option>Closed</option>
+            </select>
+          </label>
+          <label>
+            <span>Priority</span>
+            <select id="manage-priority" name="priority">
+              <option>Low</option>
+              <option>Normal</option>
+              <option>High</option>
+              <option>Urgent</option>
+            </select>
+          </label>
+          <label>
+            <span>Follow-up date</span>
+            <input id="manage-follow-up" name="followUpDate" type="date" />
+          </label>
+          <label>
+            <span>Owner</span>
+            <input id="manage-owner" name="owner" type="text" maxlength="100" placeholder="Team member" />
+          </label>
+          <label class="management-notes">
+            <span>Internal notes</span>
+            <textarea id="manage-notes" name="internalNotes" rows="5" maxlength="5000" placeholder="Private notes for the HMP team"></textarea>
+          </label>
+        </div>
+        <div class="management-actions">
+          <p class="form-message" id="management-message" role="status"></p>
+          <button class="primary-button" type="submit">Save changes</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="invoice-editor-dialog" id="invoice-editor-dialog">
+      <form id="invoice-form">
+        <div class="invoice-editor-toolbar">
+          <div>
+            <p class="kicker">Invoice editor</p>
+            <strong id="editor-invoice-number">New invoice</strong>
+          </div>
+          <div class="invoice-toolbar-actions">
+            <button class="text-button" id="close-invoice-editor" type="button">Close</button>
+            <button class="secondary-button" id="print-invoice" type="button">Print / PDF</button>
+            <button class="secondary-button" id="save-invoice" type="submit">Save draft</button>
+            <button class="primary-button" id="send-invoice" type="button">Send invoice</button>
+          </div>
+        </div>
+
+        <p class="invoice-editor-message form-message" id="invoice-editor-message" role="status"></p>
+
+        <article class="invoice-sheet" id="invoice-sheet">
+          <header class="invoice-document-header">
+            <div class="invoice-brand-block">
+              <img src="assets/brand/hmp-logo-2026.png" alt="HMP Luxury Event Services" />
+              <p>Luxury Event Services</p>
+              <address>Laurel, Maryland<br />info@hmpeds.com<br />301-471-0990</address>
+            </div>
+            <div class="invoice-title-block">
+              <p>Invoice</p>
+              <strong id="invoice-number-display">Draft</strong>
+              <label>
+                <span>Status</span>
+                <select id="invoice-status" name="status">
+                  <option>Draft</option>
+                  <option>Sent</option>
+                  <option>Paid</option>
+                  <option>Void</option>
+                </select>
+              </label>
+            </div>
+          </header>
+
+          <section class="invoice-parties">
+            <div class="invoice-field-group bill-to-fields">
+              <p class="invoice-label">Bill to</p>
+              <label><span>Client name</span><input id="invoice-client-name" name="clientName" type="text" placeholder="Client or company name" maxlength="200" required /></label>
+              <label><span>Email</span><input id="invoice-client-email" name="clientEmail" type="email" placeholder="client@example.com" maxlength="320" required /></label>
+              <label><span>Phone</span><input id="invoice-client-phone" name="clientPhone" type="tel" placeholder="Optional" maxlength="60" /></label>
+              <label><span>Billing address</span><textarea id="invoice-billing-address" name="billingAddress" rows="3" placeholder="Street, city, state, ZIP"></textarea></label>
+            </div>
+            <div class="invoice-meta-fields">
+              <label><span>Issue date</span><input id="invoice-issue-date" name="issueDate" type="date" required /></label>
+              <label><span>Due date</span><input id="invoice-due-date" name="dueDate" type="date" /></label>
+              <label><span>Event name</span><input id="invoice-event-name" name="eventName" type="text" placeholder="Celebration or service" maxlength="250" /></label>
+              <label><span>Event date</span><input id="invoice-event-date" name="eventDate" type="date" /></label>
+            </div>
+          </section>
+
+          <section class="invoice-items-section">
+            <div class="invoice-items-heading">
+              <span>Service description</span><span>Qty</span><span>Rate</span><span>Amount</span><span aria-hidden="true"></span>
+            </div>
+            <div id="invoice-items"></div>
+            <button class="add-line-item" id="add-line-item" type="button">Add line item</button>
+          </section>
+
+          <section class="invoice-bottom-grid">
+            <div class="invoice-notes-fields">
+              <label><span>Notes</span><textarea id="invoice-notes" name="notes" rows="4" placeholder="A message for the client"></textarea></label>
+              <label><span>Payment terms</span><textarea id="invoice-payment-terms" name="paymentTerms" rows="3" placeholder="Payment methods, deposit terms, or instructions"></textarea></label>
+            </div>
+            <div class="invoice-totals">
+              <div><span>Subtotal</span><strong id="invoice-subtotal">$0.00</strong></div>
+              <label><span>Discount</span><span class="money-input"><b>$</b><input id="invoice-discount" name="discountAmount" type="number" min="0" step="0.01" value="0" /></span></label>
+              <label><span>Tax</span><span class="percent-input"><input id="invoice-tax-rate" name="taxRate" type="number" min="0" max="100" step="0.01" value="0" /><b>%</b></span></label>
+              <div><span>Tax amount</span><strong id="invoice-tax-amount">$0.00</strong></div>
+              <div class="invoice-total-row"><span>Total</span><strong id="invoice-total">$0.00</strong></div>
+            </div>
+          </section>
+
+          <footer class="invoice-document-footer">
+            <p>Thank you for choosing HMP Luxury Event Services.</p>
+            <span>hmpeds.com</span>
+          </footer>
+        </article>
+      </form>
+    </dialog>
+
+    <dialog class="review-editor-dialog" id="review-editor-dialog">
+      <form id="review-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="kicker">Website review</p>
+            <h2 id="review-editor-title">Add review</h2>
+            <p>Published reviews appear in the moving section on the homepage.</p>
+          </div>
+          <button id="close-review-editor" type="button">Close</button>
+        </div>
+        <div class="review-form-body">
+          <div class="review-form-grid">
+            <label><span>Client name</span><input id="review-name" name="reviewerName" type="text" maxlength="120" required /></label>
+            <label><span>Client detail <small>optional</small></span><input id="review-role" name="reviewerRole" type="text" maxlength="160" placeholder="Bride, host, event planner…" /></label>
+            <label><span>Service</span><select id="review-service" name="service"><option value="">General HMP experience</option><option>Celebration Accessories</option><option>Guest Seating Experience</option><option>Money Table Services</option></select></label>
+            <label><span>Crescent rating</span><select id="review-rating" name="rating"><option value="5">5 crescents</option><option value="4">4 crescents</option><option value="3">3 crescents</option><option value="2">2 crescents</option><option value="1">1 crescent</option></select></label>
+            <label><span>Display order</span><input id="review-order" name="displayOrder" type="number" min="-100000" max="100000" step="1" /></label>
+            <label class="review-copy-field"><span>Review <small>1,200 character limit</small></span><textarea id="review-text" name="reviewText" rows="7" maxlength="1200" required placeholder="Enter the client’s review in their own words."></textarea></label>
+          </div>
+          <div class="review-toggle-grid">
+            <label><input id="review-published" name="published" type="checkbox" checked /><span><strong>Published</strong><small>Show this review on the website</small></span></label>
+            <label><input id="review-placeholder" name="isPlaceholder" type="checkbox" /><span><strong>Sample review</strong><small>Clearly label this as placeholder content</small></span></label>
+          </div>
+          <div class="review-form-actions">
+            <button class="review-delete-button" id="delete-review" type="button" hidden>Delete review</button>
+            <p class="form-message" id="review-editor-message" role="status"></p>
+            <button class="primary-button" type="submit">Save review</button>
+          </div>
+        </div>
+      </form>
+    </dialog>
+
+    <script type="module" src="assets/admin.js"></script>
+  </body>
+</html>

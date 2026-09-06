@@ -1,1 +1,291 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="description" content="Request a personalized quote from HMP Luxury Event Services for your upcoming celebration."><title>Plan Your Celebration | HMP</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Italiana&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="mobile.css"><link rel="stylesheet" href="pages.css"></head><body class="inner-page inquiry-page"><header class="site-header"><a class="brand" href="/" aria-label="HMP home"><span>HMP</span><small>Luxury Event Services</small></a><button class="menu-toggle" aria-expanded="false" aria-controls="site-nav">Menu</button><nav id="site-nav" aria-label="Main navigation"><a href="/guest-seating.html">Guest seating</a><a href="/celebration-accessories.html">Accessories</a><a href="/money-table.html">Money table</a><a class="active-nav" href="/inquiry.html">Inquire</a></nav></header><main><section class="inquiry section"><div class="inquiry-intro"><p class="eyebrow plum">Your celebration starts here</p><h1>Tell us what<br><em>you’re imagining.</em></h1><p>Share your celebration details and the experience you’re interested in. We’ll respond within 48 hours with a personalized quote.</p><p class="fine">Travel and lodging fees may apply for locations more than 40 miles from Laurel, Maryland.</p></div><form name="hmp-inquiry" method="POST" data-netlify="true" netlify-honeypot="bot-field" id="inquiry-form"><input type="hidden" name="form-name" value="hmp-inquiry"><p class="hidden"><label>Don’t fill this out: <input name="bot-field"></label></p><div class="form-grid"><label>Client name<input required name="name" autocomplete="name"></label><label>Email<input required type="email" name="email" autocomplete="email"></label><label>Phone<input required type="tel" name="phone" autocomplete="tel" placeholder="Include country code"></label><label>Preferred contact<select required name="contact-method"><option value="">Choose one</option><option>Email</option><option>Phone</option><option>Text</option></select></label><label>Celebration date<input required type="date" name="celebration-date"></label><label>Second date <small>optional</small><input type="date" name="second-date"></label><label class="full">Service of interest<select required name="service" id="service-select"><option value="">Choose a service</option><option>Guest Seating Experience</option><option>Celebration Accessories</option><option>Money Table Experience</option><option>Multiple services</option></select></label><label class="full">Celebration location(s) and full address<textarea required name="location" rows="2"></textarea></label><label>Service start time<input required type="time" name="start-time"></label><label>Service end / vendor exit time<input required type="time" name="end-time"></label><label>Estimated guest count<input required type="number" min="1" name="guest-count"></label><label>Parking fee?<input required name="parking-fee" placeholder="No, or list amount"></label><label>Celebration type<select required name="celebration-type"><option value="">Choose one</option><option>Birthday</option><option>Graduation</option><option>Engagement party</option><option>Bridal shower</option><option>Traditional marriage</option><option>Wedding</option><option>Baby shower</option><option>Other</option></select></label><label>How did you hear about us?<select required name="referral-source"><option value="">Choose one</option><option>Referral</option><option>Returning client</option><option>Social media</option><option>Other</option></select></label><label class="full">Referral name or other source<input required name="source-detail" placeholder="Enter N/A if not applicable"></label><label class="full">Anything else we should know? <small>optional</small><textarea name="additional-information" rows="4"></textarea></label></div><button class="button submit" type="submit">Request my personalized quote <span>↗</span></button><p class="form-note">Please check your spam or junk folder for a response from <a href="mailto:info@hmpeds.com">info@hmpeds.com</a>.</p></form></section></main><footer class="inner-footer"><a class="brand light-brand" href="/"><span>HMP</span><small>Luxury Event Services</small></a><p>Thoughtfully designed. Seamlessly celebrated.</p><a href="mailto:info@hmpeds.com">info@hmpeds.com</a><p>© <span id="year"></span> HMP Luxury Event Services</p></footer><dialog id="led-dialog"><button class="dialog-close" aria-label="Close">×</button><p class="eyebrow plum">A note before you continue</p><h2>Our seating experience currently features 27” Premium LED Signage.</h2><p>If that feels right for your celebration, we’d love to learn more.</p><button class="button dialog-confirm">Yes, continue my inquiry</button></dialog><div class="toast" role="status" aria-live="polite">Thank you. Your inquiry has been received. We’ll be in touch within 48 hours.</div><script src="script.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta
+      name="description"
+      content="Request a personalized quote from HMP Luxury Event Services for your upcoming celebration."
+    />
+    <title>Plan Your Celebration | HMP</title>
+    <link rel="canonical" href="https://hmpeds.com/inquiry" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Plan Your Celebration | HMP" />
+    <meta
+      property="og:description"
+      content="Request a personalized quote from HMP Luxury Event Services for your upcoming celebration."
+    />
+    <meta property="og:url" content="https://hmpeds.com/inquiry" />
+    <meta
+      property="og:image"
+      content="https://hmpeds.com/assets/hmp-hero-welcome.webp"
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Plan Your Celebration | HMP" />
+    <meta
+      name="twitter:description"
+      content="Request a personalized quote from HMP Luxury Event Services for your upcoming celebration."
+    />
+    <meta
+      name="twitter:image"
+      content="https://hmpeds.com/assets/hmp-hero-welcome.webp"
+    />
+    <link rel="icon" href="/assets/brand/hmp-logo-2026.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=DM+Sans:wght@400;500;600&family=Droid+Serif:wght@400;700&family=Noto+Serif:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="mobile.css" />
+    <link rel="stylesheet" href="pages.css" />
+    <link rel="stylesheet" href="brand.css?v=20260901-13" />
+  </head>
+  <body class="inner-page inquiry-page">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="HMP Luxury Event Services home"
+        ><img
+          class="brand-logo"
+          src="/assets/brand/hmp-logo-2026.png"
+          alt="HMP Luxury Event Services" /></a
+      ><button
+        class="menu-toggle"
+        aria-expanded="false"
+        aria-controls="site-nav"
+      >
+        Menu
+      </button>
+      <nav id="site-nav" aria-label="Main navigation">
+        <a href="/">Home</a>
+        <a href="/about.html">Get To Know HMP</a>
+        <div class="services-nav">
+          <button class="services-trigger" type="button" aria-expanded="false" aria-haspopup="true">
+            Services We Offer
+          </button>
+          <div class="services-dropdown">
+            <a class="services-all" href="/services.html">All Services</a>
+            <a href="/celebration-accessories.html">Celebration Accessories</a>
+            <a href="/guest-seating.html">Guest Seating Experience</a>
+            <a href="/money-table.html">Money Table Services</a>
+          </div>
+        </div>
+        <a class="active-nav" aria-current="page" href="/inquiry.html">Inquire</a>
+      </nav>
+    </header>
+    <main id="main-content">
+      <section class="inquiry section">
+        <div class="inquiry-intro">
+          <p class="eyebrow plum">Your celebration starts here</p>
+          <h1>Tell us what<br /><em>you’re imagining.</em></h1>
+          <p>
+            Share your celebration details and the experience you’re interested
+            in. We’ll respond within 48 hours with a personalized quote.
+          </p>
+          <p class="fine">
+            Travel and lodging fees may apply for locations more than 30 miles
+            from Laurel, Maryland.
+          </p>
+        </div>
+        <form
+          name="hmp-inquiry"
+          method="POST"
+          data-netlify="true"
+          netlify-honeypot="bot-field"
+          id="inquiry-form"
+        >
+          <input type="hidden" name="form-name" value="hmp-inquiry" />
+          <input type="hidden" name="subject" value="New HMP website inquiry" />
+          <input type="hidden" name="submission-id" value="" />
+          <p class="hidden">
+            <label>Don’t fill this out: <input name="bot-field" /></label>
+          </p>
+          <div class="form-grid">
+            <p class="form-guidance">
+              Required fields are limited to the details needed to prepare your
+              quote. Everything marked optional can be added now or discussed
+              later.
+            </p>
+            <label
+              >Client name<input
+                required
+                name="name"
+                autocomplete="name" /></label
+            ><label
+              >Email<input
+                required
+                type="email"
+                name="email"
+                autocomplete="email" /></label
+            ><label
+              >Phone<input
+                required
+                type="tel"
+                name="phone"
+                autocomplete="tel"
+                placeholder="Include country code" /></label
+            ><label
+              >Preferred contact <small>optional</small
+              ><select name="contact-method">
+                <option value="">Choose one</option>
+                <option>Email</option>
+                <option>Phone</option>
+                <option>Text</option>
+              </select></label
+            ><label class="full"
+              >Service of interest<select
+                required
+                name="service"
+                id="service-select"
+              >
+                <option value="">Choose a service</option>
+                <option>Celebration Accessories</option>
+                <option>Guest Seating Experience</option>
+                <option>Money Table Services</option>
+                <option>Multiple services</option>
+                <option>Interested in something else</option>
+              </select></label
+            ><label class="full conditional-field" id="service-option-field" hidden
+              ><span id="service-option-label">Specific service of interest</span
+              ><select name="service-option" id="service-option-select" disabled>
+                <option value="">Choose a specific service</option>
+              </select></label
+            ><label class="full conditional-field" id="multiple-services-field" hidden
+              >Tell us which services interest you<textarea
+                name="multiple-services-detail"
+                rows="3"
+                placeholder="Share the services or combination you have in mind"
+              ></textarea></label
+            ><label class="full conditional-field" id="other-service-field" hidden
+              >Tell us what you’re interested in<textarea
+                name="other-service-detail"
+                rows="3"
+                placeholder="Describe the service or experience you have in mind"
+              ></textarea></label
+            ><label
+              >Estimated guest count
+              <input required type="number" min="1" name="guest-count" /></label
+            ><label
+              >Parking fee?<input
+                required
+                name="parking-fee"
+                placeholder="No, or list amount" /></label
+            ><label
+              >Celebration type<select required name="celebration-type">
+                <option value="">Choose one</option>
+                <option>Birthday</option>
+                <option>Graduation</option>
+                <option>Engagement party</option>
+                <option>Bridal shower</option>
+                <option>Traditional marriage</option>
+                <option>Wedding</option>
+                <option>Baby shower</option>
+                <option>Other</option>
+              </select></label
+            ><label
+              >First Celebration Date<input
+                required
+                type="date"
+                name="celebration-date" /></label
+            ><label
+              >Second Celebration Date <small>optional</small
+              ><input type="date" name="second-date" /></label
+            ><label class="full"
+              >First celebration location and full address<textarea
+                required
+                name="location"
+                rows="2"
+              ></textarea></label
+            ><label
+              >First celebration start time
+              <input required type="time" name="start-time" /></label
+            ><label
+              >First celebration end time
+              <input required type="time" name="end-time" /></label
+            ><label
+              >First celebration vendor exit time
+              <input required type="time" name="vendor-exit-time" /></label
+            ><label class="full"
+              >Second celebration location and full address <small>optional</small
+              ><textarea name="second-location" rows="2"></textarea></label
+            ><label
+              >Second celebration estimated guest count <small>optional</small
+              ><input type="number" min="1" name="second-guest-count" /></label
+            ><label
+              >Second celebration start time <small>optional</small
+              ><input type="time" name="second-start-time" /></label
+            ><label
+              >Second celebration end time <small>optional</small
+              ><input type="time" name="second-end-time" /></label
+            ><label
+              >Second celebration vendor exit time <small>optional</small
+              ><input type="time" name="second-vendor-exit-time" /></label
+            ><label
+              >How did you hear about us? <small>optional</small
+              ><select name="referral-source">
+                <option value="">Choose one</option>
+                <option>Referral</option>
+                <option>Returning client</option>
+                <option>Social media</option>
+                <option>Other</option>
+              </select></label
+            ><label class="full"
+              >Referral name or other source <small>optional</small
+              ><input
+                name="source-detail"
+                placeholder="Name or source, if applicable" /></label
+            ><label class="full"
+              >Any additional information you would like to share with us <small>optional</small
+              ><textarea name="additional-information" rows="4"></textarea>
+            </label>
+          </div>
+          <button class="button submit" type="submit">
+            Request my personalized quote <span>↗</span>
+          </button>
+          <p class="form-note">
+            Please check your spam or junk folder for a response from
+            <a href="mailto:info@hmpeds.com">info@hmpeds.com</a>. Please expect a
+            response within 48 hours. By submitting, you agree that HMP may use
+            these details to respond to your request. Read our
+            <a href="/privacy">privacy policy</a>.
+          </p>
+        </form>
+      </section>
+    </main>
+    <footer class="inner-footer">
+      <a
+        class="brand light-brand"
+        href="/"
+        aria-label="HMP Luxury Event Services home"
+        ><img
+          class="brand-logo"
+          src="/assets/brand/hmp-logo-2026.png"
+          alt="HMP Luxury Event Services"
+      /></a>
+      <p>Elevating Events. Defining Luxury.</p>
+      <div class="footer-meta">
+        <a href="mailto:info@hmpeds.com">info@hmpeds.com</a>
+        <a href="tel:+13014710990">301-471-0990</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/admin">Admin login</a>
+        <span>Laurel, Maryland</span>
+      </div>
+      <p>© <span id="year"></span> HMP Luxury Event Services</p>
+    </footer>
+    <dialog id="led-dialog">
+      <button class="dialog-close" aria-label="Close">×</button>
+      <p class="eyebrow plum">A note before you continue</p>
+      <h2>
+        Our seating experience currently features 27” and 32” Premium LED Signage.
+      </h2>
+      <p>If that feels right for your celebration, we’d love to learn more.</p>
+      <button class="button dialog-confirm">Yes, continue my inquiry</button>
+    </dialog>
+    <div class="toast" role="status" aria-live="polite" id="form-status">
+      Thank you. Your inquiry has been received, and a copy has been emailed to
+      you. We’ll be in touch within 48 hours.
+    </div>
+    <script src="script.js?v=20260902-15"></script>
+  </body>
+</html>

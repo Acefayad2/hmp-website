@@ -1,0 +1,17 @@
+{
+  "name": "hmp-luxury-event-services",
+  "private": true,
+  "scripts": {
+    "build": "node scripts/build-admin.mjs"
+  },
+  "devDependencies": {
+    "@netlify/functions": "latest",
+    "@types/node": "^26.2.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@netlify/identity": "^2.0.0",
+    "@supabase/supabase-js": "2.112.4"
+  }
+}
