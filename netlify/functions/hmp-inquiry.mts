@@ -159,7 +159,8 @@ const sendInquiryEmails = async (
     reply_to: clientEmail,
     subject: `New HMP inquiry — ${text(row.client_name)} · ${text(row.service)}`,
     html: `
-      <div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:Arial,sans-serif">
+      <style>@import url('https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap');</style>
+      <div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif">
         <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden">
           <div style="background:#734949;padding:24px 28px;color:#fff">
             <p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p>
@@ -196,7 +197,8 @@ const sendInquiryEmails = async (
     reply_to: replyTo,
     subject: "Your HMP inquiry confirmation and copy",
     html: `
-      <div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:Arial,sans-serif">
+      <style>@import url('https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap');</style>
+      <div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif">
         <div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden">
           <div style="background:#734949;padding:28px;color:#fff">
             <p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p>

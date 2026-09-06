@@ -1,6 +1,6 @@
 :root { --ink:#5f4040; --deep:#3c282b; --plum:#724c4d; --rose:#cdb9b8; --ivory:#fff8f1; --gold:#b77c3f; --line:rgba(95,64,64,.18); }
 * { box-sizing:border-box; }
-body { min-height:100dvh; margin:0; color:var(--ink); background:radial-gradient(circle at 12% 5%,#fff 0,transparent 32%),var(--ivory); font-family:Arial,sans-serif; }
+body { min-height:100dvh; margin:0; color:var(--ink); background:radial-gradient(circle at 12% 5%,#fff 0,transparent 32%),var(--ivory); font-family:"Droid Serif",Georgia,serif; }
 .conversation-header { position:relative; z-index:1; display:flex; align-items:center; justify-content:space-between; width:min(1180px,calc(100% - 36px)); margin:24px auto 0; padding:15px 20px; border:1px solid rgba(255,255,255,.75); border-radius:28px; background:rgba(222,201,197,.66); box-shadow:0 18px 50px rgba(67,42,43,.08); }
 .conversation-header a { display:block; width:240px; height:92px; overflow:hidden; border-radius:22px; background:rgba(255,255,255,.62); }
 .conversation-header img { width:100%; height:100%; object-fit:contain; }
@@ -34,7 +34,7 @@ body { min-height:100dvh; margin:0; color:var(--ink); background:radial-gradient
 .message-empty p,.conversation-error p { max-width:420px; margin:0 auto; color:#876d6d; line-height:1.55; }
 .message-composer { padding:22px 30px 28px; border-top:1px solid var(--line); background:#fffaf6; }
 .message-composer label { display:block; margin-bottom:8px; font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
-.message-composer textarea { width:100%; min-height:100px; padding:14px; border:1px solid var(--line); border-radius:15px; color:var(--deep); background:#fff; font:16px/1.45 Arial,sans-serif; resize:vertical; outline:none; }
+.message-composer textarea { width:100%; min-height:100px; padding:14px; border:1px solid var(--line); border-radius:15px; color:var(--deep); background:#fff; font:16px/1.45 "Droid Serif",Georgia,serif; resize:vertical; outline:none; }
 .message-composer textarea:focus { border-color:var(--plum); box-shadow:0 0 0 3px rgba(114,76,77,.12); }
 .message-composer > div { display:flex; align-items:center; justify-content:space-between; gap:18px; margin-top:12px; }
 .message-composer p { margin:0; color:#876d6d; font-size:12px; }

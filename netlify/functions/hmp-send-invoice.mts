@@ -50,7 +50,7 @@ const renderEmail = (invoice: Record<string, any>) => {
       <td style="padding:14px 8px;border-bottom:1px solid #eadfda;text-align:right;color:#2e2022;font-weight:600">${money(item.amount)}</td>
     </tr>`).join("");
 
-  return `<!doctype html><html><body style="margin:0;background:#f6efea;font-family:Arial,sans-serif;color:#2e2022">
+  return `<!doctype html><html><head><style>@import url('https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap');</style></head><body style="margin:0;background:#f6efea;font-family:'Droid Serif',Georgia,serif;color:#2e2022">
     <div style="max-width:720px;margin:0 auto;padding:28px 14px">
       <div style="background:#fffaf5;border:1px solid #e6d7d2;border-radius:18px;overflow:hidden">
         <div style="padding:34px;background:#5f3f41;color:#fff">

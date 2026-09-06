@@ -10,7 +10,7 @@
   --gold: #b67c42;
   --line: rgba(95, 63, 65, 0.16);
   --serif: "Cormorant Garamond", Georgia, serif;
-  --sans: "DM Sans", Arial, sans-serif;
+  --sans: "Droid Serif", Georgia, serif;
 }
 
 * { box-sizing: border-box; }

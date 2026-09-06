@@ -40,7 +40,7 @@ const sendAdminNotification = async (inquiry: Record<string, unknown>) => {
       to: [to],
       reply_to: cleanText(inquiry.email, 320),
       subject: `New client message — ${cleanText(inquiry.client_name, 200)}`,
-      html: `<div style="font-family:Arial,sans-serif;color:#4d3232"><h2>New private portal message</h2><p>${escapeHtml(inquiry.client_name)} sent a new message about <strong>${escapeHtml(inquiry.service)}</strong>.</p><p><a href="https://hmpeds.com/admin?view=messages">Open Messages in the HMP portal</a></p></div>`,
+      html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="font-family:'Droid Serif',Georgia,serif;color:#4d3232"><h2>New private portal message</h2><p>${escapeHtml(inquiry.client_name)} sent a new message about <strong>${escapeHtml(inquiry.service)}</strong>.</p><p><a href="https://hmpeds.com/admin?view=messages">Open Messages in the HMP portal</a></p></div>`,
     }),
   });
   return response.ok;
