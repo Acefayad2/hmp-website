@@ -67,6 +67,7 @@
           <div>
             <p class="rail-label">Workspace</p>
             <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
+            <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Messages</a>
             <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices">Invoices</a>
             <a class="rail-link" href="/admin?view=events" data-workspace-view="events">Events</a>
             <a class="rail-link" href="/admin?view=reviews" data-workspace-view="reviews">Reviews</a>
@@ -130,6 +131,43 @@
               <div id="service-mix" class="service-mix"></div>
               <p class="service-note">Based on all inquiries currently in the dashboard.</p>
             </aside>
+          </section>
+
+          <section class="messages-workspace" id="messages-workspace" hidden>
+            <div class="workspace-section-header">
+              <div>
+                <p class="kicker">Client care</p>
+                <h2>Messages</h2>
+                <p>Reply to clients through the private conversation link connected to each inquiry.</p>
+              </div>
+            </div>
+            <div class="messages-layout">
+              <aside class="thread-panel">
+                <div class="thread-panel-heading"><strong>Conversations</strong><span id="thread-count">0</span></div>
+                <div id="thread-list"></div>
+                <div class="thread-empty" id="thread-empty">
+                  <span>☾</span><h3>No conversations yet</h3><p>Create a private link from an inquiry to begin.</p>
+                </div>
+              </aside>
+              <section class="admin-conversation-panel" id="admin-conversation-panel">
+                <div class="admin-conversation-placeholder" id="admin-conversation-placeholder">
+                  <span>HMP</span><h3>Select a conversation</h3><p>Choose a client to review and reply to their messages.</p>
+                </div>
+                <div id="admin-conversation" hidden>
+                  <header class="admin-conversation-heading">
+                    <div><p class="kicker" id="admin-conversation-service"></p><h3 id="admin-conversation-name"></h3><p id="admin-conversation-email"></p></div>
+                    <button class="secondary-button conversation-copy-link" id="copy-active-link" type="button">Copy client link</button>
+                  </header>
+                  <div class="admin-message-list" id="admin-message-list"></div>
+                  <div class="admin-message-empty" id="admin-message-empty" hidden>No messages yet. Send a welcome note to begin the conversation.</div>
+                  <form class="admin-message-composer" id="admin-message-form">
+                    <label for="admin-message-input">Reply as HMP</label>
+                    <textarea id="admin-message-input" maxlength="4000" rows="4" placeholder="Type your reply…" required></textarea>
+                    <div><p class="form-message" id="admin-message-status" role="status"></p><button class="primary-button" type="submit">Send reply</button></div>
+                  </form>
+                </div>
+              </section>
+            </div>
           </section>
 
           <section class="invoice-workspace" id="invoice-workspace" hidden>
@@ -203,6 +241,19 @@
       <div class="detail-actions" id="detail-actions"></div>
       <dl class="detail-grid" id="detail-grid"></dl>
       <section class="detail-note" id="detail-note" hidden><h3>Additional information</h3><p></p></section>
+      <section class="client-conversation-card">
+        <div>
+          <p class="kicker">Private client messaging</p>
+          <h3>Talk with a representative</h3>
+          <p>Create or renew a secure link for this client. The link is private to this inquiry.</p>
+        </div>
+        <div class="client-conversation-actions">
+          <button class="secondary-button" id="create-conversation-link" type="button">Create private link</button>
+          <button class="secondary-button" id="copy-conversation-link" type="button" hidden>Copy link</button>
+          <button class="primary-button" id="open-conversation" type="button" hidden>Open Messages</button>
+        </div>
+        <p class="form-message" id="conversation-link-message" role="status"></p>
+      </section>
       <form class="inquiry-management" id="inquiry-management-form">
         <div class="management-heading">
           <div>

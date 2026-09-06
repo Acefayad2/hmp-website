@@ -2,7 +2,9 @@
   "name": "hmp-luxury-event-services",
   "private": true,
   "scripts": {
-    "build": "node scripts/build-admin.mjs"
+    "build": "node scripts/build-admin.mjs",
+    "build:functions": "node scripts/build-functions.mjs",
+    "backfill:conversations": "node scripts/backfill-conversations.mjs"
   },
   "devDependencies": {
     "@netlify/functions": "latest",

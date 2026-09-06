@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="robots" content="noindex,nofollow" />
+    <title>Talk with an HMP Representative</title>
+    <link rel="icon" href="assets/brand/hmp-logo-2026.png" />
+    <link rel="stylesheet" href="conversation.css" />
+  </head>
+  <body>
+    <header class="conversation-header">
+      <a href="/" aria-label="HMP website home">
+        <img src="assets/brand/hmp-logo-2026.png" alt="HMP Luxury Event Services" />
+      </a>
+      <span>Private client conversation</span>
+    </header>
+
+    <main class="conversation-shell">
+      <section class="conversation-intro">
+        <p class="kicker">Personal support</p>
+        <h1>Talk with a<br /><em>representative.</em></h1>
+        <p>Send a private message to the HMP team about your celebration. We’ll respond here and notify you by email when a reply is ready.</p>
+        <dl id="conversation-summary" hidden>
+          <div><dt>Service</dt><dd id="summary-service"></dd></div>
+          <div><dt>Celebration date</dt><dd id="summary-date"></dd></div>
+        </dl>
+      </section>
+
+      <section class="conversation-panel" aria-live="polite">
+        <div class="conversation-panel-heading">
+          <div><p class="kicker">HMP client care</p><h2 id="conversation-title">Opening your conversation…</h2></div>
+          <span class="private-badge">Private</span>
+        </div>
+        <div class="conversation-error" id="conversation-error" hidden>
+          <h3>We couldn’t open this conversation.</h3>
+          <p>This private link may be incomplete or expired. Contact <a href="mailto:info@hmpeds.com">info@hmpeds.com</a> for a new link.</p>
+        </div>
+        <div class="message-list" id="message-list" hidden></div>
+        <div class="message-empty" id="message-empty" hidden>
+          <span>☾</span>
+          <h3>Your private conversation starts here.</h3>
+          <p>Ask a question, add details, or tell us what would make your celebration feel just right.</p>
+        </div>
+        <form class="message-composer" id="message-form" hidden>
+          <label for="message-input">Message to HMP</label>
+          <textarea id="message-input" maxlength="4000" rows="4" placeholder="Type your message…" required></textarea>
+          <div><p id="message-status" role="status"></p><button type="submit">Send message <span aria-hidden="true">→</span></button></div>
+        </form>
+      </section>
+    </main>
+    <footer><span>HMP Luxury Event Services</span><a href="mailto:info@hmpeds.com">info@hmpeds.com</a></footer>
+    <script type="module" src="conversation.js"></script>
+  </body>
+</html>

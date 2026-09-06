@@ -28,11 +28,17 @@ let inviteToken = "";
 let activeInquiryId = "";
 let reviews = [];
 let activeReviewId = "";
+let messageThreads = [];
+let activeThreadId = "";
+let activeConversationUrl = "";
 let activeWorkspaceView = "inquiries";
 
 const workspaceViews = {
   inquiries: {
     title: "Inquiry dashboard",
+  },
+  messages: {
+    title: "Client messages",
   },
   invoices: {
     title: "Invoices",
@@ -83,6 +89,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const view = workspaceViews[requestedView] ? requestedView : "inquiries";
   const config = workspaceViews[view];
   const isInquiries = view === "inquiries";
+  const isMessages = view === "messages";
   const isInvoices = view === "invoices";
   const isReviews = view === "reviews";
   activeWorkspaceView = view;
@@ -90,10 +97,11 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $(".dashboard-header h1").textContent = config.title;
   $(".metrics").hidden = !isInquiries;
   $(".dashboard-grid").hidden = !isInquiries;
+  $("#messages-workspace").hidden = !isMessages;
   $("#invoice-workspace").hidden = !isInvoices;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isInvoices || isReviews;
-  if (!isInquiries && !isInvoices && !isReviews) {
+  $("#workspace-empty").hidden = isInquiries || isMessages || isInvoices || isReviews;
+  if (!isInquiries && !isMessages && !isInvoices && !isReviews) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
@@ -103,6 +111,13 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
       $("#invoice-empty").hidden = false;
       $("#invoice-empty h3").textContent = "Invoices unavailable";
       $("#invoice-empty p").textContent = error.message;
+    });
+  }
+  if (isMessages) {
+    loadMessages().catch((error) => {
+      $("#thread-empty").hidden = false;
+      $("#thread-empty h3").textContent = "Messages unavailable";
+      $("#thread-empty p").textContent = error.message;
     });
   }
   if (isReviews) {
@@ -270,6 +285,14 @@ const openInquiry = (id) => {
   $("#manage-owner").value = item.owner || "";
   $("#manage-notes").value = item.internalNotes || "";
   setMessage($("#management-message"), "");
+  const thread = messageThreads.find((candidate) => candidate.inquiryId === item.id);
+  activeConversationUrl = thread?.clientUrl || "";
+  $("#create-conversation-link").textContent = thread ? "Renew private link" : "Create private link";
+  $("#copy-conversation-link").hidden = !thread;
+  $("#open-conversation").hidden = !thread;
+  setMessage($("#conversation-link-message"), thread
+    ? "A secure conversation link is active for this inquiry."
+    : "");
   dialog.showModal();
 };
 
@@ -306,6 +329,147 @@ const saveInquiry = async (event) => {
     setMessage($("#management-message"), "Changes saved securely.", true);
   } catch (error) {
     setMessage($("#management-message"), error.message || "Changes could not be saved.");
+  } finally {
+    button.disabled = false;
+  }
+};
+
+const copyText = async (value) => {
+  if (!value) throw new Error("No client link is available.");
+  await navigator.clipboard.writeText(value);
+};
+
+const renderAdminMessages = (thread) => {
+  const list = $("#admin-message-list");
+  list.replaceChildren();
+  (thread.messages || []).forEach((message) => {
+    const article = document.createElement("article");
+    article.className = `admin-message ${message.sender === "admin" ? "admin" : "client"}`;
+    const meta = document.createElement("div");
+    const name = document.createElement("strong");
+    name.textContent = message.sender === "admin" ? "HMP representative" : thread.clientName;
+    const time = document.createElement("time");
+    time.dateTime = message.createdAt;
+    time.textContent = formatDate(message.createdAt, true);
+    meta.append(name, time);
+    const copy = document.createElement("p");
+    copy.textContent = message.body;
+    article.append(meta, copy);
+    list.append(article);
+  });
+  $("#admin-message-empty").hidden = (thread.messages || []).length > 0;
+  list.hidden = (thread.messages || []).length === 0;
+  if (!list.hidden) list.scrollTop = list.scrollHeight;
+};
+
+const openMessageThread = (threadId) => {
+  const thread = messageThreads.find((candidate) => candidate.id === threadId);
+  if (!thread) return;
+  activeThreadId = thread.id;
+  activeConversationUrl = thread.clientUrl;
+  $("#admin-conversation-placeholder").hidden = true;
+  $("#admin-conversation").hidden = false;
+  $("#admin-conversation-name").textContent = thread.clientName;
+  $("#admin-conversation-email").textContent = thread.clientEmail;
+  $("#admin-conversation-service").textContent = thread.service;
+  $("#copy-active-link").textContent = thread.active ? "Copy client link" : "Link expired";
+  $("#copy-active-link").disabled = !thread.active;
+  setMessage($("#admin-message-status"), "");
+  renderAdminMessages(thread);
+  document.querySelectorAll("[data-thread-id]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.threadId === threadId);
+  });
+};
+
+const renderMessageThreads = () => {
+  const list = $("#thread-list");
+  list.replaceChildren();
+  $("#thread-count").textContent = messageThreads.length;
+  $("#thread-empty").hidden = messageThreads.length > 0;
+  list.hidden = messageThreads.length === 0;
+  messageThreads.forEach((thread) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "thread-row";
+    button.dataset.threadId = thread.id;
+    if (thread.id === activeThreadId) button.classList.add("active");
+    const top = document.createElement("span");
+    const name = document.createElement("strong");
+    name.textContent = thread.clientName;
+    const date = document.createElement("time");
+    date.textContent = thread.lastMessageAt ? formatDate(thread.lastMessageAt, true) : "New link";
+    top.append(name, date);
+    const service = document.createElement("small");
+    service.textContent = thread.service;
+    const status = document.createElement("em");
+    status.textContent = thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
+    button.append(top, service, status);
+    list.append(button);
+  });
+};
+
+const loadMessages = async () => {
+  const response = await fetch("/api/hmp-messages", { credentials: "same-origin", cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Messages are unavailable.");
+  messageThreads = data.threads || [];
+  renderMessageThreads();
+  if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
+    openMessageThread(activeThreadId);
+  }
+};
+
+const createConversationLink = async () => {
+  if (!activeInquiryId) return;
+  const button = $("#create-conversation-link");
+  button.disabled = true;
+  setMessage($("#conversation-link-message"), "Creating a secure private link…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "create-link", inquiryId: activeInquiryId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Private link could not be created.");
+    activeConversationUrl = data.clientUrl;
+    $("#copy-conversation-link").hidden = false;
+    $("#open-conversation").hidden = false;
+    button.textContent = "Renew private link";
+    await copyText(activeConversationUrl);
+    await loadMessages();
+    setMessage($("#conversation-link-message"), "Secure link created and copied. Send it only to this client.", true);
+  } catch (error) {
+    setMessage($("#conversation-link-message"), error.message || "Private link could not be created.");
+  } finally {
+    button.disabled = false;
+  }
+};
+
+const sendAdminMessage = async (event) => {
+  event.preventDefault();
+  if (!activeThreadId) return;
+  const input = $("#admin-message-input");
+  const message = input.value.trim();
+  if (!message) return;
+  const button = event.currentTarget.querySelector("button[type=submit]");
+  button.disabled = true;
+  setMessage($("#admin-message-status"), "Sending reply…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send", conversationId: activeThreadId, message }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Reply could not be sent.");
+    input.value = "";
+    await loadMessages();
+    setMessage($("#admin-message-status"), data.notified ? "Reply sent and client notified by email." : "Reply sent securely.", true);
+  } catch (error) {
+    setMessage($("#admin-message-status"), error.message || "Reply could not be sent.");
   } finally {
     button.disabled = false;
   }
@@ -667,7 +831,7 @@ const enterDashboard = async (user) => {
     day: "numeric",
   }).format(new Date());
   try {
-    await loadDashboard();
+    await Promise.all([loadDashboard(), loadMessages()]);
     setWorkspaceView(new URLSearchParams(location.search).get("view") || "inquiries");
   } catch (error) {
     $("#result-count").textContent = error.message;
@@ -730,6 +894,7 @@ $("#logout-button").addEventListener("click", async () => {
 $("#refresh-button").addEventListener("click", () => {
   if (activeWorkspaceView === "reviews") return loadReviews();
   if (activeWorkspaceView === "invoices") return loadInvoices();
+  if (activeWorkspaceView === "messages") return loadMessages();
   return loadDashboard();
 });
 $("#search-input").addEventListener("input", renderInquiries);
@@ -749,8 +914,38 @@ inquiryList.addEventListener("click", (event) => {
 });
 $("#dialog-close").addEventListener("click", () => dialog.close());
 $("#inquiry-management-form").addEventListener("submit", saveInquiry);
+$("#create-conversation-link").addEventListener("click", createConversationLink);
+$("#copy-conversation-link").addEventListener("click", async () => {
+  try {
+    await copyText(activeConversationUrl);
+    setMessage($("#conversation-link-message"), "Private client link copied.", true);
+  } catch (error) {
+    setMessage($("#conversation-link-message"), error.message || "Link could not be copied.");
+  }
+});
+$("#open-conversation").addEventListener("click", () => {
+  const thread = messageThreads.find((candidate) => candidate.inquiryId === activeInquiryId);
+  if (!thread) return;
+  dialog.close();
+  setWorkspaceView("messages", true);
+  openMessageThread(thread.id);
+});
 dialog.addEventListener("click", (event) => {
   if (event.target === dialog) dialog.close();
+});
+
+$("#thread-list").addEventListener("click", (event) => {
+  const row = event.target.closest("[data-thread-id]");
+  if (row) openMessageThread(row.dataset.threadId);
+});
+$("#admin-message-form").addEventListener("submit", sendAdminMessage);
+$("#copy-active-link").addEventListener("click", async () => {
+  try {
+    await copyText(activeConversationUrl);
+    setMessage($("#admin-message-status"), "Private client link copied.", true);
+  } catch (error) {
+    setMessage($("#admin-message-status"), error.message || "Link could not be copied.");
+  }
 });
 
 $("#create-invoice-button").addEventListener("click", () => openInvoiceEditor());

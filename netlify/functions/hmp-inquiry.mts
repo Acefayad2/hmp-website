@@ -1,5 +1,10 @@
 import type { Config, Context } from "@netlify/functions";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  conversationToken,
+  newNonce,
+  tokenHash,
+} from "./_conversation-security.mts";
 
 const requiredFields = [
   "name",
@@ -65,7 +70,10 @@ const sendEmail = async (
   return response.json().catch(() => ({}));
 };
 
-const sendInquiryEmails = async (row: Record<string, unknown>) => {
+const sendInquiryEmails = async (
+  row: Record<string, unknown>,
+  conversationUrl: string,
+) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
   const fromEmail =
     Netlify.env.get("HMP_INQUIRY_FROM_EMAIL") ||
@@ -203,6 +211,8 @@ const sendInquiryEmails = async (row: Record<string, unknown>) => {
                 ${inquiryCopyRows}
               </table>
             </div>
+            <p style="margin:24px 0"><a href="${escapeHtml(conversationUrl)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">Talk with a representative</a></p>
+            <p style="margin:-10px 0 24px;color:#8b7272;font-size:13px">Use this private link to send messages directly to the HMP team. Please do not forward it.</p>
             <p>If you need to add anything, reply directly to this email or contact us at <a href="mailto:${replyTo}" style="color:#9a633b">${replyTo}</a> or <a href="tel:+13014710990" style="color:#9a633b">301-471-0990</a>.</p>
             <p style="margin-bottom:0">Warmly,<br><strong>HMP Luxury Event Services</strong><br><span style="color:#8b7272">Elevating Events. Defining Luxury.</span></p>
           </div>
@@ -336,7 +346,30 @@ export default async (request: Request, _context: Context) => {
 
   if (!data) return json({ ok: true, duplicate: true });
 
-  const emails = await sendInquiryEmails(row);
+  const conversationId = crypto.randomUUID();
+  const nonce = newNonce();
+  const token = conversationToken(conversationId, nonce);
+  const { error: conversationError } = await client
+    .from("hmp_client_conversations")
+    .insert({
+      id: conversationId,
+      inquiry_id: submissionId,
+      access_token_hash: tokenHash(token),
+      token_nonce: nonce,
+      token_expires_at: new Date(
+        Date.now() + 365 * 24 * 60 * 60 * 1000,
+      ).toISOString(),
+    });
+  if (conversationError) {
+    console.error("Secure conversation creation failed", conversationError.code);
+    return json(
+      { ok: false, error: "Inquiry was received, but messaging setup failed" },
+      502,
+    );
+  }
+
+  const conversationUrl = `https://hmpeds.com/conversation#token=${token}`;
+  const emails = await sendInquiryEmails(row, conversationUrl);
   return json({ ok: true, emails, clientCopy: "full" });
 };
 

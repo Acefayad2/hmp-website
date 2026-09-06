@@ -164,6 +164,57 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .management-actions { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 20px; }
 .management-actions .form-message { flex: 1; margin: 0; }
 .management-actions .primary-button { width: auto; min-width: 170px; min-height: 48px; margin: 0; padding: 0 22px; }
+.client-conversation-card { margin: 0 30px 20px; padding: 22px 24px; border: 1px solid rgba(182,124,66,.35); border-radius: 16px; background: rgba(229,185,128,.14); }
+.client-conversation-card .kicker { margin: 0 0 7px; color: var(--gold); }
+.client-conversation-card h3 { margin: 0; font: 600 27px/1 var(--serif); }
+.client-conversation-card > div:first-child > p:last-child { margin: 9px 0 0; color: var(--muted); font-size: 12px; }
+.client-conversation-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+.client-conversation-actions .secondary-button { border-color: var(--line); color: var(--plum); }
+.client-conversation-actions .primary-button { width: auto; min-height: 42px; margin: 0; padding: 0 18px; }
+.client-conversation-card > .form-message { margin: 12px 0 0; }
+
+.messages-workspace { margin-top: 38px; }
+.messages-layout { display: grid; grid-template-columns: 330px minmax(0,1fr); min-height: 660px; overflow: hidden; border: 1px solid var(--line); border-radius: 20px; background: rgba(255,255,255,.75); }
+.thread-panel { min-width: 0; border-right: 1px solid var(--line); background: rgba(247,239,235,.72); }
+.thread-panel-heading { display: flex; justify-content: space-between; padding: 18px 20px; border-bottom: 1px solid var(--line); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
+.thread-panel-heading span { color: var(--muted); }
+.thread-row { display: block; width: 100%; padding: 17px 20px; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
+.thread-row:hover,.thread-row.active { background: #fff; }
+.thread-row > span { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.thread-row strong { font: 600 18px/1 var(--serif); }
+.thread-row time { color: var(--muted); font-size: 8px; }
+.thread-row small,.thread-row em { display: block; margin-top: 6px; }
+.thread-row small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.thread-row em { color: var(--gold); font-size: 9px; font-style: normal; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.thread-empty { padding: 78px 24px; text-align: center; }
+.thread-empty > span { color: var(--gold); font-size: 28px; }
+.thread-empty h3 { margin: 12px 0 6px; font: 600 25px var(--serif); }
+.thread-empty p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.admin-conversation-panel { min-width: 0; background: rgba(255,255,255,.5); }
+.admin-conversation-placeholder { padding: 210px 30px 80px; text-align: center; }
+.admin-conversation-placeholder > span { color: var(--gold); font: 600 22px var(--serif); letter-spacing: .12em; }
+.admin-conversation-placeholder h3 { margin: 13px 0 5px; font: 600 30px var(--serif); }
+.admin-conversation-placeholder p { margin: 0; color: var(--muted); }
+.admin-conversation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 28px; border-bottom: 1px solid var(--line); }
+.admin-conversation-heading .kicker { margin: 0 0 7px; color: var(--gold); }
+.admin-conversation-heading h3 { margin: 0; font: 600 31px/1 var(--serif); }
+.admin-conversation-heading p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+.conversation-copy-link { border-color: var(--line); color: var(--plum); }
+.admin-message-list { display: flex; flex-direction: column; gap: 13px; height: 395px; overflow-y: auto; padding: 25px 28px; }
+.admin-message { max-width: 78%; padding: 14px 16px; border-radius: 15px 15px 15px 4px; background: #f0e3df; }
+.admin-message.admin { align-self: flex-end; border-radius: 15px 15px 4px 15px; color: #fff; background: var(--plum); }
+.admin-message > div { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 7px; }
+.admin-message strong,.admin-message time { font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
+.admin-message time { opacity: .65; }
+.admin-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.admin-message-empty { height: 395px; padding: 165px 30px; color: var(--muted); text-align: center; }
+.admin-message-composer { padding: 20px 28px 24px; border-top: 1px solid var(--line); background: #fff; }
+.admin-message-composer label { display: block; margin-bottom: 7px; color: var(--muted); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.admin-message-composer textarea { width: 100%; min-height: 92px; padding: 13px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: var(--ivory); resize: vertical; outline: none; }
+.admin-message-composer textarea:focus { border-color: var(--plum); box-shadow: 0 0 0 3px rgba(196,175,175,.35); }
+.admin-message-composer > div { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-top: 10px; }
+.admin-message-composer .form-message { margin: 0; }
+.admin-message-composer .primary-button { width: auto; min-height: 44px; margin: 0; padding: 0 20px; }
 
 .invoice-editor-dialog { width: min(1180px, calc(100% - 24px)); max-height: calc(100dvh - 24px); border-radius: 18px; background: #eee7e3; }
 .invoice-editor-dialog form { min-width: 0; }
@@ -318,6 +369,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .review-list-row { grid-template-columns: minmax(0,1fr) auto; gap: 8px 14px; }
   .review-list-row > span:nth-child(3), .review-list-row > span:nth-child(4) { grid-column: 1; }
   .review-list-row .review-status { grid-column: 2; grid-row: 1 / span 3; justify-content: flex-end; }
+  .messages-layout { grid-template-columns: 260px minmax(430px,1fr); overflow-x: auto; }
 }
 @media (max-width: 520px) {
   .dashboard-rail { grid-template-columns: 112px 1fr; }
@@ -333,6 +385,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .detail-grid { margin-left: 22px; margin-right: 22px; }
   .detail-note { margin-left: 22px; margin-right: 22px; }
   .inquiry-management { margin-left: 22px; margin-right: 22px; padding: 20px; }
+  .client-conversation-card { margin-left: 22px; margin-right: 22px; padding: 20px; }
   .management-heading { display: block; }
   .management-heading > p { max-width: none; margin-top: 9px; text-align: left; }
   .management-grid { grid-template-columns: 1fr; }
@@ -344,6 +397,15 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .review-form-actions { grid-template-columns: 1fr; }
   .review-form-actions .primary-button { width: 100%; }
   .review-delete-button { justify-self: start; }
+  .messages-layout { display: block; overflow: visible; }
+  .thread-panel { border-right: 0; border-bottom: 1px solid var(--line); }
+  #thread-list { max-height: 310px; overflow-y: auto; }
+  .admin-conversation-placeholder { padding: 70px 24px; }
+  .admin-conversation-heading { display: block; padding: 22px 20px; }
+  .conversation-copy-link { margin-top: 15px; }
+  .admin-message-list,.admin-message-empty { height: 360px; }
+  .admin-message-list,.admin-message-composer { padding-left: 20px; padding-right: 20px; }
+  .admin-message { max-width: 90%; }
   .invoice-editor-dialog { width: 100%; max-height: 100dvh; border-radius: 0; }
   .invoice-editor-toolbar { align-items: flex-start; padding: 13px 14px; }
   .invoice-editor-toolbar > div:first-child { display: none; }
