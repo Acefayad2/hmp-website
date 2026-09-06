@@ -35,6 +35,10 @@ let messageThreads = [];
 let activeThreadId = "";
 let activeConversationUrl = "";
 let activeWorkspaceView = "inquiries";
+let dashboardSyncInProgress = false;
+let dashboardSyncTimer = 0;
+
+const DASHBOARD_SYNC_INTERVAL = 10_000;
 
 const workspaceViews = {
   inquiries: {
@@ -661,7 +665,7 @@ const renderInvoices = () => {
 };
 
 const loadInvoices = async () => {
-  const response = await fetch("/api/hmp-invoices", { credentials: "same-origin" });
+  const response = await fetch("/api/hmp-invoices", { credentials: "same-origin", cache: "no-store" });
   if (!response.ok) throw new Error("Invoice data is unavailable.");
   const data = await response.json();
   invoices = data.invoices || [];
@@ -830,15 +834,14 @@ const renderReviews = () => {
 };
 
 const loadReviews = async () => {
-  $("#sync-state").textContent = "Refreshing…";
   const response = await fetch("/api/hmp-reviews?admin=1", {
     credentials: "same-origin",
+    cache: "no-store",
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Review data is unavailable.");
   reviews = data.reviews || [];
   renderReviews();
-  $("#sync-state").textContent = `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(data.updatedAt || Date.now()))}`;
 };
 
 const openReviewEditor = (review = null) => {
@@ -1011,8 +1014,7 @@ const sendInvoice = async () => {
 };
 
 const loadDashboard = async () => {
-  $("#sync-state").textContent = "Refreshing…";
-  const response = await fetch("/api/hmp-dashboard", { credentials: "same-origin" });
+  const response = await fetch("/api/hmp-dashboard", { credentials: "same-origin", cache: "no-store" });
   if (response.status === 401) {
     await logout().catch(() => {});
     authShell.hidden = false;
@@ -1024,11 +1026,40 @@ const loadDashboard = async () => {
   const data = await response.json();
   inquiries = data.inquiries || [];
   $("#viewer-email").textContent = data.viewer?.email || "HMP Admin";
-  $("#sync-state").textContent = `Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(data.updatedAt))}`;
   renderMetrics();
   renderServiceFilter();
   renderServiceMix();
   renderInquiries();
+};
+
+const loadActiveWorkspace = () => {
+  if (activeWorkspaceView === "reviews") return loadReviews();
+  if (activeWorkspaceView === "invoices") return loadInvoices();
+  if (activeWorkspaceView === "contracts") return loadContracts();
+  if (activeWorkspaceView === "messages") return loadMessages();
+  if (activeWorkspaceView === "events") return Promise.resolve();
+  return loadDashboard();
+};
+
+const syncActiveWorkspace = async () => {
+  if (dashboardSyncInProgress || document.hidden || dashboard.hidden) return;
+  dashboardSyncInProgress = true;
+  try {
+    await loadActiveWorkspace();
+    $("#sync-state").textContent = `Live · Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date())}`;
+  } catch (error) {
+    $("#sync-state").textContent = "Reconnecting…";
+    throw error;
+  } finally {
+    dashboardSyncInProgress = false;
+  }
+};
+
+const startDashboardSync = () => {
+  window.clearInterval(dashboardSyncTimer);
+  dashboardSyncTimer = window.setInterval(() => {
+    syncActiveWorkspace().catch(() => {});
+  }, DASHBOARD_SYNC_INTERVAL);
 };
 
 const enterDashboard = async (user) => {
@@ -1043,6 +1074,8 @@ const enterDashboard = async (user) => {
   try {
     await Promise.all([loadDashboard(), loadMessages()]);
     setWorkspaceView(new URLSearchParams(location.search).get("view") || "inquiries");
+    $("#sync-state").textContent = "Live updates on";
+    startDashboardSync();
   } catch (error) {
     $("#result-count").textContent = error.message;
     $("#sync-state").textContent = "Sync unavailable";
@@ -1098,16 +1131,14 @@ passwordForm.addEventListener("submit", async (event) => {
 });
 
 $("#logout-button").addEventListener("click", async () => {
+  window.clearInterval(dashboardSyncTimer);
   await logout();
   location.reload();
 });
-$("#refresh-button").addEventListener("click", () => {
-  if (activeWorkspaceView === "reviews") return loadReviews();
-  if (activeWorkspaceView === "invoices") return loadInvoices();
-  if (activeWorkspaceView === "contracts") return loadContracts();
-  if (activeWorkspaceView === "messages") return loadMessages();
-  return loadDashboard();
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) syncActiveWorkspace().catch(() => {});
 });
+window.addEventListener("focus", () => syncActiveWorkspace().catch(() => {}));
 $("#search-input").addEventListener("input", renderInquiries);
 $("#service-filter").addEventListener("change", renderInquiries);
 document.querySelectorAll("[data-workspace-view]").forEach((link) => {

@@ -37,11 +37,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .auth-panel label { display: block; margin: 20px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .auth-panel input, .filters input, .filters select { width: 100%; min-height: 50px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: #fff; padding: 0 14px; outline: none; }
 .auth-panel input:focus, .filters input:focus, .filters select:focus { border-color: var(--plum); box-shadow: 0 0 0 3px rgba(196,175,175,.35); }
-.primary-button, .refresh-button { border: 0; border-radius: 999px; color: #fff; background: var(--plum); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; transition: transform .18s ease, background .18s ease; }
+.primary-button { border: 0; border-radius: 999px; color: #fff; background: var(--plum); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; transition: transform .18s ease, background .18s ease; }
 .primary-button { width: 100%; min-height: 54px; margin-top: 28px; }
-.primary-button:hover, .refresh-button:hover { background: var(--plum-deep); }
-.primary-button:active, .refresh-button:active { transform: scale(.98); }
-.primary-button:focus-visible, .refresh-button:focus-visible, .text-button:focus-visible, .rail-link:focus-visible, .inquiry-row:focus-visible { outline: 3px solid rgba(182,124,66,.5); outline-offset: 3px; }
+.primary-button:hover { background: var(--plum-deep); }
+.primary-button:active { transform: scale(.98); }
+.primary-button:focus-visible, .text-button:focus-visible, .rail-link:focus-visible, .inquiry-row:focus-visible { outline: 3px solid rgba(182,124,66,.5); outline-offset: 3px; }
 .primary-button:disabled { opacity: .55; cursor: wait; }
 .text-button { display: block; margin: 18px auto 0; border: 0; color: var(--plum); background: transparent; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .form-message { min-height: 24px; margin: 18px 0 0; color: #8b2d3d; font-size: 13px; }
@@ -65,7 +65,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .header-actions { display: flex; align-items: center; gap: 14px; }
 .sync-state { color: #526453; font-size: 12px; }
 .sync-state::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #708974; }
-.refresh-button { min-height: 42px; padding: 0 20px; }
 
 .metrics { display: grid; grid-template-columns: 1.15fr repeat(3, 1fr); gap: 12px; margin: 38px 0 22px; }
 .metric { min-height: 158px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.65); }
