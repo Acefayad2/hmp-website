@@ -716,6 +716,9 @@ const saveReview = async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
+  const addAnotherService = event.submitter?.id === "save-another-review";
+  const reviewerName = $("#review-name").value.trim();
+  const reviewerRole = $("#review-role").value.trim();
   const buttons = form.querySelectorAll("button");
   buttons.forEach((button) => { button.disabled = true; });
   setMessage($("#review-editor-message"), "Saving review…");
@@ -732,10 +735,23 @@ const saveReview = async (event) => {
     reviews = [saved, ...reviews.filter((review) => review.id !== saved.id)].sort(
       (a, b) => Number(a.displayOrder) - Number(b.displayOrder),
     );
-    activeReviewId = saved.id;
-    $("#delete-review").hidden = false;
     renderReviews();
-    setMessage($("#review-editor-message"), "Review saved and website content updated.", true);
+    if (addAnotherService) {
+      activeReviewId = "";
+      form.reset();
+      $("#review-editor-title").textContent = "Add another service review";
+      $("#review-name").value = reviewerName;
+      $("#review-role").value = reviewerRole;
+      $("#review-rating").value = "5";
+      $("#review-order").value = Math.max(0, ...reviews.map((item) => Number(item.displayOrder) || 0)) + 10;
+      $("#delete-review").hidden = true;
+      setMessage($("#review-editor-message"), "Review saved. Choose the client’s next service and enter their separate review.", true);
+      $("#review-service").focus();
+    } else {
+      activeReviewId = saved.id;
+      $("#delete-review").hidden = false;
+      setMessage($("#review-editor-message"), "Review saved and website content updated.", true);
+    }
   } catch (error) {
     setMessage($("#review-editor-message"), error.message || "Review could not be saved.");
   } finally {

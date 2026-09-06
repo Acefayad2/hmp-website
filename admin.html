@@ -393,7 +393,7 @@
           <div>
             <p class="kicker">Website review</p>
             <h2 id="review-editor-title">Add review</h2>
-            <p>Published reviews appear in the moving section on the homepage.</p>
+            <p>Published reviews appear in the moving section on the homepage. For clients who booked multiple services, save one review per service.</p>
           </div>
           <button id="close-review-editor" type="button">Close</button>
         </div>
@@ -412,7 +412,10 @@
           <div class="review-form-actions">
             <button class="review-delete-button" id="delete-review" type="button" hidden>Delete review</button>
             <p class="form-message" id="review-editor-message" role="status"></p>
-            <button class="primary-button" type="submit">Save review</button>
+            <div class="review-save-actions">
+              <button class="review-another-button" id="save-another-review" type="submit">Save &amp; add another service</button>
+              <button class="primary-button" type="submit">Save review</button>
+            </div>
           </div>
         </div>
       </form>

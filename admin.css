@@ -315,6 +315,11 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .review-form-actions { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; margin-top: 24px; }
 .review-form-actions .form-message { margin: 0; }
 .review-form-actions .primary-button { width: auto; min-height: 48px; margin: 0; padding: 0 22px; }
+.review-save-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.review-another-button { min-height: 48px; padding: 0 18px; border: 1px solid var(--plum); border-radius: 999px; color: var(--plum); background: transparent; cursor: pointer; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.review-another-button:hover { background: rgba(115,73,73,.08); }
+.review-another-button:focus-visible { outline: 3px solid rgba(182,124,66,.5); outline-offset: 3px; }
+.review-another-button:disabled { opacity: .55; cursor: wait; }
 .review-delete-button { border: 0; color: #8b2d3d; background: transparent; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 
 @media (max-width: 1700px) {
@@ -398,6 +403,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .review-copy-field { grid-column: auto; }
   .review-form-actions { grid-template-columns: 1fr; }
   .review-form-actions .primary-button { width: 100%; }
+  .review-save-actions { display: grid; justify-content: stretch; }
+  .review-another-button { width: 100%; padding: 0 14px; }
   .review-delete-button { justify-self: start; }
   .messages-layout { display: block; overflow: visible; }
   .thread-panel { border-right: 0; border-bottom: 1px solid var(--line); }
