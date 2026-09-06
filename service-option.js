@@ -13,7 +13,7 @@ const offeringDetails = {
       "Coordinated setup for a polished visual moment",
       "Designed to complement the celebration atmosphere",
     ],
-    image: "/assets/celebration-accessories-hero-v2.webp",
+    image: "/assets/gallery-details-v2.webp",
     imageAlt: "Burgundy and ivory celebration accessories arranged with candles and mirrored details",
   },
   "money-guns": {
@@ -30,7 +30,7 @@ const offeringDetails = {
       "Easy to incorporate into planned event moments",
       "Pairs naturally with Money Table Services",
     ],
-    image: "/assets/celebration-accessories-hero-v2.webp",
+    image: "/assets/gallery-reception-v2.webp",
     imageAlt: "Luxury celebration accessories with floral styling and reflective party details",
   },
   "celebration-kit": {
@@ -81,7 +81,7 @@ const offeringDetails = {
       "Customized Premium LED Signage",
       "27-inch or 32-inch display options",
     ],
-    image: "/assets/hmp-hero-welcome.webp",
+    image: "/assets/modern-guest-arrival.webp",
     imageAlt: "Premium guest arrival display at an elegant celebration entrance",
   },
   "guest-directory": {
@@ -98,7 +98,7 @@ const offeringDetails = {
       "Customized Premium LED Signage",
       "Clear guest direction from arrival to reception",
     ],
-    image: "/assets/hmp-hero-welcome.webp",
+    image: "/assets/gallery-arrival-v2.webp",
     imageAlt: "Interactive guest seating directory presented on premium event signage",
   },
   "arrival-directory": {
@@ -132,7 +132,7 @@ const offeringDetails = {
       "Dedicated Money Associate",
       "Four-hour service minimum",
     ],
-    image: "/assets/money-machine-table.webp",
+    image: "/assets/modern-money-table.webp",
     imageAlt: "Professional cash-counting machine arranged on an elegant event service table",
   },
   "money-collecting": {
@@ -149,7 +149,7 @@ const offeringDetails = {
       "Designated storage bags",
       "Four-hour service minimum",
     ],
-    image: "/assets/money-machine-table.webp",
+    image: "/assets/modern-reception.webp",
     imageAlt: "Organized money service table prepared for collection support",
   },
   "money-changing": {
@@ -166,7 +166,7 @@ const offeringDetails = {
       "Dedicated Money Associate",
       "Four-hour service minimum",
     ],
-    image: "/assets/money-machine-table.webp",
+    image: "/assets/hmp-hero.webp",
     imageAlt: "Elegant money table setup for organized guest denomination exchanges",
   },
   "changing-collecting": {
@@ -194,17 +194,21 @@ const offering = offeringDetails[offeringKey];
 if (!offering) {
   window.location.replace("/services");
 } else {
-  const inquiryUrl = `/inquiry?service=${encodeURIComponent(offering.category)}`;
+  const inquiryUrl = `/inquiry?service=${encodeURIComponent(offering.category)}&service-option=${encodeURIComponent(offering.title)}`;
   const pageTitle = `${offering.title} | HMP`;
-  const pageUrl = window.location.href;
+  const pageUrl = `${window.location.origin}${window.location.pathname}`;
+  const socialImageUrl = new URL(offering.image, window.location.origin).href;
 
   document.title = pageTitle;
   document.querySelector('meta[name="description"]')?.setAttribute("content", offering.summary);
   document.querySelector('meta[property="og:title"]')?.setAttribute("content", pageTitle);
   document.querySelector('meta[property="og:description"]')?.setAttribute("content", offering.summary);
   document.querySelector('meta[property="og:url"]')?.setAttribute("content", pageUrl);
+  document.querySelector('meta[property="og:image"]')?.setAttribute("content", socialImageUrl);
   document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", pageTitle);
   document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", offering.summary);
+  document.querySelector('meta[name="twitter:image"]')?.setAttribute("content", socialImageUrl);
+  document.querySelector("#option-canonical")?.setAttribute("href", pageUrl);
 
   document.querySelector("#option-category").textContent = offering.category;
   document.querySelector("#option-title").textContent = offering.title;

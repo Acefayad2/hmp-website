@@ -517,6 +517,9 @@ document.querySelectorAll("[data-service-carousel]").forEach((carousel) => {
 });
 
 const reviewsTrack = document.querySelector("#reviews-track");
+const reviewsMarquee = document.querySelector("[data-reviews-marquee]");
+const reviewsSection = reviewsTrack?.closest(".reviews-section");
+const reviewsStatus = document.querySelector("#reviews-status");
 
 const createReviewCard = (review, duplicate = false) => {
   const card = document.createElement("article");
@@ -571,7 +574,18 @@ const syncReviewsMarquee = () => {
 };
 
 const renderReviews = (reviews) => {
-  if (!reviewsTrack || !reviews.length) return;
+  if (!reviewsTrack || !reviews.length) {
+    reviewsSection?.classList.add("is-empty");
+    if (reviewsMarquee) reviewsMarquee.hidden = true;
+    if (reviewsStatus) {
+      reviewsStatus.textContent = "Client stories are coming soon.";
+      reviewsStatus.hidden = false;
+    }
+    return;
+  }
+  reviewsSection?.classList.remove("is-empty");
+  if (reviewsMarquee) reviewsMarquee.hidden = false;
+  if (reviewsStatus) reviewsStatus.hidden = true;
   const approximateCardWidth = window.matchMedia("(max-width: 760px)").matches ? 306 : 370;
   const minimumCards = Math.ceil(
     ((window.innerWidth + approximateCardWidth * 2) * 2) / approximateCardWidth,
@@ -609,10 +623,11 @@ if (reviewsTrack) {
     })
     .then((data) => renderReviews(data.reviews || []))
     .catch(() => {
-      const status = document.querySelector("#reviews-status");
-      if (status) {
-        status.textContent = "Current reviews will be available again shortly.";
-        status.hidden = false;
+      reviewsSection?.classList.add("is-empty");
+      if (reviewsMarquee) reviewsMarquee.hidden = true;
+      if (reviewsStatus) {
+        reviewsStatus.textContent = "Current reviews will be available again shortly.";
+        reviewsStatus.hidden = false;
       }
     });
 }

@@ -1512,6 +1512,9 @@ textarea:focus {
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 2.5%, #000 97.5%, transparent);
 }
 
+.reviews-marquee[hidden] { display: none; }
+.reviews-section.is-empty { min-height: 0; }
+
 .reviews-track {
   display: flex;
   gap: 28px;
