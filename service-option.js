@@ -195,20 +195,65 @@ if (!offering) {
   window.location.replace("/services");
 } else {
   const inquiryUrl = `/inquiry?service=${encodeURIComponent(offering.category)}&service-option=${encodeURIComponent(offering.title)}`;
-  const pageTitle = `${offering.title} | HMP`;
-  const pageUrl = `${window.location.origin}${window.location.pathname}`;
-  const socialImageUrl = new URL(offering.image, window.location.origin).href;
+  const pageTitle = `${offering.title} in Maryland | HMP`;
+  const pageUrl = `https://hmpeds.com${window.location.pathname}`;
+  const socialImageUrl = new URL(offering.image, "https://hmpeds.com").href;
+  const pageDescription = `${offering.summary} Available from HMP Luxury Event Services in Maryland.`;
 
   document.title = pageTitle;
-  document.querySelector('meta[name="description"]')?.setAttribute("content", offering.summary);
+  document.querySelector('meta[name="description"]')?.setAttribute("content", pageDescription);
   document.querySelector('meta[property="og:title"]')?.setAttribute("content", pageTitle);
-  document.querySelector('meta[property="og:description"]')?.setAttribute("content", offering.summary);
+  document.querySelector('meta[property="og:description"]')?.setAttribute("content", pageDescription);
   document.querySelector('meta[property="og:url"]')?.setAttribute("content", pageUrl);
   document.querySelector('meta[property="og:image"]')?.setAttribute("content", socialImageUrl);
+  document.querySelector('meta[property="og:image:alt"]')?.setAttribute("content", offering.imageAlt);
   document.querySelector('meta[name="twitter:title"]')?.setAttribute("content", pageTitle);
-  document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", offering.summary);
+  document.querySelector('meta[name="twitter:description"]')?.setAttribute("content", pageDescription);
   document.querySelector('meta[name="twitter:image"]')?.setAttribute("content", socialImageUrl);
+  document.querySelector('meta[name="twitter:image:alt"]')?.setAttribute("content", offering.imageAlt);
   document.querySelector("#option-canonical")?.setAttribute("href", pageUrl);
+
+  const schema = document.createElement("script");
+  schema.type = "application/ld+json";
+  schema.textContent = JSON.stringify({
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Service",
+        "@id": `${pageUrl}#service`,
+        name: offering.title,
+        description: pageDescription,
+        url: pageUrl,
+        image: socialImageUrl,
+        serviceType: offering.title,
+        category: offering.category,
+        provider: {
+          "@type": ["Organization", "ProfessionalService"],
+          "@id": "https://hmpeds.com/#organization",
+          name: "HMP Luxury Event Services",
+          url: "https://hmpeds.com/",
+          telephone: "+1-301-471-0990",
+          address: {
+            "@type": "PostalAddress",
+            addressLocality: "Laurel",
+            addressRegion: "MD",
+            addressCountry: "US",
+          },
+        },
+        areaServed: { "@type": "State", name: "Maryland" },
+      },
+      {
+        "@type": "BreadcrumbList",
+        itemListElement: [
+          { "@type": "ListItem", position: 1, name: "Home", item: "https://hmpeds.com/" },
+          { "@type": "ListItem", position: 2, name: "Services", item: "https://hmpeds.com/services" },
+          { "@type": "ListItem", position: 3, name: offering.category, item: `https://hmpeds.com${offering.parentUrl}` },
+          { "@type": "ListItem", position: 4, name: offering.title, item: pageUrl },
+        ],
+      },
+    ],
+  });
+  document.head.append(schema);
 
   document.querySelector("#option-category").textContent = offering.category;
   document.querySelector("#option-title").textContent = offering.title;

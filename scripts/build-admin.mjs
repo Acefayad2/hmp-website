@@ -18,6 +18,7 @@ const productionFiles = [
   "conversation.js",
   "service-option.html",
   "service-option.js",
+  "seo-schema.js",
   "privacy.html",
   "404.html",
   "styles.css",
