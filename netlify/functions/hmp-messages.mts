@@ -52,6 +52,7 @@ const getDatabase = () => {
 const sendReplyNotification = async (
   inquiry: Record<string, unknown>,
   conversation: Record<string, unknown>,
+  messageId: string,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
   const from =
@@ -66,7 +67,11 @@ const sendReplyNotification = async (
   );
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": `hmp-admin-message/${messageId}`,
+    },
     body: JSON.stringify({
       from,
       to: [recipient],
@@ -218,6 +223,10 @@ export default async (request: Request, _context: Context) => {
   if (action === "send") {
     const conversationId = cleanText(body.conversationId, 36);
     const message = cleanText(body.message, 4000);
+    const suppliedRequestId = cleanText(body.requestId, 36);
+    const requestId = uuidPattern.test(suppliedRequestId)
+      ? suppliedRequestId
+      : crypto.randomUUID();
     if (!uuidPattern.test(conversationId) || !message) return json({ error: "Enter a message" }, 400);
     const { data: conversation } = await client
       .from("hmp_client_conversations")
@@ -233,12 +242,22 @@ export default async (request: Request, _context: Context) => {
     const now = new Date().toISOString();
     const { data: inserted, error } = await client
       .from("hmp_client_messages")
-      .insert({ conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message })
+      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message })
       .select("id,sender,sender_name,body,created_at")
       .single();
-    if (error) return json({ error: "Message could not be sent" }, 502);
+    if (error?.code === "23505") {
+      const { data: existing } = await client
+        .from("hmp_client_messages")
+        .select("id,sender,sender_name,body,created_at")
+        .eq("id", requestId)
+        .eq("conversation_id", conversationId)
+        .eq("sender", "admin")
+        .maybeSingle();
+      if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, createdAt: existing.created_at }, notified: false });
+    }
+    if (error || !inserted) return json({ error: "Message could not be sent" }, 502);
     await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
-    const notified = inquiry ? await sendReplyNotification(inquiry, conversation).catch(() => false) : false;
+    const notified = inquiry ? await sendReplyNotification(inquiry, conversation, inserted.id).catch(() => false) : false;
     return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, createdAt: inserted.created_at }, notified });
   }
 

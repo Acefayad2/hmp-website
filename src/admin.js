@@ -493,6 +493,7 @@ const sendAdminMessage = async (event) => {
   const input = $("#admin-message-input");
   const message = input.value.trim();
   if (!message) return;
+  const requestId = globalThis.crypto?.randomUUID?.();
   const button = event.currentTarget.querySelector("button[type=submit]");
   button.disabled = true;
   setMessage($("#admin-message-status"), "Sending reply…");
@@ -501,7 +502,7 @@ const sendAdminMessage = async (event) => {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send", conversationId: activeThreadId, message }),
+      body: JSON.stringify({ action: "send", conversationId: activeThreadId, message, requestId }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Reply could not be sent.");
