@@ -200,6 +200,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-conversation-heading h3 { margin: 0; font: 600 31px/1 var(--serif); }
 .admin-conversation-heading p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
 .conversation-copy-link { border-color: var(--line); color: var(--plum); }
+.conversation-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.conversation-heading-actions .primary-button { width: auto; min-height: 42px; margin: 0; padding: 0 17px; }
 .admin-message-list { display: flex; flex-direction: column; gap: 13px; height: 395px; overflow-y: auto; padding: 25px 28px; }
 .admin-message { max-width: 78%; padding: 14px 16px; border-radius: 15px 15px 15px 4px; background: #f0e3df; }
 .admin-message.admin { align-self: flex-end; border-radius: 15px 15px 4px 15px; color: #fff; background: var(--plum); }
@@ -403,6 +405,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .admin-conversation-placeholder { padding: 70px 24px; }
   .admin-conversation-heading { display: block; padding: 22px 20px; }
   .conversation-copy-link { margin-top: 15px; }
+  .conversation-heading-actions { justify-content: flex-start; }
+  .conversation-heading-actions .conversation-copy-link { margin-top: 15px; }
+  .conversation-heading-actions .primary-button { margin-top: 15px; }
   .admin-message-list,.admin-message-empty { height: 360px; }
   .admin-message-list,.admin-message-composer { padding-left: 20px; padding-right: 20px; }
   .admin-message { max-width: 90%; }

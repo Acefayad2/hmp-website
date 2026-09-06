@@ -447,6 +447,46 @@ const createConversationLink = async () => {
   }
 };
 
+const sendNewConversationLink = async (inquiryId, statusElement) => {
+  const inquiry = inquiries.find((candidate) => candidate.id === inquiryId);
+  const thread = messageThreads.find((candidate) => candidate.inquiryId === inquiryId);
+  const clientName = inquiry?.name || thread?.clientName || "this client";
+  const clientEmail = inquiry?.email || thread?.clientEmail || "";
+  if (!clientEmail) {
+    setMessage(statusElement, "Add a client email before sending a new link.");
+    return;
+  }
+  if (!window.confirm(`Send a new private conversation link to ${clientName} at ${clientEmail}? The previous link will stop working.`)) return;
+
+  const buttons = document.querySelectorAll("#send-new-conversation-link, #send-new-active-link");
+  buttons.forEach((button) => { button.disabled = true; });
+  setMessage(statusElement, "Creating and emailing a new private link…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send-link", inquiryId }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "New link could not be created.");
+    activeConversationUrl = data.clientUrl;
+    await loadMessages();
+    $("#copy-conversation-link").hidden = false;
+    $("#open-conversation").hidden = false;
+    $("#create-conversation-link").textContent = "Renew private link";
+    if (data.emailed) {
+      setMessage(statusElement, `A new private link was emailed to ${clientEmail}.`, true);
+    } else {
+      setMessage(statusElement, "The new link was created, but email delivery failed. Copy the link and send it manually.");
+    }
+  } catch (error) {
+    setMessage(statusElement, error.message || "New link could not be sent.");
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+  }
+};
+
 const sendAdminMessage = async (event) => {
   event.preventDefault();
   if (!activeThreadId) return;
@@ -923,6 +963,9 @@ $("#copy-conversation-link").addEventListener("click", async () => {
     setMessage($("#conversation-link-message"), error.message || "Link could not be copied.");
   }
 });
+$("#send-new-conversation-link").addEventListener("click", () => {
+  if (activeInquiryId) sendNewConversationLink(activeInquiryId, $("#conversation-link-message"));
+});
 $("#open-conversation").addEventListener("click", () => {
   const thread = messageThreads.find((candidate) => candidate.inquiryId === activeInquiryId);
   if (!thread) return;
@@ -946,6 +989,10 @@ $("#copy-active-link").addEventListener("click", async () => {
   } catch (error) {
     setMessage($("#admin-message-status"), error.message || "Link could not be copied.");
   }
+});
+$("#send-new-active-link").addEventListener("click", () => {
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"));
 });
 
 $("#create-invoice-button").addEventListener("click", () => openInvoiceEditor());
