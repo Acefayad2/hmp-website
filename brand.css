@@ -174,8 +174,8 @@ h3,
   height: auto;
   max-height: 72px;
   justify-self: center;
-  clip-path: inset(0 0 20% 0);
-  transform: translateY(5px) scale(1.05);
+  clip-path: inset(0 0 10% 0);
+  transform: translateY(0) scale(0.98);
   filter: drop-shadow(0 4px 7px rgba(96, 69, 69, 0.2)) contrast(1.08);
 }
 
@@ -1277,7 +1277,7 @@ textarea:focus {
   .inner-page .site-header .brand-logo {
     width: 96px;
     max-height: 62px;
-    transform: translateY(4px) scale(1.04);
+    transform: translateY(0) scale(0.98);
   }
 
   .site-header nav,

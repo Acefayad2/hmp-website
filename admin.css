@@ -50,7 +50,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .dashboard { min-height: 100dvh; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
 .dashboard-rail { position: sticky; top: 0; height: 100dvh; min-width: 0; overflow: hidden; display: flex; flex-direction: column; padding: 24px 18px; color: var(--ivory); background: var(--plum-deep); }
 .rail-logo { display: inline-flex; width: 168px; height: 84px; flex: 0 0 auto; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; background: var(--ivory); }
-.rail-logo img { width: 168px; max-width: none; height: 124px; object-fit: cover; object-position: center 38%; border-radius: 0; transform: translateY(18px); }
+.rail-logo img { width: 100%; height: 100%; padding: 2px; object-fit: contain; object-position: center; border-radius: 0; transform: none; }
 .rail-label { margin: 38px 10px 14px; color: rgba(255,248,241,.5); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
 .rail-link { display: block; margin: 4px 0; padding: 12px; border-radius: 10px; color: rgba(255,248,241,.7); text-decoration: none; transition: background .18s ease, color .18s ease; }
 .rail-link:hover, .rail-link.active { color: #fff; background: rgba(255,255,255,.1); }
@@ -340,7 +340,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .dashboard { display: block; }
   .dashboard-rail { position: static; width: 100%; height: auto; display: grid; grid-template-columns: 120px 1fr auto; align-items: center; gap: 18px; padding: 14px 18px; }
   .rail-logo { width: 120px; height: 62px; }
-  .rail-logo img { width: 120px; height: 88px; }
+  .rail-logo img { width: 100%; height: 100%; }
   .dashboard-rail > div:not(.rail-footer) { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .dashboard-rail > div:not(.rail-footer)::-webkit-scrollbar { display: none; }
   .rail-label { display: none; }
@@ -381,7 +381,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 @media (max-width: 520px) {
   .dashboard-rail { grid-template-columns: 112px 1fr; }
   .rail-logo { width: 112px; height: 58px; }
-  .rail-logo img { width: 112px; height: 82px; }
+  .rail-logo img { width: 100%; height: 100%; }
   .rail-footer { display: none; }
   .dashboard-header { display: block; }
   .header-actions { margin-top: 20px; }
