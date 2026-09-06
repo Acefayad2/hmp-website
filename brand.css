@@ -622,6 +622,23 @@ button[type="submit"]:hover {
   letter-spacing: -0.025em;
 }
 
+.about-page .principle h3 {
+  margin: 0;
+  font: italic 500 clamp(21px, 1.8vw, 24px)/1.18 var(--serif);
+  letter-spacing: -0.015em;
+}
+
+.about-page .principle p {
+  margin-top: 7px;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+@media (max-width: 800px) {
+  .about-page .principle h3 { font-size: 20px; }
+  .about-page .principle p { font-size: 13px; }
+}
+
 .decor-gallery,
 .principles,
 .service-flow,
