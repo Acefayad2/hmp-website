@@ -521,11 +521,15 @@ button[type="submit"]:hover {
 }
 
 .celebration-accessories-page .page-cta > div,
-.celebration-accessories-page .page-cta h2,
 .celebration-accessories-page .page-cta-note,
-.guest-seating-page .page-cta h2 {
+.service-detail-page .page-cta h2 {
   width: 100%;
   max-width: none;
+}
+
+.service-detail-page .page-cta h2 {
+  font-style: italic;
+  text-wrap: balance;
 }
 
 .guest-seating-page .price-card,
