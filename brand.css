@@ -1462,10 +1462,18 @@ textarea:focus {
   position: absolute;
   z-index: -2;
   inset: -12px;
-  background: url("assets/gallery-details-v2.webp") center 48% / cover no-repeat;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(198, 155, 98, 0.16), transparent 32%),
+    radial-gradient(circle at 84% 76%, rgba(138, 90, 93, 0.2), transparent 36%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(255, 249, 243, 0.025) 0,
+      rgba(255, 249, 243, 0.025) 1px,
+      transparent 1px,
+      transparent 86px
+    ),
+    #2d2022;
   content: "";
-  filter: grayscale(.82) contrast(1.08);
-  transform: scale(1.025);
   pointer-events: none;
 }
 
