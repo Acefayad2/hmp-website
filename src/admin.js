@@ -24,6 +24,9 @@ let invoices = [];
 let invoiceItems = [];
 let activeInvoiceId = "";
 let invoiceEmailConfigured = false;
+let contracts = [];
+let activeContractId = "";
+let contractEmailConfigured = false;
 let inviteToken = "";
 let activeInquiryId = "";
 let reviews = [];
@@ -42,6 +45,9 @@ const workspaceViews = {
   },
   invoices: {
     title: "Invoices",
+  },
+  contracts: {
+    title: "Contracts",
   },
   events: {
     title: "Events",
@@ -91,6 +97,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const isInquiries = view === "inquiries";
   const isMessages = view === "messages";
   const isInvoices = view === "invoices";
+  const isContracts = view === "contracts";
   const isReviews = view === "reviews";
   activeWorkspaceView = view;
 
@@ -99,9 +106,10 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $(".dashboard-grid").hidden = !isInquiries;
   $("#messages-workspace").hidden = !isMessages;
   $("#invoice-workspace").hidden = !isInvoices;
+  $("#contract-workspace").hidden = !isContracts;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isInvoices || isReviews;
-  if (!isInquiries && !isMessages && !isInvoices && !isReviews) {
+  $("#workspace-empty").hidden = isInquiries || isMessages || isInvoices || isContracts || isReviews;
+  if (!isInquiries && !isMessages && !isInvoices && !isContracts && !isReviews) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
@@ -111,6 +119,13 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
       $("#invoice-empty").hidden = false;
       $("#invoice-empty h3").textContent = "Invoices unavailable";
       $("#invoice-empty p").textContent = error.message;
+    });
+  }
+  if (isContracts) {
+    loadContracts().catch((error) => {
+      $("#contract-empty").hidden = false;
+      $("#contract-empty h3").textContent = "Contracts unavailable";
+      $("#contract-empty p").textContent = error.message;
     });
   }
   if (isMessages) {
@@ -655,6 +670,146 @@ const loadInvoices = async () => {
   renderInvoices();
 };
 
+const contractFormFields = {
+  status: "#contract-status",
+  clientName: "#contract-client-name",
+  clientEmail: "#contract-client-email",
+  clientPhone: "#contract-client-phone",
+  clientAddress: "#contract-client-address",
+  effectiveDate: "#contract-effective-date",
+  eventName: "#contract-event-name",
+  eventDate: "#contract-event-date",
+  eventLocation: "#contract-event-location",
+  services: "#contract-services",
+  scopeOfWork: "#contract-scope",
+  totalAmount: "#contract-total-amount",
+  retainerAmount: "#contract-retainer-amount",
+  paymentTerms: "#contract-payment-terms",
+  cancellationTerms: "#contract-cancellation-terms",
+  additionalTerms: "#contract-additional-terms",
+  hmpSignatureName: "#contract-hmp-signature-name",
+  hmpSignedAt: "#contract-hmp-signed-at",
+  clientSignatureName: "#contract-client-signature-name",
+  clientSignedAt: "#contract-client-signed-at",
+};
+
+const openContractEditor = (contract = null) => {
+  activeContractId = contract?.id || "";
+  const values = contract || {
+    status: "Draft",
+    effectiveDate: localDateValue(),
+    totalAmount: 0,
+    retainerAmount: 0,
+    hmpSignatureName: "HMP Luxury Event Services",
+  };
+  Object.entries(contractFormFields).forEach(([key, selector]) => {
+    $(selector).value = values[key] ?? "";
+  });
+  $("#editor-contract-number").textContent = contract?.contractNumber || "New contract";
+  $("#contract-number-display").textContent = contract?.contractNumber || "Draft";
+  $("#send-contract").textContent = contract?.status === "Sent" ? "Send again" : "Send contract";
+  setMessage($("#contract-editor-message"), "");
+  $("#contract-editor-dialog").showModal();
+};
+
+const contractPayload = () => ({
+  ...(activeContractId ? { id: activeContractId } : {}),
+  ...Object.fromEntries(
+    Object.entries(contractFormFields).map(([key, selector]) => [key, $(selector).value]),
+  ),
+});
+
+const renderContracts = () => {
+  const list = $("#contract-list");
+  const empty = $("#contract-empty");
+  empty.hidden = contracts.length > 0;
+  list.hidden = contracts.length === 0;
+  list.innerHTML = contracts
+    .map(
+      (contract) => `
+        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}">
+          <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
+          <span><strong>${escapeHTML(contract.clientName)}</strong><small>${escapeHTML(contract.clientEmail)}</small></span>
+          <span>${escapeHTML(formatDate(contract.eventDate))}</span>
+          <span class="invoice-list-total">${formatMoney(contract.totalAmount)}</span>
+          <span class="status-pill">${escapeHTML(contract.status)}</span>
+        </button>`,
+    )
+    .join("");
+};
+
+const loadContracts = async () => {
+  const response = await fetch("/api/hmp-contracts", { credentials: "same-origin", cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Contract data is unavailable.");
+  contracts = data.contracts || [];
+  contractEmailConfigured = Boolean(data.emailConfigured);
+  $("#contract-email-setup-notice").hidden = contractEmailConfigured;
+  renderContracts();
+};
+
+const saveContract = async ({ quiet = false } = {}) => {
+  const form = $("#contract-form");
+  if (!form.reportValidity()) return null;
+  const buttons = form.querySelectorAll("button");
+  buttons.forEach((button) => { button.disabled = true; });
+  if (!quiet) setMessage($("#contract-editor-message"), "Saving contract…");
+  try {
+    const response = await fetch("/api/hmp-contracts", {
+      method: activeContractId ? "PATCH" : "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(contractPayload()),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Contract could not be saved.");
+    activeContractId = data.contract.id;
+    contracts = [data.contract, ...contracts.filter((item) => item.id !== data.contract.id)];
+    $("#editor-contract-number").textContent = data.contract.contractNumber;
+    $("#contract-number-display").textContent = data.contract.contractNumber;
+    renderContracts();
+    if (!quiet) setMessage($("#contract-editor-message"), "Contract saved.", true);
+    return data.contract;
+  } catch (error) {
+    setMessage($("#contract-editor-message"), error.message || "Contract could not be saved.");
+    return null;
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+  }
+};
+
+const sendContract = async () => {
+  const saved = await saveContract({ quiet: true });
+  if (!saved) return;
+  const recipient = $("#contract-client-email").value.trim();
+  if (!contractEmailConfigured) {
+    setMessage($("#contract-editor-message"), "Contract saved. Email delivery still needs a verified HMP sender.");
+    return;
+  }
+  if (!window.confirm(`Send ${saved.contractNumber} to ${recipient}?`)) return;
+  const button = $("#send-contract");
+  button.disabled = true;
+  setMessage($("#contract-editor-message"), `Sending contract to ${recipient}…`);
+  try {
+    const response = await fetch("/api/hmp-contracts/send", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: saved.id, recipient, requestId: crypto.randomUUID() }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Contract email could not be sent.");
+    await loadContracts();
+    $("#contract-status").value = "Sent";
+    $("#send-contract").textContent = "Send again";
+    setMessage($("#contract-editor-message"), `Contract sent to ${recipient}.`, true);
+  } catch (error) {
+    setMessage($("#contract-editor-message"), error.message || "Contract email could not be sent.");
+  } finally {
+    button.disabled = false;
+  }
+};
+
 const renderReviews = () => {
   const list = $("#review-list");
   const empty = $("#review-empty");
@@ -949,6 +1104,7 @@ $("#logout-button").addEventListener("click", async () => {
 $("#refresh-button").addEventListener("click", () => {
   if (activeWorkspaceView === "reviews") return loadReviews();
   if (activeWorkspaceView === "invoices") return loadInvoices();
+  if (activeWorkspaceView === "contracts") return loadContracts();
   if (activeWorkspaceView === "messages") return loadMessages();
   return loadDashboard();
 });
@@ -1051,6 +1207,29 @@ $("#invoice-list").addEventListener("click", (event) => {
 });
 $("#invoice-editor-dialog").addEventListener("click", (event) => {
   if (event.target === $("#invoice-editor-dialog")) $("#invoice-editor-dialog").close();
+});
+
+$("#create-contract-button").addEventListener("click", () => openContractEditor());
+$("#empty-create-contract").addEventListener("click", () => openContractEditor());
+$("#close-contract-editor").addEventListener("click", () => $("#contract-editor-dialog").close());
+$("#print-contract").addEventListener("click", () => {
+  document.body.classList.add("printing-contract");
+  window.print();
+  document.body.classList.remove("printing-contract");
+});
+$("#send-contract").addEventListener("click", sendContract);
+$("#contract-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await saveContract();
+});
+$("#contract-list").addEventListener("click", (event) => {
+  const row = event.target.closest("[data-contract-id]");
+  if (!row) return;
+  const contract = contracts.find((candidate) => candidate.id === row.dataset.contractId);
+  if (contract) openContractEditor(contract);
+});
+$("#contract-editor-dialog").addEventListener("click", (event) => {
+  if (event.target === $("#contract-editor-dialog")) $("#contract-editor-dialog").close();
 });
 
 $("#create-review-button").addEventListener("click", () => openReviewEditor());

@@ -276,6 +276,28 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .invoice-document-footer { display: flex; justify-content: space-between; gap: 24px; margin-top: 75px; padding-top: 20px; border-top: 1px solid var(--plum); color: var(--muted); font-size: 11px; }
 .invoice-document-footer p { margin: 0; }
 
+.contract-document-title { margin: 42px 0 8px; font: 600 40px/1 var(--serif); letter-spacing: -.025em; }
+.contract-intro { max-width: 690px; margin: 0; color: var(--muted); line-height: 1.65; }
+.contract-parties { padding-top: 32px; }
+.contract-section { padding: 28px 0; border-top: 1px solid var(--line); }
+.contract-section > label { display: block; }
+.contract-section > label + label { margin-top: 22px; }
+.contract-section label > span, .contract-financial-grid label > span:first-child, .contract-signatures label > span { display: block; margin: 0 0 7px; color: var(--muted); font-size: 8px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.contract-section input, .contract-section textarea, .contract-signatures input { border-color: var(--line); }
+.contract-section input { padding: 0 10px; }
+.contract-financial-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 22px; padding: 24px; border-radius: 14px; background: var(--rose); }
+.contract-financial-grid > label { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.contract-financial-grid .money-input { background: #fffaf5; }
+.contract-terms-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 22px; margin-top: 28px; }
+.contract-terms-grid > label + label { margin-top: 0; }
+.contract-terms-grid > label:last-child { grid-column: 1 / -1; }
+.contract-acceptance { margin-top: 10px; padding: 26px; border: 1px solid var(--plum); border-radius: 14px; }
+.contract-acceptance > p { margin: 0 0 25px; line-height: 1.65; }
+.contract-signatures { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 34px; }
+.contract-signatures > div { padding-top: 18px; border-top: 1px solid var(--plum); }
+.contract-signatures label + label { display: block; margin-top: 14px; }
+.contract-acceptance > small { display: block; margin-top: 22px; color: var(--muted); line-height: 1.5; }
+
 .reviews-workspace { margin-top: 38px; }
 .review-admin-note { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid rgba(182,124,66,.32); border-radius: 13px; background: rgba(229,185,128,.16); font-size: 12px; }
 .review-admin-note strong { white-space: nowrap; }
@@ -435,13 +457,17 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .invoice-bottom-grid { grid-template-columns: 1fr; gap: 30px; margin-top: 32px; }
   .invoice-document-footer { display: block; margin-top: 45px; }
   .invoice-document-footer span { display: block; margin-top: 5px; }
+  .contract-document-title { margin-top: 32px; font-size: 32px; }
+  .contract-financial-grid, .contract-terms-grid, .contract-signatures { grid-template-columns: 1fr; }
+  .contract-terms-grid > label:last-child { grid-column: auto; }
+  .contract-financial-grid > label { align-items: flex-start; flex-direction: column; }
 }
 @media print {
   body { background: #fff; }
   body * { visibility: hidden !important; }
-  #invoice-sheet, #invoice-sheet * { visibility: visible !important; }
-  #invoice-sheet { position: absolute; inset: 0; width: 100%; min-height: 0; margin: 0; padding: 36px; box-shadow: none; }
-  #invoice-sheet input, #invoice-sheet select, #invoice-sheet textarea { border: 0 !important; box-shadow: none !important; appearance: none; }
+  body:not(.printing-contract) #invoice-sheet, body:not(.printing-contract) #invoice-sheet *, body.printing-contract #contract-sheet, body.printing-contract #contract-sheet * { visibility: visible !important; }
+  body:not(.printing-contract) #invoice-sheet, body.printing-contract #contract-sheet { position: absolute; inset: 0; width: 100%; min-height: 0; margin: 0; padding: 36px; box-shadow: none; }
+  body:not(.printing-contract) #invoice-sheet input, body:not(.printing-contract) #invoice-sheet select, body:not(.printing-contract) #invoice-sheet textarea, body.printing-contract #contract-sheet input, body.printing-contract #contract-sheet select, body.printing-contract #contract-sheet textarea { border: 0 !important; box-shadow: none !important; appearance: none; }
   .remove-line-item, .add-line-item { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
