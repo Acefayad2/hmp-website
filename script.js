@@ -417,21 +417,14 @@ if (form) {
       if (payload["service-option"]) {
         payload.service = `${payload.service}: ${payload["service-option"]}`;
       }
-      const [sheetResponse] = await Promise.all([
-        fetch("/api/hmp-inquiry", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }),
-        fetch("/", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams(formData).toString(),
-        }),
-      ]);
-      if (!sheetResponse.ok)
+      const inquiryResponse = await fetch("/api/hmp-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!inquiryResponse.ok)
         throw new Error(
-          `Inquiry sync failed with status ${sheetResponse.status}`,
+          `Inquiry sync failed with status ${inquiryResponse.status}`,
         );
       form.reset();
       syncInquiryFields();
