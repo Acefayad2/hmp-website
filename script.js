@@ -525,17 +525,6 @@ const createReviewCard = (review, duplicate = false) => {
   card.className = "review-card";
   if (duplicate) card.setAttribute("aria-hidden", "true");
 
-  const avatar = document.createElement("span");
-  avatar.className = "review-avatar";
-  avatar.setAttribute("aria-hidden", "true");
-  avatar.textContent = (review.reviewerName || "HMP client")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-
   const stars = document.createElement("div");
   stars.className = "review-stars";
   const rating = Math.min(5, Math.max(1, Number(review.rating) || 5));
@@ -551,7 +540,7 @@ const createReviewCard = (review, duplicate = false) => {
   const detail = document.createElement("span");
   detail.textContent = [...new Set([review.reviewerRole, review.service].filter(Boolean))].join(" - ") || "HMP celebration";
   footer.append(name, detail);
-  card.append(avatar, stars, quote, footer);
+  card.append(stars, quote, footer);
   return card;
 };
 
@@ -576,7 +565,7 @@ const renderReviews = (reviews) => {
   reviewsSection?.classList.remove("is-empty");
   if (reviewsSection) reviewsSection.hidden = false;
   if (reviewsMarquee) reviewsMarquee.hidden = false;
-  const approximateCardWidth = window.matchMedia("(max-width: 760px)").matches ? 306 : 370;
+  const approximateCardWidth = window.matchMedia("(max-width: 760px)").matches ? 360 : 620;
   const minimumCards = Math.ceil(
     ((window.innerWidth + approximateCardWidth * 2) * 2) / approximateCardWidth,
   );
