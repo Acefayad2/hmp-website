@@ -170,12 +170,14 @@ h3,
 
 .site-header .brand-logo,
 .inner-page .site-header .brand-logo {
-  width: 108px;
+  width: 104px;
   height: auto;
-  max-height: 72px;
+  max-height: 68px;
   justify-self: center;
-  clip-path: inset(0 0 10% 0);
-  transform: translateY(0) scale(0.98);
+  object-fit: contain;
+  object-position: center;
+  clip-path: none;
+  transform: none;
   filter: drop-shadow(0 4px 7px rgba(96, 69, 69, 0.2)) contrast(1.08);
 }
 
@@ -184,6 +186,7 @@ h3,
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center;
 }
 
 .site-header nav {
