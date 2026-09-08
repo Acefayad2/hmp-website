@@ -643,6 +643,18 @@ button[type="submit"]:hover {
   line-height: 1.55;
 }
 
+.about-page .principle {
+  border: 0;
+  border-bottom: 1px solid rgba(96, 69, 69, 0.2);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.about-page .principle:first-of-type {
+  border-top: 1px solid rgba(96, 69, 69, 0.2);
+}
+
 @media (max-width: 800px) {
   .about-page .principle h3 { font-size: 20px; }
   .about-page .principle p { font-size: 13px; }
