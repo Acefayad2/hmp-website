@@ -4,6 +4,8 @@ import {
   handleAuthCallback,
   login,
   logout,
+  onAuthChange,
+  AUTH_EVENTS,
   requestPasswordRecovery,
   updateUser,
 } from "@netlify/identity";
@@ -39,6 +41,15 @@ let dashboardSyncInProgress = false;
 let dashboardSyncTimer = 0;
 
 const DASHBOARD_SYNC_INTERVAL = 10_000;
+
+const syncSharedSession = async () => {
+  const response = await fetch("/api/hmp-sso", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("Shared HMP sign-in is unavailable.");
+};
 
 const workspaceViews = {
   inquiries: {
@@ -1072,6 +1083,7 @@ const enterDashboard = async (user) => {
     day: "numeric",
   }).format(new Date());
   try {
+    await syncSharedSession();
     await Promise.all([loadDashboard(), loadMessages()]);
     setWorkspaceView(new URLSearchParams(location.search).get("view") || "inquiries");
     $("#sync-state").textContent = "Live updates on";
@@ -1132,6 +1144,7 @@ passwordForm.addEventListener("submit", async (event) => {
 
 $("#logout-button").addEventListener("click", async () => {
   window.clearInterval(dashboardSyncTimer);
+  await fetch("/api/hmp-sso", { method: "DELETE", credentials: "same-origin" }).catch(() => {});
   await logout();
   location.reload();
 });
@@ -1298,3 +1311,9 @@ const initialize = async () => {
 };
 
 initialize();
+
+onAuthChange((event, user) => {
+  if (event === AUTH_EVENTS.TOKEN_REFRESH && user) {
+    syncSharedSession().catch(() => {});
+  }
+});
