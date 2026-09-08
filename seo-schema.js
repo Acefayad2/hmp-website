@@ -53,7 +53,7 @@
     "@id": `${origin}/#organization`,
     name: "HMP Luxury Event Services",
     url: `${origin}/`,
-    logo: `${origin}/assets/brand/hmp-logo-2026.png`,
+    logo: `${origin}/assets/brand/hmp-logo-header-2026.png`,
     email: "info@hmpeds.com",
     telephone: "+1-301-471-0990",
     address: {

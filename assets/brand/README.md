@@ -5,6 +5,7 @@ Source: Gmail message `Fwd: HMP Branding Kit` from HMP Luxury Event Services, re
 ## Files
 
 - `hmp-logo-2026.png`: Official HMP logo supplied with the kit.
+- `hmp-logo-header-2026.png`: Header-ready crop without the small lower tagline.
 - `hmp-color-palette.png`: Original HMP color-palette reference.
 - `hmp-font-title-tan-aegean.jpeg`: Title font reference, TAN Aegean at size 42.
 - `hmp-font-subtitle-droid-serif.jpeg`: Subtitle font reference, Droid Serif at size 36.

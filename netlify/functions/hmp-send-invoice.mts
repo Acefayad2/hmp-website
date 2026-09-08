@@ -54,7 +54,7 @@ const renderEmail = (invoice: Record<string, any>) => {
     <div style="max-width:720px;margin:0 auto;padding:28px 14px">
       <div style="background:#fffaf5;border:1px solid #e6d7d2;border-radius:18px;overflow:hidden">
         <div style="padding:34px;background:#5f3f41;color:#fff">
-          <img src="https://hmpeds.com/assets/brand/hmp-logo-2026.png" width="170" alt="HMP Luxury Event Services" style="display:block;border-radius:12px;background:#fffaf5">
+          <img src="https://hmpeds.com/assets/brand/hmp-logo-header-2026.png" width="170" alt="HMP Luxury Event Services" style="display:block;border-radius:12px;background:#fffaf5">
           <p style="margin:28px 0 6px;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#e5b980">Invoice</p>
           <h1 style="margin:0;font-family:Georgia,serif;font-size:38px">${escapeHTML(invoice.invoice_number)}</h1>
         </div>

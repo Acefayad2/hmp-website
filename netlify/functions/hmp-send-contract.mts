@@ -32,7 +32,7 @@ const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><he
   <div style="max-width:760px;margin:0 auto;padding:28px 14px">
     <div style="overflow:hidden;border:1px solid #e6d7d2;border-radius:18px;background:#fffaf5">
       <div style="padding:34px;background:#5f3f41;color:#fff">
-        <img src="https://hmpeds.com/assets/brand/hmp-logo-2026.png" width="180" alt="HMP Luxury Event Services" style="display:block;border-radius:12px;background:#fffaf5">
+        <img src="https://hmpeds.com/assets/brand/hmp-logo-header-2026.png" width="180" alt="HMP Luxury Event Services" style="display:block;border-radius:12px;background:#fffaf5">
         <p style="margin:28px 0 6px;color:#e5b980;font-size:11px;letter-spacing:2px;text-transform:uppercase">Event Services Agreement</p>
         <h1 style="margin:0;font-size:34px">${escapeHTML(contract.contract_number)}</h1>
       </div>
