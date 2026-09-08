@@ -521,7 +521,12 @@ const createReviewCard = (review, duplicate = false) => {
   const stars = document.createElement("div");
   stars.className = "review-stars";
   const rating = Math.min(5, Math.max(1, Number(review.rating) || 5));
-  stars.textContent = "☾".repeat(rating);
+  for (let index = 0; index < rating; index += 1) {
+    const moon = document.createElement("span");
+    moon.className = "review-moon";
+    moon.setAttribute("aria-hidden", "true");
+    stars.append(moon);
+  }
   stars.setAttribute("aria-label", `${rating} out of 5`);
 
   const quote = document.createElement("blockquote");
@@ -542,10 +547,12 @@ const syncReviewsMarquee = () => {
   const firstSet = reviewsTrack.querySelector(".reviews-set");
   if (!firstSet) return;
   const gap = Number.parseFloat(getComputedStyle(reviewsTrack).columnGap) || 0;
-  reviewsTrack.style.setProperty(
-    "--reviews-shift",
-    `-${Math.ceil(firstSet.getBoundingClientRect().width + gap)}px`,
-  );
+  const shift = `-${Math.ceil(firstSet.getBoundingClientRect().width + gap)}px`;
+  if (reviewsTrack.style.getPropertyValue("--reviews-shift") === shift) return;
+  reviewsTrack.classList.remove("is-moving");
+  reviewsTrack.style.setProperty("--reviews-shift", shift);
+  void reviewsTrack.offsetWidth;
+  reviewsTrack.classList.add("is-moving");
 };
 
 const renderReviews = (reviews) => {

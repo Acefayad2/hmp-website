@@ -830,11 +830,15 @@ const renderReviews = () => {
   const empty = $("#review-empty");
   empty.hidden = reviews.length > 0;
   list.hidden = reviews.length === 0;
+  const moons = (rating) => Array.from(
+    { length: Math.min(5, Math.max(1, Number(rating) || 5)) },
+    () => '<span class="review-list-moon" aria-hidden="true"></span>',
+  ).join("");
   list.innerHTML = reviews
     .map(
       (review) => `
         <button class="review-list-row" type="button" data-review-id="${escapeHTML(review.id)}">
-          <span class="review-list-copy"><strong>“${escapeHTML(review.reviewText)}”</strong><small class="review-list-stars">${"☾".repeat(Number(review.rating) || 5)}</small></span>
+          <span class="review-list-copy"><strong>“${escapeHTML(review.reviewText)}”</strong><small class="review-list-stars" aria-label="${escapeHTML(review.rating || 5)} out of 5">${moons(review.rating)}</small></span>
           <span><strong>${escapeHTML(review.reviewerName)}</strong><small>${escapeHTML(review.reviewerRole || "Client")}</small></span>
           <span>${escapeHTML(review.service || "General HMP experience")}</span>
           <span>${escapeHTML(review.displayOrder)}</span>
@@ -860,7 +864,12 @@ const openReviewEditor = (review = null) => {
   $("#review-editor-title").textContent = review ? "Edit review" : "Add review";
   $("#review-name").value = review?.reviewerName || "";
   $("#review-role").value = review?.reviewerRole || "";
-  $("#review-service").value = review?.service || "";
+  const selectedServices = new Set(
+    (review?.service || "General HMP experience").split(",").map((service) => service.trim()),
+  );
+  document.querySelectorAll('[name="reviewServices"]').forEach((input) => {
+    input.checked = selectedServices.has(input.value);
+  });
   $("#review-rating").value = String(review?.rating || 5);
   $("#review-order").value = review?.displayOrder ?? (Math.max(0, ...reviews.map((item) => Number(item.displayOrder) || 0)) + 10);
   $("#review-text").value = review?.reviewText || "";
@@ -870,11 +879,16 @@ const openReviewEditor = (review = null) => {
   $("#review-editor-dialog").showModal();
 };
 
+const selectedReviewServices = () => Array.from(
+  document.querySelectorAll('[name="reviewServices"]:checked'),
+  (input) => input.value,
+);
+
 const reviewPayload = () => ({
   ...(activeReviewId ? { id: activeReviewId } : {}),
   reviewerName: $("#review-name").value.trim(),
   reviewerRole: $("#review-role").value.trim(),
-  service: $("#review-service").value,
+  service: selectedReviewServices().join(", "),
   rating: Number($("#review-rating").value),
   displayOrder: Number($("#review-order").value) || 0,
   reviewText: $("#review-text").value.trim(),
@@ -885,6 +899,11 @@ const saveReview = async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
   if (!form.reportValidity()) return;
+  if (!selectedReviewServices().length) {
+    setMessage($("#review-editor-message"), "Select at least one service.");
+    document.querySelector('[name="reviewServices"]')?.focus();
+    return;
+  }
   const addAnotherService = event.submitter?.id === "save-another-review";
   const reviewerName = $("#review-name").value.trim();
   const reviewerRole = $("#review-role").value.trim();
@@ -915,7 +934,7 @@ const saveReview = async (event) => {
       $("#review-order").value = Math.max(0, ...reviews.map((item) => Number(item.displayOrder) || 0)) + 10;
       $("#delete-review").hidden = true;
       setMessage($("#review-editor-message"), "Review saved. Choose the client’s next service and enter their separate review.", true);
-      $("#review-service").focus();
+      document.querySelector('[name="reviewServices"]')?.focus();
     } else {
       activeReviewId = saved.id;
       $("#delete-review").hidden = false;
@@ -1280,6 +1299,17 @@ $("#create-review-button").addEventListener("click", () => openReviewEditor());
 $("#empty-create-review").addEventListener("click", () => openReviewEditor());
 $("#close-review-editor").addEventListener("click", () => $("#review-editor-dialog").close());
 $("#review-form").addEventListener("submit", saveReview);
+$("#review-services").addEventListener("change", (event) => {
+  const changed = event.target.closest('[name="reviewServices"]');
+  if (!changed || !changed.checked) return;
+  const inputs = document.querySelectorAll('[name="reviewServices"]');
+  if (changed.value === "General HMP experience") {
+    inputs.forEach((input) => { input.checked = input === changed; });
+  } else {
+    const general = document.querySelector('[name="reviewServices"][value="General HMP experience"]');
+    if (general) general.checked = false;
+  }
+});
 $("#delete-review").addEventListener("click", deleteReview);
 $("#review-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-review-id]");

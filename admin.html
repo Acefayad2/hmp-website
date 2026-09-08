@@ -506,7 +506,7 @@
           <div>
             <p class="kicker">Website review</p>
             <h2 id="review-editor-title">Add review</h2>
-            <p>Published reviews appear in the moving section on the homepage. For clients who booked multiple services, save one review per service.</p>
+            <p>Published reviews appear in the moving section on the homepage. Select every service covered by this review.</p>
           </div>
           <button id="close-review-editor" type="button">Close</button>
         </div>
@@ -514,7 +514,13 @@
           <div class="review-form-grid">
             <label><span>Client name</span><input id="review-name" name="reviewerName" type="text" maxlength="120" required /></label>
             <label><span>Client detail <small>optional</small></span><input id="review-role" name="reviewerRole" type="text" maxlength="160" placeholder="Bride, host, event planner…" /></label>
-            <label><span>Service</span><select id="review-service" name="service"><option value="">General HMP experience</option><option>Celebration Accessories</option><option>Guest Seating Experience</option><option>Money Table Services</option></select></label>
+            <fieldset class="review-service-field" id="review-services">
+              <legend>Services reviewed</legend>
+              <label><input type="checkbox" name="reviewServices" value="General HMP experience" checked /><span>General HMP experience</span></label>
+              <label><input type="checkbox" name="reviewServices" value="Celebration Accessories" /><span>Celebration Accessories</span></label>
+              <label><input type="checkbox" name="reviewServices" value="Guest Seating Experience" /><span>Guest Seating Experience</span></label>
+              <label><input type="checkbox" name="reviewServices" value="Money Table Services" /><span>Money Table Services</span></label>
+            </fieldset>
             <label><span>Crescent rating</span><select id="review-rating" name="rating"><option value="5">5 crescents</option><option value="4">4 crescents</option><option value="3">3 crescents</option><option value="2">2 crescents</option><option value="1">1 crescent</option></select></label>
             <label><span>Display order</span><input id="review-order" name="displayOrder" type="number" min="-100000" max="100000" step="1" /></label>
             <label class="review-copy-field"><span>Review <small>1,200 character limit</small></span><textarea id="review-text" name="reviewText" rows="7" maxlength="1200" required placeholder="Enter the client’s review in their own words."></textarea></label>
@@ -526,7 +532,7 @@
             <button class="review-delete-button" id="delete-review" type="button" hidden>Delete review</button>
             <p class="form-message" id="review-editor-message" role="status"></p>
             <div class="review-save-actions">
-              <button class="review-another-button" id="save-another-review" type="submit">Save &amp; add another service</button>
+              <button class="review-another-button" id="save-another-review" type="submit">Save &amp; add another review</button>
               <button class="primary-button" type="submit">Save review</button>
             </div>
           </div>

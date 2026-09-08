@@ -310,7 +310,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .review-list-row strong { display: block; }
 .review-list-row small { display: block; margin-top: 4px; color: var(--muted); }
 .review-list-copy { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.review-list-stars { color: var(--gold); letter-spacing: .08em; }
+.review-list-stars { display: flex !important; gap: 3px; color: var(--gold); }
+.review-list-moon { display: inline-block; position: relative; width: 10px; height: 13px; overflow: hidden; }
+.review-list-moon::before { content: ""; position: absolute; inset: 1px 1px 1px 0; border-radius: 50%; background: currentColor; }
+.review-list-moon::after { content: ""; position: absolute; top: 0; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: #fff; }
 .review-status { display: flex; flex-wrap: wrap; gap: 5px; }
 .review-status .status-pill.sample { background: rgba(229,185,128,.3); }
 .review-empty { padding: 78px 24px; text-align: center; }
@@ -327,6 +330,11 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .review-form-grid input, .review-form-grid select { min-height: 48px; padding: 0 12px; }
 .review-form-grid textarea { min-height: 170px; padding: 13px; resize: vertical; }
 .review-form-grid input:focus, .review-form-grid select:focus, .review-form-grid textarea:focus { border-color: var(--plum); box-shadow: 0 0 0 3px rgba(196,175,175,.35); }
+.review-service-field { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: #fff; }
+.review-service-field legend { padding: 0 5px; color: var(--muted); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.review-service-field label { display: flex; align-items: center; gap: 7px; min-width: 0; color: var(--ink); font-size: 12px; cursor: pointer; }
+.review-service-field input { width: auto; min-height: 0; margin: 0; padding: 0; accent-color: var(--plum); }
+.review-service-field label > span { margin: 0; color: inherit; font-size: inherit; font-weight: 400; letter-spacing: 0; text-transform: none; }
 .review-copy-field { grid-column: 1 / -1; }
 .review-toggle-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 12px; margin-top: 18px; }
 .review-toggle-grid label { display: flex; align-items: flex-start; gap: 11px; padding: 15px; border: 1px solid var(--line); border-radius: 12px; background: #fff; cursor: pointer; }
@@ -421,6 +429,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .management-actions { display: block; }
   .management-actions .primary-button { width: 100%; margin-top: 12px; }
   .review-form-grid, .review-toggle-grid { grid-template-columns: 1fr; }
+  .review-service-field { grid-template-columns: 1fr; }
   .review-copy-field { grid-column: auto; }
   .review-form-actions { grid-template-columns: 1fr; }
   .review-form-actions .primary-button { width: 100%; }
