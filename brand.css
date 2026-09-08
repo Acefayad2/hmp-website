@@ -2061,3 +2061,65 @@ a.price-card:focus-visible strong {
     padding: 28px 24px;
   }
 }
+
+/* About page: keep the principles visually contained and easy to scan. */
+.about-page .principles-copy {
+  gap: 16px;
+}
+
+.about-page .principles-copy > h2 {
+  max-width: 8.5ch;
+  margin: 0 0 22px;
+  line-height: 0.96;
+}
+
+.about-page .principle {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 560px;
+  min-height: 0;
+  padding: clamp(24px, 2.3vw, 32px);
+  border: 1px solid rgba(163, 129, 94, 0.38);
+  background: rgba(255, 247, 240, 0.7);
+  box-shadow: 0 14px 34px rgba(96, 69, 69, 0.08);
+}
+
+.about-page .principle h3 {
+  line-height: 1.24;
+}
+
+.about-page .principle p {
+  max-width: 40ch;
+  margin: 12px 0 0;
+  line-height: 1.62;
+}
+
+@media (max-width: 800px) {
+  .about-page .principles-copy {
+    gap: 14px;
+    padding: 56px 20px 64px;
+  }
+
+  .about-page .principles-copy > h2 {
+    max-width: 10ch;
+    margin-bottom: 14px;
+    font-size: clamp(40px, 11.5vw, 54px);
+    line-height: 1;
+  }
+
+  .about-page .principle {
+    max-width: none;
+    padding: 24px 22px 25px;
+    border-radius: 22px;
+  }
+
+  .about-page .principle h3 {
+    font-size: 21px;
+  }
+
+  .about-page .principle p {
+    margin-top: 10px;
+    font-size: 14px;
+    line-height: 1.58;
+  }
+}
