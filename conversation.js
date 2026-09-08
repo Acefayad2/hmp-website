@@ -73,6 +73,7 @@ $("#message-form").addEventListener("submit", async (event) => {
   const button = event.currentTarget.querySelector("button");
   const message = input.value.trim();
   if (!message) return;
+  const requestId = globalThis.crypto?.randomUUID?.();
   button.disabled = true;
   $("#message-status").textContent = "Sending…";
   try {
@@ -80,7 +81,7 @@ $("#message-form").addEventListener("submit", async (event) => {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       credentials: "omit",
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, requestId }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Message could not be sent.");

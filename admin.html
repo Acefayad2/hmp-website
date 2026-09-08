@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css" />
+    <link rel="stylesheet" href="admin.css?v=20260907-1" />
   </head>
   <body>
     <main id="admin-root" aria-live="polite">
@@ -70,6 +70,7 @@
             <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
             <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Messages</a>
             <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices">Invoices</a>
+            <a class="rail-link" href="/admin?view=contracts" data-workspace-view="contracts">Contracts</a>
             <a class="rail-link" href="/admin?view=events" data-workspace-view="events">Events</a>
             <a class="rail-link" href="/admin?view=reviews" data-workspace-view="reviews">Reviews</a>
             <a class="rail-link" href="/" target="_blank">View website</a>
@@ -88,8 +89,7 @@
               <p id="dashboard-date"></p>
             </div>
             <div class="header-actions">
-              <span class="sync-state" id="sync-state">Securely synced</span>
-              <button class="refresh-button" id="refresh-button" type="button">Refresh</button>
+              <span class="sync-state" id="sync-state" role="status" aria-live="polite">Live updates on</span>
             </div>
           </header>
 
@@ -197,6 +197,33 @@
                 <h3>No invoices yet</h3>
                 <p>Create the first branded invoice for an HMP client.</p>
                 <button class="text-button" id="empty-create-invoice" type="button">Create new invoice</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="invoice-workspace" id="contract-workspace" hidden>
+            <div class="workspace-section-header">
+              <div>
+                <p class="kicker">Agreement workspace</p>
+                <h2>Contracts</h2>
+                <p>Create, save, print, and send branded HMP service agreements.</p>
+              </div>
+              <button class="primary-button workspace-create-button" id="create-contract-button" type="button">Create new contract</button>
+            </div>
+            <div class="email-setup-notice" id="contract-email-setup-notice" hidden>
+              <strong>Email setup needed</strong>
+              <span>Contracts can be saved and printed now. Connect a verified HMP sender to deliver them by email.</span>
+            </div>
+            <div class="invoice-list-panel">
+              <div class="invoice-list-heading contract-list-heading">
+                <span>Contract</span><span>Client</span><span>Event date</span><span>Value</span><span>Status</span>
+              </div>
+              <div id="contract-list"></div>
+              <div class="invoice-empty" id="contract-empty">
+                <span>HMP</span>
+                <h3>No contracts yet</h3>
+                <p>Create the first branded service agreement for an HMP client.</p>
+                <button class="text-button" id="empty-create-contract" type="button">Create new contract</button>
               </div>
             </div>
           </section>
@@ -388,13 +415,98 @@
       </form>
     </dialog>
 
+    <dialog class="invoice-editor-dialog" id="contract-editor-dialog">
+      <form id="contract-form">
+        <div class="invoice-editor-toolbar">
+          <div>
+            <p class="kicker">Contract editor</p>
+            <strong id="editor-contract-number">New contract</strong>
+          </div>
+          <div class="invoice-toolbar-actions">
+            <button class="text-button" id="close-contract-editor" type="button">Close</button>
+            <button class="secondary-button" id="print-contract" type="button">Print / PDF</button>
+            <button class="secondary-button" id="save-contract" type="submit">Save draft</button>
+            <button class="primary-button" id="send-contract" type="button">Send contract</button>
+          </div>
+        </div>
+
+        <p class="invoice-editor-message form-message" id="contract-editor-message" role="status"></p>
+
+        <article class="invoice-sheet contract-sheet" id="contract-sheet">
+          <header class="invoice-document-header">
+            <div class="invoice-brand-block">
+              <img src="assets/brand/hmp-logo-2026.png" alt="HMP Luxury Event Services" />
+              <p>Luxury Event Services</p>
+              <address>Laurel, Maryland<br />info@hmpeds.com<br />301-471-0990</address>
+            </div>
+            <div class="invoice-title-block">
+              <p>Service agreement</p>
+              <strong id="contract-number-display">Draft</strong>
+              <label>
+                <span>Status</span>
+                <select id="contract-status" name="status">
+                  <option>Draft</option><option>Sent</option><option>Signed</option><option>Void</option>
+                </select>
+              </label>
+            </div>
+          </header>
+
+          <h1 class="contract-document-title">Event Services Agreement</h1>
+          <p class="contract-intro">This agreement records the event services selected by the client and the terms accepted by HMP Luxury Event Services.</p>
+
+          <section class="invoice-parties contract-parties">
+            <div class="invoice-field-group bill-to-fields">
+              <p class="invoice-label">Client</p>
+              <label><span>Client name</span><input id="contract-client-name" type="text" maxlength="200" placeholder="Client or company name" required /></label>
+              <label><span>Email</span><input id="contract-client-email" type="email" maxlength="320" placeholder="client@example.com" required /></label>
+              <label><span>Phone</span><input id="contract-client-phone" type="tel" maxlength="60" placeholder="Optional" /></label>
+              <label><span>Address</span><textarea id="contract-client-address" rows="3" maxlength="1000" placeholder="Street, city, state, ZIP"></textarea></label>
+            </div>
+            <div class="invoice-meta-fields">
+              <label><span>Effective date</span><input id="contract-effective-date" type="date" required /></label>
+              <label><span>Event name</span><input id="contract-event-name" type="text" maxlength="250" placeholder="Celebration or service" /></label>
+              <label><span>Event date</span><input id="contract-event-date" type="date" /></label>
+              <label><span>Event location</span><input id="contract-event-location" type="text" maxlength="500" placeholder="Venue or address" /></label>
+            </div>
+          </section>
+
+          <section class="contract-section">
+            <label><span>Selected services</span><input id="contract-services" type="text" maxlength="1000" placeholder="Guest Seating Experience, Money Table Services…" required /></label>
+            <label><span>Scope of services</span><textarea id="contract-scope" rows="8" maxlength="10000" placeholder="Describe exactly what HMP will provide, service times, quantities, setup, and breakdown." required></textarea></label>
+          </section>
+
+          <section class="contract-financial-grid">
+            <label><span>Total agreement value</span><span class="money-input"><b>$</b><input id="contract-total-amount" type="number" min="0" step="0.01" value="0" /></span></label>
+            <label><span>Retainer</span><span class="money-input"><b>$</b><input id="contract-retainer-amount" type="number" min="0" step="0.01" value="0" /></span></label>
+          </section>
+
+          <section class="contract-section contract-terms-grid">
+            <label><span>Payment terms</span><textarea id="contract-payment-terms" rows="5" maxlength="5000" placeholder="Enter the approved payment schedule and accepted methods."></textarea></label>
+            <label><span>Cancellation and rescheduling</span><textarea id="contract-cancellation-terms" rows="5" maxlength="5000" placeholder="Enter the approved cancellation and rescheduling terms."></textarea></label>
+            <label><span>Additional terms</span><textarea id="contract-additional-terms" rows="5" maxlength="10000" placeholder="Optional responsibilities, venue requirements, or special conditions."></textarea></label>
+          </section>
+
+          <section class="contract-acceptance">
+            <p>By signing below, both parties acknowledge that they reviewed this agreement and accept the services and terms stated above.</p>
+            <div class="contract-signatures">
+              <div><label><span>HMP representative</span><input id="contract-hmp-signature-name" type="text" maxlength="200" value="HMP Luxury Event Services" /></label><label><span>Date signed</span><input id="contract-hmp-signed-at" type="date" /></label></div>
+              <div><label><span>Client signature / printed name</span><input id="contract-client-signature-name" type="text" maxlength="200" placeholder="Completed after signing" /></label><label><span>Date signed</span><input id="contract-client-signed-at" type="date" /></label></div>
+            </div>
+            <small>Signature fields are tracked by the HMP administrator. This version does not collect an electronic signature from the client.</small>
+          </section>
+
+          <footer class="invoice-document-footer"><p>HMP Luxury Event Services</p><span>hmpeds.com</span></footer>
+        </article>
+      </form>
+    </dialog>
+
     <dialog class="review-editor-dialog" id="review-editor-dialog">
       <form id="review-form">
         <div class="dialog-heading">
           <div>
             <p class="kicker">Website review</p>
             <h2 id="review-editor-title">Add review</h2>
-            <p>Published reviews appear in the moving section on the homepage.</p>
+            <p>Published reviews appear in the moving section on the homepage. For clients who booked multiple services, save one review per service.</p>
           </div>
           <button id="close-review-editor" type="button">Close</button>
         </div>
@@ -413,7 +525,10 @@
           <div class="review-form-actions">
             <button class="review-delete-button" id="delete-review" type="button" hidden>Delete review</button>
             <p class="form-message" id="review-editor-message" role="status"></p>
-            <button class="primary-button" type="submit">Save review</button>
+            <div class="review-save-actions">
+              <button class="review-another-button" id="save-another-review" type="submit">Save &amp; add another service</button>
+              <button class="primary-button" type="submit">Save review</button>
+            </div>
           </div>
         </div>
       </form>

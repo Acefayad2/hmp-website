@@ -417,21 +417,14 @@ if (form) {
       if (payload["service-option"]) {
         payload.service = `${payload.service}: ${payload["service-option"]}`;
       }
-      const [sheetResponse] = await Promise.all([
-        fetch("/api/hmp-inquiry", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        }),
-        fetch("/", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: new URLSearchParams(formData).toString(),
-        }),
-      ]);
-      if (!sheetResponse.ok)
+      const inquiryResponse = await fetch("/api/hmp-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!inquiryResponse.ok)
         throw new Error(
-          `Inquiry sync failed with status ${sheetResponse.status}`,
+          `Inquiry sync failed with status ${inquiryResponse.status}`,
         );
       form.reset();
       syncInquiryFields();
@@ -525,17 +518,6 @@ const createReviewCard = (review, duplicate = false) => {
   card.className = "review-card";
   if (duplicate) card.setAttribute("aria-hidden", "true");
 
-  const avatar = document.createElement("span");
-  avatar.className = "review-avatar";
-  avatar.setAttribute("aria-hidden", "true");
-  avatar.textContent = (review.reviewerName || "HMP client")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join("")
-    .toUpperCase();
-
   const stars = document.createElement("div");
   stars.className = "review-stars";
   const rating = Math.min(5, Math.max(1, Number(review.rating) || 5));
@@ -551,7 +533,7 @@ const createReviewCard = (review, duplicate = false) => {
   const detail = document.createElement("span");
   detail.textContent = [...new Set([review.reviewerRole, review.service].filter(Boolean))].join(" - ") || "HMP celebration";
   footer.append(name, detail);
-  card.append(avatar, stars, quote, footer);
+  card.append(stars, quote, footer);
   return card;
 };
 
@@ -576,7 +558,7 @@ const renderReviews = (reviews) => {
   reviewsSection?.classList.remove("is-empty");
   if (reviewsSection) reviewsSection.hidden = false;
   if (reviewsMarquee) reviewsMarquee.hidden = false;
-  const approximateCardWidth = window.matchMedia("(max-width: 760px)").matches ? 306 : 370;
+  const approximateCardWidth = window.matchMedia("(max-width: 760px)").matches ? 360 : 620;
   const minimumCards = Math.ceil(
     ((window.innerWidth + approximateCardWidth * 2) * 2) / approximateCardWidth,
   );

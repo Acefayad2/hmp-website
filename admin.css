@@ -24,7 +24,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .auth-brand { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 9vw; color: var(--ivory); background: linear-gradient(145deg, rgba(64,40,44,.93), rgba(95,63,65,.9)), url("/assets/modern-reception.webp") center/cover; }
 .auth-brand::after { content: ""; position: absolute; inset: 24px; border: 1px solid rgba(255,255,255,.2); border-radius: 24px; pointer-events: none; }
 .auth-brand a, .auth-brand > p, .auth-brand h1 { position: relative; z-index: 1; }
-.auth-brand img { width: 190px; height: auto; border-radius: 15px; }
+.auth-brand img { display: block; width: 190px; height: auto; padding: 4px; object-fit: contain; object-position: center; border-radius: 15px; }
 .auth-brand > p:first-of-type, .kicker { margin: 46px 0 16px; color: inherit; font-size: 10px; font-weight: 600; letter-spacing: .2em; text-transform: uppercase; }
 .auth-brand h1 { margin: 0; max-width: 620px; font: 500 clamp(58px, 7vw, 104px)/.85 var(--serif); letter-spacing: -.045em; }
 .auth-brand h1 em { color: #e5b980; font-weight: 500; }
@@ -37,11 +37,11 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .auth-panel label { display: block; margin: 20px 0 8px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .auth-panel input, .filters input, .filters select { width: 100%; min-height: 50px; border: 1px solid var(--line); border-radius: 12px; color: var(--ink); background: #fff; padding: 0 14px; outline: none; }
 .auth-panel input:focus, .filters input:focus, .filters select:focus { border-color: var(--plum); box-shadow: 0 0 0 3px rgba(196,175,175,.35); }
-.primary-button, .refresh-button { border: 0; border-radius: 999px; color: #fff; background: var(--plum); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; transition: transform .18s ease, background .18s ease; }
+.primary-button { border: 0; border-radius: 999px; color: #fff; background: var(--plum); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; transition: transform .18s ease, background .18s ease; }
 .primary-button { width: 100%; min-height: 54px; margin-top: 28px; }
-.primary-button:hover, .refresh-button:hover { background: var(--plum-deep); }
-.primary-button:active, .refresh-button:active { transform: scale(.98); }
-.primary-button:focus-visible, .refresh-button:focus-visible, .text-button:focus-visible, .rail-link:focus-visible, .inquiry-row:focus-visible { outline: 3px solid rgba(182,124,66,.5); outline-offset: 3px; }
+.primary-button:hover { background: var(--plum-deep); }
+.primary-button:active { transform: scale(.98); }
+.primary-button:focus-visible, .text-button:focus-visible, .rail-link:focus-visible, .inquiry-row:focus-visible { outline: 3px solid rgba(182,124,66,.5); outline-offset: 3px; }
 .primary-button:disabled { opacity: .55; cursor: wait; }
 .text-button { display: block; margin: 18px auto 0; border: 0; color: var(--plum); background: transparent; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 .form-message { min-height: 24px; margin: 18px 0 0; color: #8b2d3d; font-size: 13px; }
@@ -50,7 +50,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .dashboard { min-height: 100dvh; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
 .dashboard-rail { position: sticky; top: 0; height: 100dvh; min-width: 0; overflow: hidden; display: flex; flex-direction: column; padding: 24px 18px; color: var(--ivory); background: var(--plum-deep); }
 .rail-logo { display: inline-flex; width: 168px; height: 84px; flex: 0 0 auto; align-items: center; justify-content: center; overflow: hidden; border-radius: 14px; background: var(--ivory); }
-.rail-logo img { width: 168px; max-width: none; height: 124px; object-fit: cover; object-position: center 38%; border-radius: 0; transform: translateY(18px); }
+.rail-logo img { width: 100%; height: 100%; padding: 7px; object-fit: contain; object-position: center; border-radius: 0; transform: none; }
 .rail-label { margin: 38px 10px 14px; color: rgba(255,248,241,.5); font-size: 9px; letter-spacing: .18em; text-transform: uppercase; }
 .rail-link { display: block; margin: 4px 0; padding: 12px; border-radius: 10px; color: rgba(255,248,241,.7); text-decoration: none; transition: background .18s ease, color .18s ease; }
 .rail-link:hover, .rail-link.active { color: #fff; background: rgba(255,255,255,.1); }
@@ -65,7 +65,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .header-actions { display: flex; align-items: center; gap: 14px; }
 .sync-state { color: #526453; font-size: 12px; }
 .sync-state::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #708974; }
-.refresh-button { min-height: 42px; padding: 0 20px; }
 
 .metrics { display: grid; grid-template-columns: 1.15fr repeat(3, 1fr); gap: 12px; margin: 38px 0 22px; }
 .metric { min-height: 158px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.65); }
@@ -230,7 +229,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .invoice-editor-message { max-width: 900px; min-height: 22px; margin: 12px auto -8px; padding: 0 10px; }
 .invoice-sheet { width: min(900px, calc(100% - 34px)); min-height: 1160px; margin: 24px auto 40px; padding: 58px; color: var(--ink); background: #fffaf5; box-shadow: 0 20px 55px rgba(46,32,34,.14); }
 .invoice-document-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 36px; padding-bottom: 35px; border-bottom: 2px solid var(--plum); }
-.invoice-brand-block img { width: 190px; height: auto; border-radius: 13px; }
+.invoice-brand-block img { display: block; width: 190px; height: auto; padding: 4px; object-fit: contain; object-position: center; border-radius: 13px; }
 .invoice-brand-block > p { margin: 10px 0 20px; color: var(--plum); font-size: 10px; font-weight: 600; letter-spacing: .15em; text-transform: uppercase; }
 .invoice-brand-block address { color: var(--muted); font-style: normal; font-size: 12px; line-height: 1.7; }
 .invoice-title-block { min-width: 230px; text-align: right; }
@@ -276,6 +275,28 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .invoice-document-footer { display: flex; justify-content: space-between; gap: 24px; margin-top: 75px; padding-top: 20px; border-top: 1px solid var(--plum); color: var(--muted); font-size: 11px; }
 .invoice-document-footer p { margin: 0; }
 
+.contract-document-title { margin: 42px 0 8px; font: 600 40px/1 var(--serif); letter-spacing: -.025em; }
+.contract-intro { max-width: 690px; margin: 0; color: var(--muted); line-height: 1.65; }
+.contract-parties { padding-top: 32px; }
+.contract-section { padding: 28px 0; border-top: 1px solid var(--line); }
+.contract-section > label { display: block; }
+.contract-section > label + label { margin-top: 22px; }
+.contract-section label > span, .contract-financial-grid label > span:first-child, .contract-signatures label > span { display: block; margin: 0 0 7px; color: var(--muted); font-size: 8px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.contract-section input, .contract-section textarea, .contract-signatures input { border-color: var(--line); }
+.contract-section input { padding: 0 10px; }
+.contract-financial-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 22px; padding: 24px; border-radius: 14px; background: var(--rose); }
+.contract-financial-grid > label { display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.contract-financial-grid .money-input { background: #fffaf5; }
+.contract-terms-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 22px; margin-top: 28px; }
+.contract-terms-grid > label + label { margin-top: 0; }
+.contract-terms-grid > label:last-child { grid-column: 1 / -1; }
+.contract-acceptance { margin-top: 10px; padding: 26px; border: 1px solid var(--plum); border-radius: 14px; }
+.contract-acceptance > p { margin: 0 0 25px; line-height: 1.65; }
+.contract-signatures { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 34px; }
+.contract-signatures > div { padding-top: 18px; border-top: 1px solid var(--plum); }
+.contract-signatures label + label { display: block; margin-top: 14px; }
+.contract-acceptance > small { display: block; margin-top: 22px; color: var(--muted); line-height: 1.5; }
+
 .reviews-workspace { margin-top: 38px; }
 .review-admin-note { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid rgba(182,124,66,.32); border-radius: 13px; background: rgba(229,185,128,.16); font-size: 12px; }
 .review-admin-note strong { white-space: nowrap; }
@@ -315,6 +336,11 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .review-form-actions { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; margin-top: 24px; }
 .review-form-actions .form-message { margin: 0; }
 .review-form-actions .primary-button { width: auto; min-height: 48px; margin: 0; padding: 0 22px; }
+.review-save-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.review-another-button { min-height: 48px; padding: 0 18px; border: 1px solid var(--plum); border-radius: 999px; color: var(--plum); background: transparent; cursor: pointer; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
+.review-another-button:hover { background: rgba(115,73,73,.08); }
+.review-another-button:focus-visible { outline: 3px solid rgba(182,124,66,.5); outline-offset: 3px; }
+.review-another-button:disabled { opacity: .55; cursor: wait; }
 .review-delete-button { border: 0; color: #8b2d3d; background: transparent; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
 
 @media (max-width: 1700px) {
@@ -335,7 +361,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .dashboard { display: block; }
   .dashboard-rail { position: static; width: 100%; height: auto; display: grid; grid-template-columns: 120px 1fr auto; align-items: center; gap: 18px; padding: 14px 18px; }
   .rail-logo { width: 120px; height: 62px; }
-  .rail-logo img { width: 120px; height: 88px; }
+  .rail-logo img { width: 100%; height: 100%; }
   .dashboard-rail > div:not(.rail-footer) { display: flex; min-width: 0; overflow-x: auto; scrollbar-width: none; }
   .dashboard-rail > div:not(.rail-footer)::-webkit-scrollbar { display: none; }
   .rail-label { display: none; }
@@ -376,7 +402,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 @media (max-width: 520px) {
   .dashboard-rail { grid-template-columns: 112px 1fr; }
   .rail-logo { width: 112px; height: 58px; }
-  .rail-logo img { width: 112px; height: 82px; }
+  .rail-logo img { width: 100%; height: 100%; }
   .rail-footer { display: none; }
   .dashboard-header { display: block; }
   .header-actions { margin-top: 20px; }
@@ -398,6 +424,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .review-copy-field { grid-column: auto; }
   .review-form-actions { grid-template-columns: 1fr; }
   .review-form-actions .primary-button { width: 100%; }
+  .review-save-actions { display: grid; justify-content: stretch; }
+  .review-another-button { width: 100%; padding: 0 14px; }
   .review-delete-button { justify-self: start; }
   .messages-layout { display: block; overflow: visible; }
   .thread-panel { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -428,13 +456,17 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .invoice-bottom-grid { grid-template-columns: 1fr; gap: 30px; margin-top: 32px; }
   .invoice-document-footer { display: block; margin-top: 45px; }
   .invoice-document-footer span { display: block; margin-top: 5px; }
+  .contract-document-title { margin-top: 32px; font-size: 32px; }
+  .contract-financial-grid, .contract-terms-grid, .contract-signatures { grid-template-columns: 1fr; }
+  .contract-terms-grid > label:last-child { grid-column: auto; }
+  .contract-financial-grid > label { align-items: flex-start; flex-direction: column; }
 }
 @media print {
   body { background: #fff; }
   body * { visibility: hidden !important; }
-  #invoice-sheet, #invoice-sheet * { visibility: visible !important; }
-  #invoice-sheet { position: absolute; inset: 0; width: 100%; min-height: 0; margin: 0; padding: 36px; box-shadow: none; }
-  #invoice-sheet input, #invoice-sheet select, #invoice-sheet textarea { border: 0 !important; box-shadow: none !important; appearance: none; }
+  body:not(.printing-contract) #invoice-sheet, body:not(.printing-contract) #invoice-sheet *, body.printing-contract #contract-sheet, body.printing-contract #contract-sheet * { visibility: visible !important; }
+  body:not(.printing-contract) #invoice-sheet, body.printing-contract #contract-sheet { position: absolute; inset: 0; width: 100%; min-height: 0; margin: 0; padding: 36px; box-shadow: none; }
+  body:not(.printing-contract) #invoice-sheet input, body:not(.printing-contract) #invoice-sheet select, body:not(.printing-contract) #invoice-sheet textarea, body.printing-contract #contract-sheet input, body.printing-contract #contract-sheet select, body.printing-contract #contract-sheet textarea { border: 0 !important; box-shadow: none !important; appearance: none; }
   .remove-line-item, .add-line-item { display: none !important; }
 }
 @media (prefers-reduced-motion: reduce) {
