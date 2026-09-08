@@ -1485,7 +1485,7 @@ textarea:focus {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  min-height: clamp(870px, 74vw, 1060px);
+  min-height: clamp(810px, 70vw, 980px);
   padding: clamp(82px, 8vw, 120px) 0 clamp(92px, 9vw, 135px);
   color: #fff9f3;
   background: #2d2022;
@@ -1564,18 +1564,18 @@ textarea:focus {
   display: grid;
   flex: none;
   grid-auto-flow: column;
-  grid-auto-columns: clamp(440px, 42vw, 620px);
-  grid-template-rows: 640px;
-  gap: 30px;
+  grid-auto-columns: clamp(410px, 39vw, 570px);
+  grid-template-rows: 580px;
+  gap: 26px;
 }
 
 .review-card {
   position: relative;
   display: flex;
   min-width: 0;
-  height: 640px;
+  height: 580px;
   flex-direction: column;
-  padding: clamp(40px, 4vw, 62px);
+  padding: clamp(36px, 3.5vw, 50px);
   border: 1px solid rgba(255,255,255,.74);
   border-radius: clamp(32px, 3.2vw, 52px);
   color: #412b2d;
@@ -1586,12 +1586,12 @@ textarea:focus {
 .review-avatar {
   display: none;
 }
-.review-stars { position: static; margin-bottom: clamp(42px, 4vw, 64px); color: #b67c42; font-size: clamp(19px, 1.7vw, 25px); line-height: 1; letter-spacing: .14em; }
+.review-stars { position: static; margin-bottom: clamp(34px, 3.4vw, 48px); color: #b67c42; font-size: clamp(18px, 1.5vw, 23px); line-height: 1; letter-spacing: .14em; }
 .review-card blockquote {
   flex: 1;
   margin: 0 0 36px;
   overflow-wrap: anywhere;
-  font: 400 clamp(24px, 2.15vw, 33px)/1.24 "Droid Serif", Georgia, serif;
+  font: 400 clamp(22px, 1.9vw, 29px)/1.26 "Droid Serif", Georgia, serif;
   letter-spacing: -.025em;
 }
 .review-card > footer { display: flex; width: auto; min-width: 0; flex-direction: column; align-items: flex-start; gap: 8px; padding: 0; border: 0; color: #412b2d; background: transparent; }
@@ -1605,15 +1605,15 @@ textarea:focus {
 }
 
 @media (max-width: 760px) {
-  .reviews-section { min-height: 800px; padding: 72px 0 96px; }
+  .reviews-section { min-height: 750px; padding: 68px 0 88px; }
   .reviews-heading { width: min(100% - 36px, 620px); padding-bottom: 42px; }
   .reviews-heading h2 { max-width: 14ch; font-size: clamp(36px, 11vw, 52px); }
   .reviews-marquee { mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); -webkit-mask-image: linear-gradient(90deg, transparent, #000 3%, #000 97%, transparent); }
   .reviews-track { gap: 20px; animation-duration: 64s; }
-  .reviews-set { grid-auto-columns: min(84vw, 360px); grid-template-rows: 560px; gap: 20px; }
-  .review-card { height: 560px; padding: 34px 30px; border-radius: 32px; }
-  .review-stars { margin-bottom: 36px; font-size: 18px; }
-  .review-card blockquote { margin-bottom: 28px; font-size: clamp(18px, 5.2vw, 22px); line-height: 1.3; }
+  .reviews-set { grid-auto-columns: min(82vw, 340px); grid-template-rows: 520px; gap: 18px; }
+  .review-card { height: 520px; padding: 30px 26px; border-radius: 30px; }
+  .review-stars { margin-bottom: 30px; font-size: 17px; }
+  .review-card blockquote { margin-bottom: 24px; font-size: clamp(17px, 4.8vw, 20px); line-height: 1.3; }
   .review-card footer strong { font-size: 11px; }
   .review-card footer span { font-size: 12px; }
 }
