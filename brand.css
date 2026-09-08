@@ -2244,3 +2244,17 @@ a.price-card:focus-visible strong {
     display: none !important;
   }
 }
+
+@media (min-width: 801px) {
+  .hero .hero-actions .text-link {
+    color: var(--paper);
+    border-bottom-color: rgba(255, 247, 240, 0.78);
+    text-shadow: 0 2px 12px rgba(24, 12, 14, 0.82);
+  }
+
+  .hero .hero-actions .text-link:hover,
+  .hero .hero-actions .text-link:focus-visible {
+    color: var(--brand-blush);
+    border-bottom-color: currentColor;
+  }
+}
