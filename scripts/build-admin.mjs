@@ -19,6 +19,8 @@ const productionFiles = [
   "service-option.html",
   "service-option.js",
   "privacy.html",
+  "dashboard.html",
+  "dashboard.css",
   "404.html",
   "styles.css",
   "mobile.css",

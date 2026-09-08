@@ -16,6 +16,12 @@
     X-Robots-Tag = "noindex, nofollow"
 
 [[headers]]
+  for = "/dashboard*"
+  [headers.values]
+    Cache-Control = "no-store"
+    X-Robots-Tag = "noindex, nofollow"
+
+[[headers]]
   for = "/conversation*"
   [headers.values]
     Cache-Control = "no-store"
