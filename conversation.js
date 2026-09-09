@@ -1,3 +1,10 @@
+import {
+  appendAttachments,
+  selectedFiles,
+  updateAttachmentSummary,
+  uploadAttachments,
+} from "./attachment-ui.js";
+
 const $ = (selector) => document.querySelector(selector);
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const validToken = /^[A-Za-z0-9_-]{43}$/.test(token);
@@ -33,7 +40,10 @@ const renderMessages = (messages) => {
     const time = document.createElement("time");
     time.dateTime = message.createdAt;
     time.textContent = formatDate(message.createdAt, true);
-    article.append(name, copy, time);
+    article.append(name);
+    if (message.body) article.append(copy);
+    appendAttachments(article, message.attachments);
+    article.append(time);
     list.append(article);
   });
   list.hidden = messages.length === 0;
@@ -72,20 +82,46 @@ $("#message-form").addEventListener("submit", async (event) => {
   const input = $("#message-input");
   const button = event.currentTarget.querySelector("button");
   const message = input.value.trim();
-  if (!message) return;
-  const requestId = globalThis.crypto?.randomUUID?.();
-  button.disabled = true;
-  $("#message-status").textContent = "Sending…";
+  const attachmentInput = $("#message-attachments");
+  let files;
   try {
+    files = selectedFiles(attachmentInput);
+  } catch (error) {
+    $("#message-status").textContent = error.message;
+    return;
+  }
+  if (!message && !files.length) return;
+  const requestId = globalThis.crypto.randomUUID();
+  button.disabled = true;
+  $("#message-status").textContent = files.length ? "Uploading attachments…" : "Sending…";
+  try {
+    const attachments = await uploadAttachments({
+      files,
+      messageId: requestId,
+      prepare: async (payload) => {
+        const response = await fetch("/api/hmp-conversation", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          credentials: "omit",
+          body: JSON.stringify(payload),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Attachment could not be uploaded.");
+        return data;
+      },
+    });
+    $("#message-status").textContent = "Sending…";
     const response = await fetch("/api/hmp-conversation", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       credentials: "omit",
-      body: JSON.stringify({ message, requestId }),
+      body: JSON.stringify({ message, requestId, attachments }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Message could not be sent.");
     input.value = "";
+    attachmentInput.value = "";
+    updateAttachmentSummary(attachmentInput, $("#message-attachment-summary"));
     $("#message-status").textContent = "Message sent securely.";
     await loadConversation({ quiet: true });
   } catch (error) {
@@ -93,6 +129,10 @@ $("#message-form").addEventListener("submit", async (event) => {
   } finally {
     button.disabled = false;
   }
+});
+
+$("#message-attachments").addEventListener("change", () => {
+  updateAttachmentSummary($("#message-attachments"), $("#message-attachment-summary"));
 });
 
 if (validToken) {

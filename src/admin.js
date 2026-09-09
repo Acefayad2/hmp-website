@@ -9,6 +9,12 @@ import {
   requestPasswordRecovery,
   updateUser,
 } from "@netlify/identity";
+import {
+  appendAttachments,
+  selectedFiles,
+  updateAttachmentSummary,
+  uploadAttachments,
+} from "../attachment-ui.js";
 
 const $ = (selector) => document.querySelector(selector);
 const authShell = $("#auth-shell");
@@ -384,7 +390,9 @@ const renderAdminMessages = (thread) => {
     meta.append(name, time);
     const copy = document.createElement("p");
     copy.textContent = message.body;
-    article.append(meta, copy);
+    article.append(meta);
+    if (message.body) article.append(copy);
+    appendAttachments(article, message.attachments);
     list.append(article);
   });
   $("#admin-message-empty").hidden = (thread.messages || []).length > 0;
@@ -522,21 +530,47 @@ const sendAdminMessage = async (event) => {
   if (!activeThreadId) return;
   const input = $("#admin-message-input");
   const message = input.value.trim();
-  if (!message) return;
-  const requestId = globalThis.crypto?.randomUUID?.();
+  const attachmentInput = $("#admin-message-attachments");
+  let files;
+  try {
+    files = selectedFiles(attachmentInput);
+  } catch (error) {
+    setMessage($("#admin-message-status"), error.message);
+    return;
+  }
+  if (!message && !files.length) return;
+  const requestId = globalThis.crypto.randomUUID();
   const button = event.currentTarget.querySelector("button[type=submit]");
   button.disabled = true;
-  setMessage($("#admin-message-status"), "Sending reply…");
+  setMessage($("#admin-message-status"), files.length ? "Uploading attachments…" : "Sending reply…");
   try {
+    const attachments = await uploadAttachments({
+      files,
+      messageId: requestId,
+      prepare: async (payload) => {
+        const response = await fetch("/api/hmp-messages", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...payload, conversationId: activeThreadId }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Attachment could not be uploaded.");
+        return data;
+      },
+    });
+    setMessage($("#admin-message-status"), "Sending reply…");
     const response = await fetch("/api/hmp-messages", {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send", conversationId: activeThreadId, message, requestId }),
+      body: JSON.stringify({ action: "send", conversationId: activeThreadId, message, requestId, attachments }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Reply could not be sent.");
     input.value = "";
+    attachmentInput.value = "";
+    updateAttachmentSummary(attachmentInput, $("#admin-message-attachment-summary"));
     await loadMessages();
     setMessage($("#admin-message-status"), data.notified ? "Reply sent and client notified by email." : "Reply sent securely.", true);
   } catch (error) {
@@ -1216,6 +1250,12 @@ $("#thread-list").addEventListener("click", (event) => {
   if (row) openMessageThread(row.dataset.threadId);
 });
 $("#admin-message-form").addEventListener("submit", sendAdminMessage);
+$("#admin-message-attachments").addEventListener("change", () => {
+  updateAttachmentSummary(
+    $("#admin-message-attachments"),
+    $("#admin-message-attachment-summary"),
+  );
+});
 $("#copy-active-link").addEventListener("click", async () => {
   try {
     await copyText(activeConversationUrl);

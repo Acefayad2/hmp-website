@@ -1,6 +1,13 @@
 import type { Config, Context } from "@netlify/functions";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation, tokenHash, validBearerToken } from "./_conversation-security.mts";
+import {
+  completeAttachmentUploads,
+  parseAttachments,
+  prepareAttachmentUpload,
+  signAttachments,
+  verifyAttachmentsExist,
+} from "./_conversation-attachments.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -77,11 +84,15 @@ export default async (request: Request, _context: Context) => {
   if (request.method === "GET") {
     const { data: messages, error } = await client
       .from("hmp_client_messages")
-      .select("id,sender,sender_name,body,created_at")
+      .select("id,sender,sender_name,body,attachments,created_at")
       .eq("conversation_id", conversation.id)
       .order("created_at", { ascending: true })
       .limit(500);
     if (error) return json({ error: "Conversation is temporarily unavailable." }, 502);
+    const signedMessages = await Promise.all((messages || []).map(async (message) => ({
+      ...message,
+      signedAttachments: await signAttachments(client, message.attachments),
+    })));
     return json({
       conversation: {
         clientName: inquiry.client_name || "Client",
@@ -90,11 +101,12 @@ export default async (request: Request, _context: Context) => {
         status: inquiry.status || "New",
         expiresAt: conversation.token_expires_at,
       },
-      messages: (messages || []).map((message) => ({
+      messages: signedMessages.map((message) => ({
         id: message.id,
         sender: message.sender,
         senderName: message.sender_name || (message.sender === "admin" ? "HMP representative" : inquiry.client_name || "Client"),
         body: message.body,
+        attachments: message.signedAttachments,
         createdAt: message.created_at,
       })),
     });
@@ -106,12 +118,34 @@ export default async (request: Request, _context: Context) => {
   if (contentLength > 6000) return json({ error: "Message is too long." }, 413);
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
+  const action = cleanText(body.action, 32);
+  if (action === "prepare-upload") {
+    try {
+      const upload = await prepareAttachmentUpload(
+        client,
+        conversation.id,
+        cleanText(body.messageId, 36),
+        "client",
+        body,
+      );
+      return json({ ok: true, ...upload });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Attachment upload is unavailable." }, 400);
+    }
+  }
   const message = cleanText(body.message, 4000);
   const suppliedRequestId = cleanText(body.requestId, 36);
   const requestId = uuidPattern.test(suppliedRequestId)
     ? suppliedRequestId
     : crypto.randomUUID();
-  if (!message) return json({ error: "Enter a message." }, 400);
+  let attachments;
+  try {
+    attachments = parseAttachments(body.attachments, conversation.id, requestId);
+    await verifyAttachmentsExist(client, attachments, conversation.id, requestId);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : "Attachments could not be sent." }, 400);
+  }
+  if (!message && !attachments.length) return json({ error: "Enter a message or add an attachment." }, 400);
 
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   const { count } = await client
@@ -135,23 +169,24 @@ export default async (request: Request, _context: Context) => {
   const now = new Date().toISOString();
   const { data: inserted, error } = await client
     .from("hmp_client_messages")
-    .insert({ id: requestId, conversation_id: conversation.id, sender: "client", sender_name: inquiry.client_name || "Client", body: message })
-    .select("id,sender,sender_name,body,created_at")
+    .insert({ id: requestId, conversation_id: conversation.id, sender: "client", sender_name: inquiry.client_name || "Client", body: message, attachments })
+    .select("id,sender,sender_name,body,attachments,created_at")
     .single();
   if (error?.code === "23505") {
     const { data: existing } = await client
       .from("hmp_client_messages")
-      .select("id,sender,sender_name,body,created_at")
+      .select("id,sender,sender_name,body,attachments,created_at")
       .eq("id", requestId)
       .eq("conversation_id", conversation.id)
       .eq("sender", "client")
       .maybeSingle();
-    if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, createdAt: existing.created_at } });
+    if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, attachments: existing.attachments, createdAt: existing.created_at } });
   }
   if (error || !inserted) return json({ error: "Message could not be sent." }, 502);
+  await completeAttachmentUploads(client, attachments);
   await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "client", updated_at: now }).eq("id", conversation.id);
   await sendAdminNotification(inquiry, inserted.id).catch(() => false);
-  return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, createdAt: inserted.created_at } });
+  return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at } });
 };
 
 export const config: Config = { path: "/api/hmp-conversation" };

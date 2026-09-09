@@ -8,6 +8,13 @@ import {
   newNonce,
   tokenHash,
 } from "./_conversation-security.mts";
+import {
+  completeAttachmentUploads,
+  parseAttachments,
+  prepareAttachmentUpload,
+  signAttachments,
+  verifyAttachmentsExist,
+} from "./_conversation-attachments.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -134,9 +141,13 @@ export default async (request: Request, _context: Context) => {
         ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,service,celebration_date,status").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [] }),
       conversationIds.length
-        ? client.from("hmp_client_messages").select("id,conversation_id,sender,sender_name,body,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: true }).limit(2000)
+        ? client.from("hmp_client_messages").select("id,conversation_id,sender,sender_name,body,attachments,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: true }).limit(2000)
         : Promise.resolve({ data: [] }),
     ]);
+    const signedMessageRows = await Promise.all((messageRows || []).map(async (message) => ({
+      ...message,
+      signedAttachments: await signAttachments(client, message.attachments),
+    })));
     const inquiryMap = new Map((inquiryRows || []).map((row) => [row.submission_id, row]));
     const threads = conversationRows.map((row) => {
       const inquiry = inquiryMap.get(row.inquiry_id) || {};
@@ -153,13 +164,14 @@ export default async (request: Request, _context: Context) => {
         lastMessageAt: row.last_message_at,
         lastSender: row.last_sender,
         clientUrl: clientConversationUrl(row.id, row.token_nonce),
-        messages: (messageRows || [])
+        messages: signedMessageRows
           .filter((message) => message.conversation_id === row.id)
           .map((message) => ({
             id: message.id,
             sender: message.sender,
             senderName: message.sender_name || (message.sender === "admin" ? "HMP representative" : inquiry.client_name || "Client"),
             body: message.body,
+            attachments: message.signedAttachments,
             createdAt: message.created_at,
           })),
       };
@@ -177,6 +189,29 @@ export default async (request: Request, _context: Context) => {
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (action === "prepare-upload") {
+    const conversationId = cleanText(body.conversationId, 36);
+    if (!uuidPattern.test(conversationId)) return json({ error: "Invalid conversation" }, 400);
+    const { data: conversation } = await client
+      .from("hmp_client_conversations")
+      .select("id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conversation) return json({ error: "Conversation not found" }, 404);
+    try {
+      const upload = await prepareAttachmentUpload(
+        client,
+        conversationId,
+        cleanText(body.messageId, 36),
+        "admin",
+        body,
+      );
+      return json({ ok: true, ...upload });
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Attachment upload is unavailable" }, 400);
+    }
+  }
 
   if (action === "create-link" || action === "send-link") {
     const inquiryId = cleanText(body.inquiryId, 36);
@@ -227,13 +262,21 @@ export default async (request: Request, _context: Context) => {
     const requestId = uuidPattern.test(suppliedRequestId)
       ? suppliedRequestId
       : crypto.randomUUID();
-    if (!uuidPattern.test(conversationId) || !message) return json({ error: "Enter a message" }, 400);
+    if (!uuidPattern.test(conversationId)) return json({ error: "Invalid conversation" }, 400);
     const { data: conversation } = await client
       .from("hmp_client_conversations")
       .select("*")
       .eq("id", conversationId)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversation not found" }, 404);
+    let attachments;
+    try {
+      attachments = parseAttachments(body.attachments, conversationId, requestId);
+      await verifyAttachmentsExist(client, attachments, conversationId, requestId);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Attachments could not be sent" }, 400);
+    }
+    if (!message && !attachments.length) return json({ error: "Enter a message or add an attachment" }, 400);
     const { data: inquiry } = await client
       .from("hmp_admin_inquiries")
       .select("client_name,email,service")
@@ -242,23 +285,24 @@ export default async (request: Request, _context: Context) => {
     const now = new Date().toISOString();
     const { data: inserted, error } = await client
       .from("hmp_client_messages")
-      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message })
-      .select("id,sender,sender_name,body,created_at")
+      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message, attachments })
+      .select("id,sender,sender_name,body,attachments,created_at")
       .single();
     if (error?.code === "23505") {
       const { data: existing } = await client
         .from("hmp_client_messages")
-        .select("id,sender,sender_name,body,created_at")
+        .select("id,sender,sender_name,body,attachments,created_at")
         .eq("id", requestId)
         .eq("conversation_id", conversationId)
         .eq("sender", "admin")
         .maybeSingle();
-      if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, createdAt: existing.created_at }, notified: false });
+      if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, attachments: existing.attachments, createdAt: existing.created_at }, notified: false });
     }
     if (error || !inserted) return json({ error: "Message could not be sent" }, 502);
+    await completeAttachmentUploads(client, attachments);
     await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
     const notified = inquiry ? await sendReplyNotification(inquiry, conversation, inserted.id).catch(() => false) : false;
-    return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, createdAt: inserted.created_at }, notified });
+    return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, notified });
   }
 
   return json({ error: "Invalid action" }, 400);

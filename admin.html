@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260907-1" />
+    <link rel="stylesheet" href="admin.css?v=20260908-2" />
   </head>
   <body>
     <main id="admin-root" aria-live="polite">
@@ -166,7 +166,12 @@
                   <div class="admin-message-empty" id="admin-message-empty" hidden>No messages yet. Send a welcome note to begin the conversation.</div>
                   <form class="admin-message-composer" id="admin-message-form">
                     <label for="admin-message-input">Reply as HMP</label>
-                    <textarea id="admin-message-input" maxlength="4000" rows="4" placeholder="Type your reply…" required></textarea>
+                    <textarea id="admin-message-input" maxlength="4000" rows="4" placeholder="Type your reply…"></textarea>
+                    <div class="attachment-picker">
+                      <label class="attachment-button" for="admin-message-attachments">＋ Add photos or files</label>
+                      <input id="admin-message-attachments" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
+                      <span id="admin-message-attachment-summary">Up to 4 files · 25 MB each</span>
+                    </div>
                     <div><p class="form-message" id="admin-message-status" role="status"></p><button class="primary-button" type="submit">Send reply</button></div>
                   </form>
                 </div>
@@ -540,6 +545,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js"></script>
+    <script type="module" src="assets/admin.js?v=20260908-2"></script>
   </body>
 </html>
