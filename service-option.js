@@ -118,23 +118,6 @@ const offeringDetails = {
     image: "/assets/hmp-hero-welcome.webp",
     imageAlt: "Complete digital guest arrival and table directory experience",
   },
-  "money-machine": {
-    category: "Money Table Services",
-    parentUrl: "/money-table",
-    title: "Money Machine",
-    summary: "Count cash efficiently while keeping the money-spraying celebration moving.",
-    heading: "Count with confidence.",
-    description:
-      "The Money Machine service supports efficient cash counting during and after money-spraying moments. A dedicated Money Associate keeps the process organized so you can remain present for the celebration.",
-    price: "$65 per hour",
-    features: [
-      "Professional cash-counting support",
-      "Dedicated Money Associate",
-      "Four-hour service minimum",
-    ],
-    image: "/assets/modern-money-table.webp",
-    imageAlt: "Professional cash-counting machine arranged on an elegant event service table",
-  },
   "money-collecting": {
     category: "Money Table Services",
     parentUrl: "/money-table",

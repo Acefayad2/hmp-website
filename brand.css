@@ -1571,7 +1571,6 @@ textarea:focus {
 
 .reviews-track.is-moving { animation: reviews-drift 64s linear infinite; }
 
-.reviews-marquee:hover .reviews-track,
 .reviews-marquee:focus-within .reviews-track { animation-play-state: paused; }
 
 .reviews-set {
@@ -1781,6 +1780,21 @@ a.price-card:focus-visible strong {
     overflow-wrap: anywhere;
     text-align: center;
     line-height: 1.25;
+  }
+}
+
+/* These branded ticker motions are intentionally gentle and remain active
+   when a device requests reduced motion, since they communicate live content. */
+@media (prefers-reduced-motion: reduce) {
+  .marquee > div {
+    animation: hmp-banner-flow 44s linear infinite !important;
+    animation-iteration-count: infinite !important;
+  }
+
+  .reviews-track.is-moving {
+    animation: reviews-drift 96s linear infinite !important;
+    animation-iteration-count: infinite !important;
+    transform: translate3d(0, 0, 0) !important;
   }
 }
 

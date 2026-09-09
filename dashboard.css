@@ -294,4 +294,9 @@ a {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+
+  .workspace-primary {
+    color: var(--paper);
+    background: var(--ink-deep);
+  }
 }

@@ -290,7 +290,6 @@ const inquiryServiceOptions = {
       "Changing + Collecting",
       "Money Changing",
       "Money Collecting",
-      "Money Machine",
     ],
   },
 };
