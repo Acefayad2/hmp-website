@@ -515,6 +515,9 @@ const reviewsSection = reviewsTrack?.closest(".reviews-section");
 const createReviewCard = (review, duplicate = false) => {
   const card = document.createElement("article");
   card.className = "review-card";
+  const reviewLength = String(review.reviewText || "").length;
+  if (reviewLength > 240) card.classList.add("is-long-review");
+  else if (reviewLength > 160) card.classList.add("is-medium-review");
   if (duplicate) card.setAttribute("aria-hidden", "true");
 
   const stars = document.createElement("div");
