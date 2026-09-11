@@ -1651,6 +1651,7 @@ textarea:focus {
   .review-card blockquote { margin-bottom: 20px; font-size: clamp(16px, 4.1vw, 17px); line-height: 1.34; }
   .review-card.is-medium-review blockquote,
   .review-card.is-long-review blockquote { font-size: 16px; line-height: 1.28; }
+  .review-card.is-long-review blockquote { margin-bottom: 16px; line-height: 1.22; }
   .review-card footer strong { font-size: 11px; }
   .review-card footer span { font-size: 12px; }
 }
