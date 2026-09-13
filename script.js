@@ -1,3 +1,23 @@
+const brandIntro = document.querySelector("[data-brand-intro]");
+
+if (brandIntro && document.documentElement.classList.contains("show-brand-intro")) {
+  let introFinished = false;
+  const finishBrandIntro = () => {
+    if (introFinished) return;
+    introFinished = true;
+    document.documentElement.classList.remove("show-brand-intro");
+    brandIntro.remove();
+  };
+
+  brandIntro.addEventListener("click", finishBrandIntro);
+  brandIntro.addEventListener("animationend", (event) => {
+    if (event.target === brandIntro) finishBrandIntro();
+  });
+  window.setTimeout(finishBrandIntro, 3000);
+} else {
+  brandIntro?.remove();
+}
+
 const menuButton = document.querySelector(".menu-toggle");
 const nav = document.querySelector("#site-nav");
 

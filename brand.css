@@ -2114,3 +2114,124 @@ a.price-card:focus-visible strong {
     padding: 28px 24px;
   }
 }
+
+/* Homepage brand entrance: a brief moon-to-wordmark reveal, once per session. */
+.brand-intro {
+  display: none;
+}
+
+.show-brand-intro,
+.show-brand-intro body {
+  overflow: hidden;
+}
+
+.show-brand-intro .brand-intro {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 44%, rgba(196, 175, 175, 0.28), transparent 25rem),
+    var(--paper);
+  cursor: pointer;
+  animation: hmp-intro-shell 2.75s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.brand-intro__stage {
+  position: relative;
+  display: grid;
+  width: min(520px, 86vw);
+  min-height: min(390px, 64vw);
+  place-items: center;
+  isolation: isolate;
+}
+
+.brand-intro__moon {
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: clamp(150px, 19vw, 230px);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: rgba(163, 129, 94, 0.72);
+  box-shadow: 0 26px 70px rgba(96, 69, 69, 0.15);
+  transform: translate(-50%, -52%);
+  animation: hmp-intro-moon 2.15s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.brand-intro__moon::after {
+  content: "";
+  position: absolute;
+  inset: -4% -24% 4% 28%;
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.brand-intro__logo {
+  display: block;
+  width: min(440px, 78vw);
+  height: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 24px rgba(96, 69, 69, 0.13));
+  animation: hmp-intro-logo 2.15s 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.brand-intro__line {
+  position: absolute;
+  bottom: 12%;
+  left: 50%;
+  width: min(190px, 42vw);
+  height: 1px;
+  background: rgba(96, 69, 69, 0.46);
+  transform-origin: center;
+  animation: hmp-intro-line 1.45s 0.62s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes hmp-intro-shell {
+  0%, 78% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; }
+}
+
+@keyframes hmp-intro-moon {
+  0% { opacity: 0; transform: translate(-50%, -47%) rotate(-18deg) scale(0.7); }
+  35% { opacity: 1; transform: translate(-50%, -52%) rotate(0) scale(1); }
+  100% { opacity: 0.34; transform: translate(-50%, -58%) rotate(7deg) scale(1.32); }
+}
+
+@keyframes hmp-intro-logo {
+  0% { opacity: 0; transform: translateY(18px) scale(0.96); }
+  45%, 100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes hmp-intro-line {
+  from { opacity: 0; transform: translateX(-50%) scaleX(0); }
+  to { opacity: 1; transform: translateX(-50%) scaleX(1); }
+}
+
+@media (max-width: 800px) {
+  .brand-intro__stage {
+    width: 90vw;
+    min-height: 420px;
+  }
+
+  .brand-intro__logo {
+    width: min(340px, 84vw);
+  }
+
+  .brand-intro__moon {
+    width: clamp(138px, 42vw, 180px);
+  }
+
+  .brand-intro__line {
+    bottom: 18%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brand-intro {
+    display: none !important;
+  }
+}

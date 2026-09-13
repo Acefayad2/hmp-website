@@ -37,6 +37,20 @@
       content="https://hmpeds.com/assets/hmp-hero-no-screen-2026.webp"
     />
     <meta name="twitter:image:alt" content="Elegant event entrance styled by HMP Luxury Event Services" />
+    <script>
+      try {
+        const reduceMotion = window.matchMedia(
+          "(prefers-reduced-motion: reduce)",
+        ).matches;
+        const introSeen = window.sessionStorage.getItem("hmp-brand-intro-seen");
+        if (!reduceMotion && !introSeen) {
+          document.documentElement.classList.add("show-brand-intro");
+          window.sessionStorage.setItem("hmp-brand-intro-seen", "true");
+        }
+      } catch {
+        document.documentElement.classList.add("show-brand-intro");
+      }
+    </script>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
@@ -103,9 +117,20 @@
     <link rel="stylesheet" href="styles.css" />
     <link rel="stylesheet" href="mobile.css" />
     <link rel="stylesheet" href="pages.css" />
-    <link rel="stylesheet" href="brand.css?v=20260911-1" />
+    <link rel="stylesheet" href="brand.css?v=20260913-1" />
   </head>
   <body>
+    <div class="brand-intro" data-brand-intro aria-hidden="true">
+      <div class="brand-intro__stage">
+        <span class="brand-intro__moon"></span>
+        <img
+          class="brand-intro__logo"
+          src="/assets/brand/hmp-logo-2026.png"
+          alt=""
+        />
+        <span class="brand-intro__line"></span>
+      </div>
+    </div>
     <a class="skip-link" href="#main-content">Skip to content</a>
     <header class="site-header" id="top">
       <a class="brand" href="/" aria-label="HMP Luxury Event Services home"
@@ -448,6 +473,6 @@
       <p>© <span id="year"></span> HMP Luxury Event Services</p>
     </footer>
 
-    <script src="script.js?v=20260912-1"></script>
+    <script src="script.js?v=20260913-1"></script>
   </body>
 </html>

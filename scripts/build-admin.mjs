@@ -46,6 +46,7 @@ const productionFiles = [
   "assets/modern-money-table.jpg",
   "assets/modern-money-table.webp",
   "assets/money-machine-table.webp",
+  "assets/brand/hmp-logo-2026.png",
   "assets/brand/hmp-logo-header-2026.png",
 ];
 
