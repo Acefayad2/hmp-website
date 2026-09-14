@@ -213,7 +213,7 @@ const sendInquiryEmails = async (
                 ${inquiryCopyRows}
               </table>
             </div>
-            <p style="margin:24px 0"><a href="${escapeHtml(conversationUrl)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">Talk with a representative</a></p>
+            <p style="margin:24px 0"><a href="${escapeHtml(conversationUrl)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">Connect with an Event Specialist</a></p>
             <p style="margin:-10px 0 24px;color:#8b7272;font-size:13px">Use this private link to send messages directly to the HMP team. Please do not forward it.</p>
             <p>If you need to add anything, reply directly to this email or contact us at <a href="mailto:${replyTo}" style="color:#9a633b">${replyTo}</a> or <a href="tel:+13014710990" style="color:#9a633b">301-471-0990</a>.</p>
             <p style="margin-bottom:0">Warmly,<br><strong>HMP Luxury Event Services</strong><br><span style="color:#8b7272">Elevating Events. Defining Luxury.</span></p>
