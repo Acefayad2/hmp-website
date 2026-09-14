@@ -35,6 +35,13 @@ const allowedTypes = new Set([
 const allowedType = (type) =>
   allowedTypes.has(type);
 
+const previewUrls = new WeakMap();
+
+const clearPreviewUrls = (container) => {
+  (previewUrls.get(container) || []).forEach((url) => URL.revokeObjectURL(url));
+  previewUrls.delete(container);
+};
+
 export const formatFileSize = (bytes) => {
   if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
@@ -60,6 +67,84 @@ export const updateAttachmentSummary = (input, summary) => {
     summary.textContent = error.message;
     summary.classList.add("error");
   }
+};
+
+export const renderAttachmentPreviews = (input, container, summary) => {
+  clearPreviewUrls(container);
+  container.replaceChildren();
+
+  let files;
+  try {
+    files = selectedFiles(input);
+  } catch {
+    updateAttachmentSummary(input, summary);
+    container.hidden = true;
+    return;
+  }
+
+  if (!files.length) {
+    container.hidden = true;
+    return;
+  }
+
+  const urls = [];
+  files.forEach((file, index) => {
+    const card = document.createElement("article");
+    card.className = "attachment-preview";
+
+    if (file.type.startsWith("video/")) {
+      const video = document.createElement("video");
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+      video.src = url;
+      video.controls = true;
+      video.preload = "metadata";
+      video.setAttribute("playsinline", "");
+      video.setAttribute("aria-label", `Preview ${file.name}`);
+      card.append(video);
+    } else if (file.type.startsWith("image/")) {
+      const image = document.createElement("img");
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+      image.src = url;
+      image.alt = `Preview of ${file.name}`;
+      card.append(image);
+    } else {
+      const icon = document.createElement("span");
+      icon.className = "attachment-preview__icon";
+      icon.textContent = "File";
+      card.append(icon);
+    }
+
+    const details = document.createElement("div");
+    details.className = "attachment-preview__details";
+    const name = document.createElement("strong");
+    name.textContent = file.name;
+    const size = document.createElement("span");
+    size.textContent = formatFileSize(file.size);
+    details.append(name, size);
+
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "attachment-preview__remove";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${file.name}`);
+    remove.addEventListener("click", () => {
+      const transfer = new DataTransfer();
+      files.forEach((candidate, candidateIndex) => {
+        if (candidateIndex !== index) transfer.items.add(candidate);
+      });
+      input.files = transfer.files;
+      updateAttachmentSummary(input, summary);
+      renderAttachmentPreviews(input, container, summary);
+    });
+
+    card.append(details, remove);
+    container.append(card);
+  });
+
+  previewUrls.set(container, urls);
+  container.hidden = false;
 };
 
 export const uploadAttachments = async ({ files, messageId, prepare }) => {

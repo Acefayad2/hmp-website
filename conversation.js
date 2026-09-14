@@ -1,9 +1,10 @@
 import {
   appendAttachments,
+  renderAttachmentPreviews,
   selectedFiles,
   updateAttachmentSummary,
   uploadAttachments,
-} from "./attachment-ui.js";
+} from "./attachment-ui.js?v=20260914-1";
 
 const $ = (selector) => document.querySelector(selector);
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
@@ -122,6 +123,11 @@ $("#message-form").addEventListener("submit", async (event) => {
     input.value = "";
     attachmentInput.value = "";
     updateAttachmentSummary(attachmentInput, $("#message-attachment-summary"));
+    renderAttachmentPreviews(
+      attachmentInput,
+      $("#message-attachment-previews"),
+      $("#message-attachment-summary"),
+    );
     $("#message-status").textContent = "Message sent securely.";
     await loadConversation({ quiet: true });
   } catch (error) {
@@ -132,7 +138,10 @@ $("#message-form").addEventListener("submit", async (event) => {
 });
 
 $("#message-attachments").addEventListener("change", () => {
-  updateAttachmentSummary($("#message-attachments"), $("#message-attachment-summary"));
+  const input = $("#message-attachments");
+  const summary = $("#message-attachment-summary");
+  updateAttachmentSummary(input, summary);
+  renderAttachmentPreviews(input, $("#message-attachment-previews"), summary);
 });
 
 if (validToken) {
