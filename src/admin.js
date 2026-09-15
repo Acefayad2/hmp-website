@@ -692,6 +692,36 @@ const sendAdminMessage = async (event) => {
   }
 };
 
+const deleteActiveConversation = async () => {
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  if (!thread) return;
+  if (!window.confirm(`Permanently delete the conversation with ${thread.clientName}? All messages, proposals, and attachments in this conversation will be removed, and the client link will stop working.`)) return;
+  const button = $("#delete-active-conversation");
+  button.disabled = true;
+  setMessage($("#admin-message-status"), "Deleting conversation…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "delete", conversationId: thread.id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Conversation could not be deleted.");
+    messageThreads = messageThreads.filter((candidate) => candidate.id !== thread.id);
+    activeThreadId = "";
+    activeConversationUrl = "";
+    $("#admin-conversation").hidden = true;
+    $("#admin-conversation-placeholder").hidden = false;
+    renderMessageThreads();
+    await loadMessages();
+  } catch (error) {
+    setMessage($("#admin-message-status"), error.message || "Conversation could not be deleted.");
+  } finally {
+    button.disabled = false;
+  }
+};
+
 const formatMoney = (value) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
     Number(value) || 0,
@@ -1380,6 +1410,7 @@ $("#send-new-active-link").addEventListener("click", () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"));
 });
+$("#delete-active-conversation").addEventListener("click", deleteActiveConversation);
 $("#open-proposal-editor").addEventListener("click", openProposalEditor);
 $("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
 $("#proposal-form").addEventListener("submit", sendProposal);

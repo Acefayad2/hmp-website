@@ -9,6 +9,7 @@ import {
   tokenHash,
 } from "./_conversation-security.mts";
 import {
+  ATTACHMENT_BUCKET,
   completeAttachmentUploads,
   parseAttachments,
   prepareAttachmentUpload,
@@ -293,6 +294,37 @@ export default async (request: Request, _context: Context) => {
       expiresAt,
       ...(action === "send-link" ? { emailed } : {}),
     });
+  }
+
+  if (action === "delete") {
+    const conversationId = cleanText(body.conversationId, 36);
+    if (!uuidPattern.test(conversationId)) return json({ error: "Invalid conversation" }, 400);
+    const { data: conversation } = await client
+      .from("hmp_client_conversations")
+      .select("id")
+      .eq("id", conversationId)
+      .maybeSingle();
+    if (!conversation) return json({ error: "Conversation not found" }, 404);
+    const { data: uploadRows, error: uploadReadError } = await client
+      .from("hmp_conversation_attachment_uploads")
+      .select("path")
+      .eq("conversation_id", conversationId);
+    if (uploadReadError) return json({ error: "Conversation files could not be prepared for deletion" }, 502);
+    const { error: deleteError } = await client
+      .from("hmp_client_conversations")
+      .delete()
+      .eq("id", conversationId);
+    if (deleteError) {
+      console.error("Conversation delete failed", deleteError.code);
+      return json({ error: "Conversation could not be deleted" }, 502);
+    }
+    const paths = (uploadRows || []).map((row) => row.path).filter(Boolean);
+    let cleanupPending = false;
+    for (let index = 0; index < paths.length; index += 100) {
+      const { error } = await client.storage.from(ATTACHMENT_BUCKET).remove(paths.slice(index, index + 100));
+      if (error) cleanupPending = true;
+    }
+    return json({ ok: true, cleanupPending });
   }
 
   if (action === "send") {
