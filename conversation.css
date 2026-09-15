@@ -29,7 +29,8 @@ body { min-height:100dvh; margin:0; color:var(--ink); background:radial-gradient
 .message time { margin-top:8px; opacity:.67; }
 .message p { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.5; }
 .message-attachments { display:grid; gap:9px; margin-top:10px; }
-.message-attachments img,.message-attachments video { display:block; width:min(100%,360px); max-height:290px; border-radius:12px; object-fit:cover; background:rgba(0,0,0,.08); }
+.message-attachments img { display:block; width:min(100%,360px); max-height:290px; border-radius:12px; object-fit:cover; background:rgba(0,0,0,.08); }
+.message-attachments video { display:block; width:min(100%,360px); aspect-ratio:16/9; border-radius:12px; object-fit:contain; background:#1f1718; }
 .message-attachments audio { width:min(100%,330px); }
 .file-attachment { display:flex; flex-direction:column; gap:3px; min-width:220px; padding:12px 14px; border:1px solid currentColor; border-radius:12px; color:inherit; text-decoration:none; }
 .file-attachment strong { margin:0; overflow-wrap:anywhere; font-size:12px; letter-spacing:0; text-transform:none; }

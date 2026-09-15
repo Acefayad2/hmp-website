@@ -212,7 +212,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-message time { opacity: .65; }
 .admin-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .admin-message > .message-attachments { display: grid; justify-content: stretch; gap: 9px; margin: 10px 0 0; }
-.message-attachments img,.message-attachments video { display: block; width: min(100%,360px); max-height: 280px; border-radius: 11px; object-fit: cover; background: rgba(0,0,0,.08); }
+.message-attachments img { display: block; width: min(100%,360px); max-height: 280px; border-radius: 11px; object-fit: cover; background: rgba(0,0,0,.08); }
+.message-attachments video { display: block; width: min(100%,360px); aspect-ratio: 16/9; border-radius: 11px; object-fit: contain; background: #1f1718; }
 .message-attachments audio { width: min(100%,330px); }
 .file-attachment { display: flex; flex-direction: column; gap: 3px; min-width: 210px; padding: 11px 13px; border: 1px solid currentColor; border-radius: 11px; color: inherit; text-decoration: none; }
 .file-attachment strong { overflow-wrap: anywhere; font-size: 12px; letter-spacing: 0; text-transform: none; }

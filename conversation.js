@@ -11,6 +11,21 @@ const $ = (selector) => document.querySelector(selector);
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const validToken = /^[A-Za-z0-9_-]{43}$/.test(token);
 let loading = false;
+let renderedMessageSignature = "";
+
+const getMessageSignature = (messages = []) => JSON.stringify(messages.map((message) => [
+  message.id,
+  message.sender,
+  message.body,
+  message.createdAt,
+  (message.attachments || []).map((attachment) => [
+    attachment.id,
+    attachment.path,
+    attachment.name,
+    attachment.type,
+    attachment.size,
+  ]),
+]));
 
 const formatDate = (value, includeTime = false) => {
   if (!value) return "To be confirmed";
@@ -30,6 +45,9 @@ const showError = () => {
 };
 
 const renderMessages = (messages) => {
+  const signature = getMessageSignature(messages);
+  if (signature === renderedMessageSignature) return;
+  renderedMessageSignature = signature;
   const list = $("#message-list");
   list.replaceChildren();
   messages.forEach((message) => {

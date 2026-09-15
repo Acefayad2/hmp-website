@@ -48,6 +48,8 @@ let activeReviewId = "";
 let messageThreads = [];
 let activeThreadId = "";
 let activeConversationUrl = "";
+let renderedAdminThreadId = "";
+let renderedAdminMessageSignature = "";
 let activeWorkspaceView = "inquiries";
 let dashboardSyncInProgress = false;
 let dashboardSyncTimer = 0;
@@ -381,7 +383,25 @@ const copyText = async (value) => {
   await navigator.clipboard.writeText(value);
 };
 
+const getMessageSignature = (messages = []) => JSON.stringify(messages.map((message) => [
+  message.id,
+  message.sender,
+  message.body,
+  message.createdAt,
+  (message.attachments || []).map((attachment) => [
+    attachment.id,
+    attachment.path,
+    attachment.name,
+    attachment.type,
+    attachment.size,
+  ]),
+]));
+
 const renderAdminMessages = (thread) => {
+  const signature = getMessageSignature(thread.messages);
+  if (thread.id === renderedAdminThreadId && signature === renderedAdminMessageSignature) return;
+  renderedAdminThreadId = thread.id;
+  renderedAdminMessageSignature = signature;
   const list = $("#admin-message-list");
   list.replaceChildren();
   (thread.messages || []).forEach((message) => {
