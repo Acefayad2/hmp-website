@@ -5,6 +5,7 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "./attachment-ui.js?v=20260914-1";
+import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1";
 
 const $ = (selector) => document.querySelector(selector);
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
@@ -36,13 +37,18 @@ const renderMessages = (messages) => {
     article.className = `message ${message.sender === "client" ? "client" : "admin"}`;
     const name = document.createElement("strong");
     name.textContent = message.sender === "client" ? "You" : "HMP representative";
+    const proposal = parseProposal(message.body);
     const copy = document.createElement("p");
     copy.textContent = message.body;
     const time = document.createElement("time");
     time.dateTime = message.createdAt;
     time.textContent = formatDate(message.createdAt, true);
     article.append(name);
-    if (message.body) article.append(copy);
+    if (proposal) {
+      article.classList.add("proposal-message");
+      article.append(renderProposalCard(proposal));
+    }
+    else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
     article.append(time);
     list.append(article);

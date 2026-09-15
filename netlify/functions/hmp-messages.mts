@@ -43,6 +43,45 @@ const escapeHtml = (value: unknown) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const proposalPrefix = "HMP_PROPOSAL_V1:";
+
+const normalizeAdminMessage = (value: unknown) => {
+  const message = cleanText(value, 4000);
+  if (!message.startsWith(proposalPrefix)) return message;
+  let proposal: Record<string, unknown>;
+  try {
+    proposal = JSON.parse(message.slice(proposalPrefix.length));
+  } catch {
+    throw new Error("Proposal details are invalid");
+  }
+  const number = (candidate: unknown, max: number) => {
+    const parsed = Number(candidate);
+    return Number.isFinite(parsed) ? Math.min(max, Math.max(0, parsed)) : 0;
+  };
+  const normalized = {
+    title: cleanText(proposal.title, 160) || "Service Proposal",
+    clientName: cleanText(proposal.clientName, 200),
+    celebrationType: cleanText(proposal.celebrationType, 200),
+    eventDate: cleanText(proposal.eventDate, 10),
+    eventTime: cleanText(proposal.eventTime, 100),
+    eventLocation: cleanText(proposal.eventLocation, 500),
+    guestCount: number(proposal.guestCount, 100_000),
+    serviceHours: number(proposal.serviceHours, 240),
+    associates: number(proposal.associates, 100),
+    machines: number(proposal.machines, 100),
+    serviceDetails: cleanText(proposal.serviceDetails, 1400),
+    notes: cleanText(proposal.notes, 1600),
+    serviceFee: number(proposal.serviceFee, 1_000_000),
+    validUntil: cleanText(proposal.validUntil, 10),
+    paymentTerms: cleanText(proposal.paymentTerms, 600),
+  };
+  if (!normalized.clientName || !normalized.serviceFee) {
+    throw new Error("Proposal client and service fee are required");
+  }
+  const serialized = `${proposalPrefix}${JSON.stringify(normalized)}`;
+  if (serialized.length > 4000) throw new Error("Proposal details are too long");
+  return serialized;
+};
 
 let database: SupabaseClient | null = null;
 const getDatabase = () => {
@@ -60,6 +99,7 @@ const sendReplyNotification = async (
   inquiry: Record<string, unknown>,
   conversation: Record<string, unknown>,
   messageId: string,
+  isProposal = false,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
   const from =
@@ -83,8 +123,8 @@ const sendReplyNotification = async (
       from,
       to: [recipient],
       reply_to: "info@hmpeds.com",
-      subject: "HMP replied to your celebration conversation",
-      html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">You have a new reply.</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>An HMP representative replied to your private celebration conversation.</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">Connect with an Event Specialist</a></p><p style="color:#8b7272;font-size:13px">This private link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
+      subject: isProposal ? "Your HMP service proposal is ready" : "HMP replied to your celebration conversation",
+      html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">${isProposal ? "Your service proposal is ready." : "You have a new reply."}</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>${isProposal ? "HMP prepared a personalized service proposal for your celebration. Open your private portal to review the details and pricing." : "An HMP representative replied to your private celebration conversation."}</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">${isProposal ? "View My Proposal" : "Connect with an Event Specialist"}</a></p><p style="color:#8b7272;font-size:13px">This private link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
     }),
   });
   if (!response.ok) console.error("Conversation reply email failed", response.status);
@@ -257,7 +297,12 @@ export default async (request: Request, _context: Context) => {
 
   if (action === "send") {
     const conversationId = cleanText(body.conversationId, 36);
-    const message = cleanText(body.message, 4000);
+    let message = "";
+    try {
+      message = normalizeAdminMessage(body.message);
+    } catch (error) {
+      return json({ error: error instanceof Error ? error.message : "Message is invalid" }, 400);
+    }
     const suppliedRequestId = cleanText(body.requestId, 36);
     const requestId = uuidPattern.test(suppliedRequestId)
       ? suppliedRequestId
@@ -301,7 +346,7 @@ export default async (request: Request, _context: Context) => {
     if (error || !inserted) return json({ error: "Message could not be sent" }, 502);
     await completeAttachmentUploads(client, attachments);
     await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
-    const notified = inquiry ? await sendReplyNotification(inquiry, conversation, inserted.id).catch(() => false) : false;
+    const notified = inquiry ? await sendReplyNotification(inquiry, conversation, inserted.id, message.startsWith(proposalPrefix)).catch(() => false) : false;
     return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, notified });
   }
 

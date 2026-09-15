@@ -15,6 +15,12 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "../attachment-ui.js";
+import {
+  parseProposal,
+  printProposal,
+  renderProposalCard,
+  serializeProposal,
+} from "../proposal-ui.js";
 
 const $ = (selector) => document.querySelector(selector);
 const authShell = $("#auth-shell");
@@ -388,16 +394,122 @@ const renderAdminMessages = (thread) => {
     time.dateTime = message.createdAt;
     time.textContent = formatDate(message.createdAt, true);
     meta.append(name, time);
+    const proposal = parseProposal(message.body);
     const copy = document.createElement("p");
     copy.textContent = message.body;
     article.append(meta);
-    if (message.body) article.append(copy);
+    if (proposal) {
+      article.classList.add("proposal-message");
+      article.append(renderProposalCard(proposal));
+    } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
     list.append(article);
   });
   $("#admin-message-empty").hidden = (thread.messages || []).length > 0;
   list.hidden = (thread.messages || []).length === 0;
   if (!list.hidden) list.scrollTop = list.scrollHeight;
+};
+
+const proposalFormFields = {
+  title: "#proposal-title",
+  clientName: "#proposal-client-name",
+  celebrationType: "#proposal-celebration-type",
+  eventDate: "#proposal-event-date",
+  eventTime: "#proposal-event-time",
+  eventLocation: "#proposal-event-location",
+  guestCount: "#proposal-guest-count",
+  serviceHours: "#proposal-service-hours",
+  associates: "#proposal-associates",
+  machines: "#proposal-machines",
+  serviceDetails: "#proposal-service-details",
+  notes: "#proposal-notes",
+  serviceFee: "#proposal-service-fee",
+  validUntil: "#proposal-valid-until",
+  paymentTerms: "#proposal-payment-terms",
+};
+
+const proposalPayload = () => Object.fromEntries(
+  Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
+);
+
+const openProposalEditor = () => {
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  if (!thread) return;
+  const inquiry = inquiries.find((candidate) => candidate.id === thread.inquiryId) || {};
+  const validUntil = new Date();
+  validUntil.setDate(validUntil.getDate() + 14);
+  const values = {
+    title: "Money Changing Service Only",
+    clientName: thread.clientName,
+    celebrationType: inquiry.celebrationType || thread.service || "",
+    eventDate: inquiry.celebrationDate || thread.celebrationDate || "",
+    eventTime: [inquiry.startTime, inquiry.endTime].filter(Boolean).join(" – "),
+    eventLocation: inquiry.location || "",
+    guestCount: inquiry.guestCount || "",
+    serviceHours: 5,
+    associates: 3,
+    machines: 3,
+    serviceDetails: [
+      "Money changing service for guests",
+      "Signage for digital money transfers",
+      "Counting of the client-provided money bank",
+      "Travel fee included for venues 40+ miles from Laurel, Maryland",
+      "A hot vendor meal is required for each Money Associate",
+    ].join("\n"),
+    notes: [
+      "Client provides a 6- or 8-foot rectangular table with tablecloth and chairs.",
+      "HMP Money Associates are hired to provide change to guests; the client provides staff to collect sprayed money.",
+      "The client provides the one-dollar-bill money bank. HMP recommends starting with at least $5,000.",
+      "Money sprayed during the event typically replenishes the money bank. If the amount is insufficient, the client provides additional one-dollar bills.",
+    ].join("\n"),
+    serviceFee: 900,
+    validUntil: localDateValue(validUntil),
+    paymentTerms: "Booking is secured after the approved payment method and payment schedule are confirmed by HMP Luxury Event Services.",
+  };
+  Object.entries(proposalFormFields).forEach(([key, selector]) => {
+    $(selector).value = values[key] ?? "";
+  });
+  setMessage($("#proposal-editor-message"), "");
+  $("#proposal-editor-dialog").showModal();
+};
+
+const sendProposal = async (event) => {
+  event.preventDefault();
+  if (!activeThreadId || !event.currentTarget.reportValidity()) return;
+  const proposal = proposalPayload();
+  const message = serializeProposal(proposal);
+  if (message.length > 4000) {
+    setMessage($("#proposal-editor-message"), "Shorten the service details or notes before sending.");
+    return;
+  }
+  const buttons = event.currentTarget.querySelectorAll("button");
+  buttons.forEach((button) => { button.disabled = true; });
+  setMessage($("#proposal-editor-message"), "Sending proposal securely…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: "send",
+        conversationId: activeThreadId,
+        message,
+        requestId: crypto.randomUUID(),
+        attachments: [],
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Proposal could not be sent.");
+    await loadMessages();
+    setMessage($("#admin-message-status"), data.notified
+      ? "Proposal sent to the portal and client notified by email."
+      : "Proposal sent securely to the client portal.", true);
+    $("#proposal-editor-dialog").close();
+  } catch (error) {
+    setMessage($("#proposal-editor-message"), error.message || "Proposal could not be sent.");
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+  }
 };
 
 const openMessageThread = (threadId) => {
@@ -1267,6 +1379,13 @@ $("#copy-active-link").addEventListener("click", async () => {
 $("#send-new-active-link").addEventListener("click", () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"));
+});
+$("#open-proposal-editor").addEventListener("click", openProposalEditor);
+$("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
+$("#proposal-form").addEventListener("submit", sendProposal);
+$("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
+$("#proposal-editor-dialog").addEventListener("click", (event) => {
+  if (event.target === $("#proposal-editor-dialog")) $("#proposal-editor-dialog").close();
 });
 
 $("#create-invoice-button").addEventListener("click", () => openInvoiceEditor());

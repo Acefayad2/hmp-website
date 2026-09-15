@@ -66,6 +66,29 @@ body { min-height:100dvh; margin:0; color:var(--ink); background:radial-gradient
 .conversation-error a { color:var(--plum); }
 footer { display:flex; justify-content:space-between; gap:30px; width:min(1120px,calc(100% - 40px)); margin:0 auto; padding:24px 0 34px; border-top:1px solid var(--line); font-size:11px; }
 footer a { color:var(--ink); }
+.portal-proposal { width:min(100%,680px); overflow:hidden; border:1px solid #e4d5cf; border-radius:22px; color:#4d3232; background:#fffaf5; box-shadow:0 14px 35px rgba(67,42,43,.1); }
+.portal-proposal > header { display:flex; align-items:center; justify-content:space-between; gap:22px; padding:20px 22px; background:#eadbd7; }
+.portal-proposal > header img { width:142px; height:62px; object-fit:contain; border-radius:11px; background:rgba(255,255,255,.7); }
+.portal-proposal > header div { flex:1; text-align:right; }
+.portal-proposal > header p { margin:0 0 5px; color:#b67c42; font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
+.portal-proposal > header h3 { margin:0; font:700 24px/1.05 "Droid Serif",Georgia,serif; }
+.proposal-prepared-for { margin:0; padding:20px 22px 14px; font:700 19px/1.3 "Droid Serif",Georgia,serif; }
+.proposal-event-details { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0; margin:0 22px 18px; border-top:1px solid #e4d5cf; }
+.proposal-event-details > div { min-width:0; padding:11px 10px 11px 0; border-bottom:1px solid #e4d5cf; }
+.proposal-event-details dt { margin:0 0 4px; color:#8b7272; font-size:8px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; }
+.proposal-event-details dd { margin:0; overflow-wrap:anywhere; font-size:12px; line-height:1.45; }
+.portal-proposal > section { margin:0 22px 18px; padding:16px 18px; border-radius:14px; background:#f3e9e5; }
+.portal-proposal > section h4 { margin:0 0 9px; color:#734949; font:700 15px/1.2 "Droid Serif",Georgia,serif; }
+.portal-proposal > section ul { margin:0; padding-left:18px; }
+.portal-proposal > section li { margin:5px 0; font-size:11px; line-height:1.5; }
+.proposal-total { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:22px; padding:17px 19px; border-radius:14px; color:#fff; background:#734949; }
+.proposal-total span { font-size:9px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; }
+.proposal-total strong { color:#e5b980; font:700 26px/1 "Droid Serif",Georgia,serif; }
+.proposal-payment-terms,.proposal-validity { margin:0 22px 12px; color:#756467; font-size:10px; line-height:1.55; }
+.proposal-validity { font-weight:700; }
+.proposal-actions { padding:8px 22px 22px; }
+.proposal-actions button { min-height:38px; padding:0 16px; border:0; border-radius:999px; color:#fff; background:#b67c42; cursor:pointer; font:700 9px "Droid Serif",Georgia,serif; letter-spacing:.07em; text-transform:uppercase; }
+.message.proposal-message { width:min(100%,680px); max-width:96%; padding:0; color:var(--ink); background:transparent; }
 @media (max-width:800px) {
   .conversation-header { width:calc(100% - 24px); margin-top:12px; padding:9px 10px; border-radius:22px; }
   .conversation-header a { width:190px; height:74px; }
@@ -78,5 +101,16 @@ footer a { color:var(--ink); }
   .conversation-panel-heading,.message-list,.message-composer { padding-left:20px; padding-right:20px; }
   .message { max-width:90%; }
   .message-composer > .attachment-picker { align-items:flex-start; flex-direction:column; gap:7px; }
+}
+@media (max-width:520px) {
+  .portal-proposal > header { align-items:flex-start; flex-direction:column; }
+  .portal-proposal > header div { text-align:left; }
+  .proposal-event-details { grid-template-columns:1fr; }
+}
+@media print {
+  .proposal-print-body { margin:0; background:#fff; }
+  .proposal-print-page { width:8.5in; margin:0 auto; padding:.4in; }
+  .proposal-print-page .portal-proposal { width:100%; border:0; border-radius:0; box-shadow:none; }
+  .proposal-print-page .proposal-actions { display:none; }
 }
 @media (prefers-reduced-motion:reduce) { *,*::before,*::after { scroll-behavior:auto!important; } }
