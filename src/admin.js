@@ -473,6 +473,15 @@ const openProposalEditor = () => {
   $("#proposal-editor-dialog").showModal();
 };
 
+const createProposalFromWorkspace = () => {
+  if (!activeThreadId && messageThreads.length) openMessageThread(messageThreads[0].id);
+  if (!activeThreadId) {
+    window.alert("Create a private client conversation from an inquiry first, then return here to send the proposal.");
+    return;
+  }
+  openProposalEditor();
+};
+
 const sendProposal = async (event) => {
   event.preventDefault();
   if (!activeThreadId || !event.currentTarget.reportValidity()) return;
@@ -1412,6 +1421,7 @@ $("#send-new-active-link").addEventListener("click", () => {
 });
 $("#delete-active-conversation").addEventListener("click", deleteActiveConversation);
 $("#open-proposal-editor").addEventListener("click", openProposalEditor);
+$("#create-proposal-button").addEventListener("click", createProposalFromWorkspace);
 $("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
 $("#proposal-form").addEventListener("submit", sendProposal);
 $("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
