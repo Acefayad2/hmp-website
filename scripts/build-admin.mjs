@@ -34,6 +34,7 @@ const productionFiles = [
   "assets/hmp-hero.png",
   "assets/hmp-hero.webp",
   "assets/hmp-hero-no-screen-2026.webp",
+  "assets/hmp-hero-versatile-2026.jpg",
   "assets/hmp-hero-welcome.webp",
   "assets/celebration-accessories-hero-v2.webp",
   "assets/gallery-arrival-v2.webp",
