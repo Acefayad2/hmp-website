@@ -109,10 +109,27 @@ export const renderAttachmentPreviews = (input, container, summary) => {
       image.src = url;
       image.alt = `Preview of ${file.name}`;
       card.append(image);
+    } else if (file.type === "application/pdf") {
+      const frame = document.createElement("iframe");
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+      frame.src = `${url}#toolbar=0&navpanes=0`;
+      frame.title = `Preview of ${file.name}`;
+      frame.loading = "lazy";
+      card.append(frame);
+    } else if (file.type.startsWith("audio/")) {
+      const audio = document.createElement("audio");
+      const url = URL.createObjectURL(file);
+      urls.push(url);
+      audio.src = url;
+      audio.controls = true;
+      audio.preload = "metadata";
+      audio.setAttribute("aria-label", `Preview ${file.name}`);
+      card.append(audio);
     } else {
       const icon = document.createElement("span");
       icon.className = "attachment-preview__icon";
-      icon.textContent = "File";
+      icon.textContent = file.name.split(".").pop().slice(0, 8).toUpperCase() || "File";
       card.append(icon);
     }
 

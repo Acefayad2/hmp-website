@@ -11,6 +11,7 @@ import {
 } from "@netlify/identity";
 import {
   appendAttachments,
+  renderAttachmentPreviews,
   selectedFiles,
   updateAttachmentSummary,
   uploadAttachments,
@@ -544,6 +545,12 @@ const sendProposal = async (event) => {
 const openMessageThread = (threadId) => {
   const thread = messageThreads.find((candidate) => candidate.id === threadId);
   if (!thread) return;
+  if (activeThreadId !== thread.id) {
+    const attachmentInput = $("#admin-message-attachments");
+    attachmentInput.value = "";
+    updateAttachmentSummary(attachmentInput, $("#admin-message-attachment-summary"));
+    renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
+  }
   activeThreadId = thread.id;
   activeConversationUrl = thread.clientUrl;
   $("#admin-conversation-placeholder").hidden = true;
@@ -712,6 +719,7 @@ const sendAdminMessage = async (event) => {
     input.value = "";
     attachmentInput.value = "";
     updateAttachmentSummary(attachmentInput, $("#admin-message-attachment-summary"));
+    renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
     await loadMessages();
     setMessage($("#admin-message-status"), data.notified ? "Reply sent and client notified by email." : "Reply sent securely.", true);
   } catch (error) {
@@ -1422,10 +1430,10 @@ $("#thread-list").addEventListener("click", (event) => {
 });
 $("#admin-message-form").addEventListener("submit", sendAdminMessage);
 $("#admin-message-attachments").addEventListener("change", () => {
-  updateAttachmentSummary(
-    $("#admin-message-attachments"),
-    $("#admin-message-attachment-summary"),
-  );
+  const input = $("#admin-message-attachments");
+  const summary = $("#admin-message-attachment-summary");
+  updateAttachmentSummary(input, summary);
+  renderAttachmentPreviews(input, $("#admin-message-attachment-previews"), summary);
 });
 $("#copy-active-link").addEventListener("click", async () => {
   try {

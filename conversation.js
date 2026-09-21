@@ -4,7 +4,7 @@ import {
   selectedFiles,
   updateAttachmentSummary,
   uploadAttachments,
-} from "./attachment-ui.js?v=20260914-1";
+} from "./attachment-ui.js?v=20260921-1";
 import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1";
 
 const $ = (selector) => document.querySelector(selector);
