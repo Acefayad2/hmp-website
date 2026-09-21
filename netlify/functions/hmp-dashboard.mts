@@ -1,6 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isSameOriginMutation } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -61,6 +62,7 @@ const statuses = new Set(["New", "Contacted", "Quoted", "Booked", "Closed"]);
 const priorities = new Set(["Low", "Normal", "High", "Urgent"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const cleanText = (value: unknown, maxLength: number) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
@@ -74,6 +76,62 @@ export default async (request: Request, _context: Context) => {
 
   const client = getDatabase();
   if (!client) return json({ error: "Dashboard data is unavailable" }, 503);
+
+  if (request.method === "POST") {
+    if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
+    let body: Record<string, unknown>;
+    try {
+      body = await request.json();
+    } catch {
+      return json({ error: "Invalid request" }, 400);
+    }
+
+    const name = cleanText(body.name, 200);
+    const email = cleanText(body.email, 320).toLowerCase();
+    const service = cleanText(body.service, 200);
+    const celebrationDate = cleanText(body.celebrationDate, 10);
+    const parsedCelebrationDate = new Date(`${celebrationDate}T00:00:00Z`);
+    const guestCountInput = cleanText(body.guestCount, 8);
+    const guestCount = guestCountInput ? Number(guestCountInput) : null;
+    if (!name || !emailPattern.test(email) || !service) {
+      return json({ error: "Enter the client's name, email, and service" }, 400);
+    }
+    if (celebrationDate && (!datePattern.test(celebrationDate) || Number.isNaN(parsedCelebrationDate.getTime()) || parsedCelebrationDate.toISOString().slice(0, 10) !== celebrationDate)) {
+      return json({ error: "Enter a valid celebration date" }, 400);
+    }
+    if (guestCount !== null && (!Number.isInteger(guestCount) || guestCount < 1 || guestCount > 100000)) {
+      return json({ error: "Guest count must be between 1 and 100,000" }, 400);
+    }
+
+    const now = new Date().toISOString();
+    const { data, error } = await client
+      .from("hmp_admin_inquiries")
+      .insert({
+        submission_id: crypto.randomUUID(),
+        received_at: now,
+        status: "New",
+        priority: "Normal",
+        client_name: name,
+        email,
+        phone: cleanText(body.phone, 60) || null,
+        celebration_date: celebrationDate || null,
+        service,
+        location: cleanText(body.location, 500),
+        guest_count: guestCount,
+        celebration_type: cleanText(body.celebrationType, 200),
+        internal_notes: cleanText(body.notes, 5000) || null,
+        source: "Manual",
+        raw_payload: {},
+        updated_at: now,
+      })
+      .select("*")
+      .single();
+    if (error || !data) {
+      console.error("Supabase manual inquiry insert failed", error?.code);
+      return json({ error: "Inquiry could not be created" }, 502);
+    }
+    return json({ ok: true, inquiry: normalizeInquiry(data) }, 201);
+  }
 
   if (request.method === "PATCH") {
     let body: Record<string, unknown>;

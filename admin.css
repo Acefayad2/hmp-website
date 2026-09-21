@@ -80,6 +80,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .panel-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding: 25px; border-bottom: 1px solid var(--line); }
 .panel-heading h2, .service-panel h2 { margin: 0; font: 600 30px/1 var(--serif); }
 .panel-heading p { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.panel-heading-actions { display:flex; align-items:flex-end; gap:10px; }
+.add-inquiry-button { min-height:42px; padding:0 14px; border:1px solid var(--plum); border-radius:999px; color:var(--plum); background:#fff; cursor:pointer; white-space:nowrap; font-size:10px; font-weight:700; }
+.add-inquiry-button:hover { color:#fff; background:var(--plum); }
 .filters { display: grid; grid-template-columns: 180px 145px; gap: 10px; }
 .filters label > span { display: block; margin-bottom: 5px; color: var(--muted); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
 .filters input, .filters select { min-height: 42px; font-size: 12px; }
@@ -113,6 +116,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .workspace-section-header .kicker { margin: 0 0 9px; color: var(--gold); }
 .workspace-section-header h2 { margin: 0; font: 600 clamp(42px, 5vw, 66px)/.9 var(--serif); letter-spacing: -.035em; }
 .workspace-section-header > div > p:last-child { margin: 15px 0 0; color: var(--muted); }
+.workspace-header-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:10px; }
+.workspace-header-actions .secondary-button { min-height:48px; padding:0 18px; border:1px solid var(--plum); border-radius:999px; color:var(--plum); background:#fff; cursor:pointer; font-size:10px; font-weight:700; white-space:nowrap; }
+.workspace-header-actions .secondary-button:hover { color:#fff; background:var(--plum); }
 .workspace-create-button { width: auto; min-height: 48px; margin: 0; padding: 0 24px; white-space: nowrap; }
 .email-setup-notice { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid rgba(182,124,66,.32); border-radius: 13px; color: var(--plum-deep); background: rgba(229,185,128,.16); font-size: 12px; }
 .email-setup-notice strong { white-space: nowrap; }
@@ -255,6 +261,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .proposal-actions button { min-height:38px; padding:0 16px; border:0; border-radius:999px; color:#fff; background:#b67c42; cursor:pointer; font:700 9px var(--serif); letter-spacing:.07em; text-transform:uppercase; }
 .admin-message.proposal-message { width:min(96%,720px); max-width:96%; padding:0; color:var(--ink); background:transparent; }
 .proposal-editor-dialog { width:min(900px,calc(100% - 28px)); }
+.manual-inquiry-dialog { width:min(760px,calc(100% - 28px)); }
+.manual-proposal-choice { display:flex; align-items:center; gap:10px; margin-top:20px; color:var(--plum); font-size:12px; font-weight:700; }
+.manual-proposal-choice input { width:18px; height:18px; accent-color:var(--plum); }
 .proposal-form-body { padding:28px 30px 30px; }
 .proposal-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .proposal-form-grid label > span:first-child { display:block; margin-bottom:7px; color:var(--muted); font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
@@ -442,6 +451,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .metric strong { font-size: 39px; }
   .panel-heading { display: block; padding: 20px; }
   .filters { grid-template-columns: 1fr; margin-top: 22px; }
+  .panel-heading-actions { align-items:stretch; flex-direction:column; }
+  .add-inquiry-button { min-height:44px; }
   .list-head { display: none; }
   .inquiry-row { grid-template-columns: 1fr auto; gap: 10px; padding: 18px 20px; }
   .inquiry-row .service-cell { grid-column: 1; }
@@ -450,7 +461,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .service-panel { padding: 20px; }
   .workspace-empty { min-height: 360px; margin-top: 28px; padding: 32px 24px; }
   .workspace-section-header { display: block; }
+  .workspace-header-actions { justify-content:stretch; margin-top:22px; }
+  .workspace-header-actions > button { flex:1 1 100%; }
   .workspace-create-button { width: 100%; margin-top: 22px; }
+  .workspace-header-actions .workspace-create-button { margin-top:0; }
   .invoice-list-heading { display: none; }
   .invoice-list-row { grid-template-columns: 1fr auto; gap: 8px 14px; }
   .invoice-list-row > span:nth-child(3) { grid-column: 1; }

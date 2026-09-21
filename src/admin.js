@@ -32,6 +32,7 @@ const passwordMessage = $("#password-message");
 const inquiryList = $("#inquiry-list");
 const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
+const manualInquiryDialog = $("#manual-inquiry-dialog");
 
 let inquiries = [];
 let invoices = [];
@@ -452,37 +453,109 @@ const proposalPayload = () => Object.fromEntries(
   Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
 );
 
+const openManualInquiryDialog = (prepareProposal = false) => {
+  $("#manual-inquiry-form").reset();
+  $("#manual-prepare-proposal").checked = prepareProposal;
+  setMessage($("#manual-inquiry-message"), "");
+  manualInquiryDialog.showModal();
+  $("#manual-name").focus();
+};
+
+const saveManualInquiry = async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  if (!form.reportValidity()) return;
+  const button = form.querySelector('button[type="submit"]');
+  const prepareProposal = $("#manual-prepare-proposal").checked;
+  const payload = Object.fromEntries(new FormData(form));
+  let createdInquiry;
+  button.disabled = true;
+  setMessage($("#manual-inquiry-message"), "Saving inquiry…");
+  try {
+    const response = await fetch("/api/hmp-dashboard", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Inquiry could not be created.");
+    createdInquiry = data.inquiry;
+    inquiries = [createdInquiry, ...inquiries];
+    renderMetrics();
+    renderServiceFilter();
+    renderServiceMix();
+    renderInquiries();
+    await loadDashboard();
+
+    if (prepareProposal) {
+      const linkResponse = await fetch("/api/hmp-messages", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-link", inquiryId: createdInquiry.id }),
+      });
+      const linkData = await linkResponse.json().catch(() => ({}));
+      if (!linkResponse.ok) throw new Error(linkData.error || "Private client conversation could not be created.");
+      await loadMessages();
+      const thread = messageThreads.find((candidate) => candidate.inquiryId === createdInquiry.id);
+      if (!thread) throw new Error("Private client conversation could not be loaded.");
+      manualInquiryDialog.close();
+      setWorkspaceView("messages", true);
+      openMessageThread(thread.id);
+      openProposalEditor();
+    } else {
+      manualInquiryDialog.close();
+      setWorkspaceView("inquiries", true);
+      openInquiry(createdInquiry.id);
+      setMessage($("#conversation-link-message"), "Manual inquiry saved. No email was sent.", true);
+    }
+  } catch (error) {
+    if (createdInquiry) {
+      manualInquiryDialog.close();
+      setWorkspaceView("inquiries", true);
+      openInquiry(createdInquiry.id);
+      setMessage($("#conversation-link-message"), `Inquiry saved, but proposal setup needs attention: ${error.message}`);
+    } else {
+      setMessage($("#manual-inquiry-message"), error.message || "Inquiry could not be created.");
+    }
+  } finally {
+    button.disabled = false;
+  }
+};
+
 const openProposalEditor = () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (!thread) return;
   const inquiry = inquiries.find((candidate) => candidate.id === thread.inquiryId) || {};
+  const isMoneyTableService = /money table|money changing/i.test(thread.service || "");
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 14);
   const values = {
-    title: "Money Changing Service Only",
+    title: isMoneyTableService ? "Money Changing Service Only" : `${thread.service || "Service"} Proposal`,
     clientName: thread.clientName,
-    celebrationType: inquiry.celebrationType || thread.service || "",
+    celebrationType: inquiry.celebrationType || "",
     eventDate: inquiry.celebrationDate || thread.celebrationDate || "",
     eventTime: [inquiry.startTime, inquiry.endTime].filter(Boolean).join(" – "),
     eventLocation: inquiry.location || "",
     guestCount: inquiry.guestCount || "",
-    serviceHours: 5,
-    associates: 3,
-    machines: 3,
-    serviceDetails: [
+    serviceHours: isMoneyTableService ? 5 : "",
+    associates: isMoneyTableService ? 3 : "",
+    machines: isMoneyTableService ? 3 : "",
+    serviceDetails: isMoneyTableService ? [
       "Money changing service for guests",
       "Signage for digital money transfers",
       "Counting of the client-provided money bank",
       "Travel fee included for venues 40+ miles from Laurel, Maryland",
       "A hot vendor meal is required for each Money Associate",
-    ].join("\n"),
-    notes: [
+    ].join("\n") : "",
+    notes: isMoneyTableService ? [
       "Client provides a 6- or 8-foot rectangular table with tablecloth and chairs.",
       "HMP Money Associates are hired to provide change to guests; the client provides staff to collect sprayed money.",
       "The client provides the one-dollar-bill money bank. HMP recommends starting with at least $5,000.",
       "Money sprayed during the event typically replenishes the money bank. If the amount is insufficient, the client provides additional one-dollar bills.",
-    ].join("\n"),
-    serviceFee: 900,
+    ].join("\n") : "",
+    serviceFee: isMoneyTableService ? 900 : "",
     validUntil: localDateValue(validUntil),
     paymentTerms: "Booking is secured after the approved payment method and payment schedule are confirmed by HMP Luxury Event Services.",
   };
@@ -494,9 +567,8 @@ const openProposalEditor = () => {
 };
 
 const createProposalFromWorkspace = () => {
-  if (!activeThreadId && messageThreads.length) openMessageThread(messageThreads[0].id);
   if (!activeThreadId) {
-    window.alert("Create a private client conversation from an inquiry first, then return here to send the proposal.");
+    openManualInquiryDialog(true);
     return;
   }
   openProposalEditor();
@@ -1378,6 +1450,10 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("focus", () => syncActiveWorkspace().catch(() => {}));
 $("#search-input").addEventListener("input", renderInquiries);
 $("#service-filter").addEventListener("change", renderInquiries);
+$("#add-inquiry-button").addEventListener("click", () => openManualInquiryDialog());
+$("#new-client-proposal-button").addEventListener("click", () => openManualInquiryDialog(true));
+$("#close-manual-inquiry").addEventListener("click", () => manualInquiryDialog.close());
+$("#manual-inquiry-form").addEventListener("submit", saveManualInquiry);
 document.querySelectorAll("[data-workspace-view]").forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();

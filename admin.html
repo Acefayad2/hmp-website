@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260915-4" />
+    <link rel="stylesheet" href="admin.css?v=20260921-2" />
   </head>
   <body>
     <main id="admin-root" aria-live="polite">
@@ -115,9 +115,12 @@
                   <h2>Celebration inquiries</h2>
                   <p id="result-count">Loading submissions…</p>
                 </div>
-                <div class="filters">
-                  <label class="search-field"><span>Search</span><input id="search-input" type="search" placeholder="Name, email, service…" /></label>
-                  <label><span>Service</span><select id="service-filter"><option value="">All services</option></select></label>
+                <div class="panel-heading-actions">
+                  <div class="filters">
+                    <label class="search-field"><span>Search</span><input id="search-input" type="search" placeholder="Name, email, service…" /></label>
+                    <label><span>Service</span><select id="service-filter"><option value="">All services</option></select></label>
+                  </div>
+                  <button class="secondary-button add-inquiry-button" id="add-inquiry-button" type="button">+ New inquiry</button>
                 </div>
               </div>
               <div class="inquiry-list" id="inquiry-list"></div>
@@ -141,7 +144,10 @@
                 <h2>Messages</h2>
                 <p>Reply to clients through the private conversation link connected to each inquiry.</p>
               </div>
-              <button class="primary-button workspace-create-button" id="create-proposal-button" type="button">Create proposal</button>
+              <div class="workspace-header-actions">
+                <button class="secondary-button" id="new-client-proposal-button" type="button">New client proposal</button>
+                <button class="primary-button workspace-create-button" id="create-proposal-button" type="button">Proposal for selected client</button>
+              </div>
             </div>
             <div class="messages-layout">
               <aside class="thread-panel">
@@ -334,6 +340,37 @@
         <div class="management-actions">
           <p class="form-message" id="management-message" role="status"></p>
           <button class="primary-button" type="submit">Save changes</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="manual-inquiry-dialog" id="manual-inquiry-dialog">
+      <form id="manual-inquiry-form">
+        <div class="dialog-heading">
+          <div>
+            <p class="kicker">HMP team workspace</p>
+            <h2>Add a client inquiry</h2>
+            <p>Record a client you spoke with directly. Nothing is emailed until you send a proposal or private link.</p>
+          </div>
+          <button id="close-manual-inquiry" type="button">Close</button>
+        </div>
+        <div class="proposal-form-body">
+          <div class="proposal-form-grid">
+            <label><span>Client name</span><input id="manual-name" name="name" type="text" maxlength="200" autocomplete="name" required /></label>
+            <label><span>Client email</span><input id="manual-email" name="email" type="email" maxlength="320" autocomplete="email" required /></label>
+            <label><span>Phone</span><input id="manual-phone" name="phone" type="tel" maxlength="60" autocomplete="tel" /></label>
+            <label><span>Service of interest</span><input id="manual-service" name="service" type="text" maxlength="200" placeholder="Money Table Services" required /></label>
+            <label><span>Celebration type</span><input id="manual-celebration-type" name="celebrationType" type="text" maxlength="200" placeholder="Wedding, birthday…" /></label>
+            <label><span>Celebration date</span><input id="manual-celebration-date" name="celebrationDate" type="date" /></label>
+            <label class="proposal-wide"><span>Location</span><input id="manual-location" name="location" type="text" maxlength="500" placeholder="Venue and city, if known" /></label>
+            <label><span>Guest count</span><input id="manual-guest-count" name="guestCount" type="number" min="1" max="100000" step="1" /></label>
+            <label class="proposal-wide"><span>Internal notes</span><textarea id="manual-notes" name="notes" rows="4" maxlength="5000" placeholder="Private context for the HMP team"></textarea></label>
+          </div>
+          <label class="manual-proposal-choice"><input id="manual-prepare-proposal" type="checkbox" /> Prepare a proposal after saving</label>
+          <div class="proposal-form-actions">
+            <p class="form-message" id="manual-inquiry-message" role="status"></p>
+            <div><button class="primary-button" type="submit">Save inquiry</button></div>
+          </div>
         </div>
       </form>
     </dialog>
@@ -587,6 +624,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260915-4"></script>
+    <script type="module" src="assets/admin.js?v=20260921-2"></script>
   </body>
 </html>
