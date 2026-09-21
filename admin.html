@@ -29,7 +29,7 @@
           <p>Private operations portal</p>
           <h1>Welcome back,<br /><em>HMP team.</em></h1>
           <p class="auth-copy">
-            Review every celebration inquiry in one secure, focused workspace.
+            Review every event inquiry in one secure, focused workspace.
           </p>
         </div>
         <div class="auth-panel">
@@ -101,7 +101,7 @@
               <span>New</span><strong id="metric-new">—</strong><small>Ready for follow-up</small>
             </article>
             <article class="metric">
-              <span>Upcoming</span><strong id="metric-upcoming">—</strong><small>Celebrations ahead</small>
+              <span>Upcoming</span><strong id="metric-upcoming">—</strong><small>Events ahead</small>
             </article>
             <article class="metric">
               <span>Largest event</span><strong id="metric-guests">—</strong><small>Guests in one inquiry</small>
@@ -112,7 +112,7 @@
             <div class="inquiry-panel">
               <div class="panel-heading">
                 <div>
-                  <h2>Celebration inquiries</h2>
+                  <h2>Event inquiries</h2>
                   <p id="result-count">Loading submissions…</p>
                 </div>
                 <div class="filters">
@@ -122,7 +122,7 @@
               </div>
               <div class="inquiry-list" id="inquiry-list"></div>
               <div class="empty-state" id="empty-state" hidden>
-                <span>HMP</span><h3>No inquiries match</h3><p>Clear the filters to return to the full celebration list.</p>
+                <span>HMP</span><h3>No inquiries match</h3><p>Clear the filters to return to the full event list.</p>
               </div>
             </div>
 
@@ -352,10 +352,10 @@
           <div class="proposal-form-grid">
             <label class="proposal-wide"><span>Proposal title</span><input id="proposal-title" type="text" maxlength="160" required /></label>
             <label><span>Client name</span><input id="proposal-client-name" type="text" maxlength="200" required /></label>
-            <label><span>Celebration type</span><input id="proposal-celebration-type" type="text" maxlength="200" /></label>
-            <label><span>Celebration date</span><input id="proposal-event-date" type="date" /></label>
-            <label><span>Celebration time</span><input id="proposal-event-time" type="text" maxlength="100" placeholder="7:30 PM–9:00 PM" /></label>
-            <label class="proposal-wide"><span>Celebration location</span><input id="proposal-event-location" type="text" maxlength="500" placeholder="Venue and city" /></label>
+            <label><span>Event type</span><input id="proposal-celebration-type" type="text" maxlength="200" /></label>
+            <label><span>Event date</span><input id="proposal-event-date" type="date" /></label>
+            <label><span>Event time</span><input id="proposal-event-time" type="text" maxlength="100" placeholder="7:30 PM–9:00 PM" /></label>
+            <label class="proposal-wide"><span>Event location</span><input id="proposal-event-location" type="text" maxlength="500" placeholder="Venue and city" /></label>
             <label><span>Guest count</span><input id="proposal-guest-count" type="number" min="0" max="100000" step="1" /></label>
             <label><span>Service hours</span><input id="proposal-service-hours" type="number" min="0" max="240" step="0.5" /></label>
             <label><span>Money Associates</span><input id="proposal-associates" type="number" min="0" max="100" step="1" /></label>
@@ -427,7 +427,7 @@
             <div class="invoice-meta-fields">
               <label><span>Issue date</span><input id="invoice-issue-date" name="issueDate" type="date" required /></label>
               <label><span>Due date</span><input id="invoice-due-date" name="dueDate" type="date" /></label>
-              <label><span>Event name</span><input id="invoice-event-name" name="eventName" type="text" placeholder="Celebration or service" maxlength="250" /></label>
+              <label><span>Event name</span><input id="invoice-event-name" name="eventName" type="text" placeholder="Event or service" maxlength="250" /></label>
               <label><span>Event date</span><input id="invoice-event-date" name="eventDate" type="date" /></label>
             </div>
           </section>
@@ -511,7 +511,7 @@
             </div>
             <div class="invoice-meta-fields">
               <label><span>Effective date</span><input id="contract-effective-date" type="date" required /></label>
-              <label><span>Event name</span><input id="contract-event-name" type="text" maxlength="250" placeholder="Celebration or service" /></label>
+              <label><span>Event name</span><input id="contract-event-name" type="text" maxlength="250" placeholder="Event or service" /></label>
               <label><span>Event date</span><input id="contract-event-date" type="date" /></label>
               <label><span>Event location</span><input id="contract-event-location" type="text" maxlength="500" placeholder="Venue or address" /></label>
             </div>

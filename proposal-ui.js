@@ -118,7 +118,7 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
   const details = document.createElement("dl");
   details.className = "proposal-event-details";
   details.append(
-    detail("Celebration", value.celebrationType),
+    detail("Event", value.celebrationType),
     detail("Date", displayDate(value.eventDate)),
     detail("Time", value.eventTime),
     detail("Location", value.eventLocation),
