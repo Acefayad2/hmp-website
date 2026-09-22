@@ -494,12 +494,67 @@ const openProposalEditor = () => {
 };
 
 const createProposalFromWorkspace = () => {
-  if (!activeThreadId && messageThreads.length) openMessageThread(messageThreads[0].id);
   if (!activeThreadId) {
-    window.alert("Create a private client conversation from an inquiry first, then return here to send the proposal.");
+    openManualInquiry();
     return;
   }
   openProposalEditor();
+};
+
+let manualInquiryId = "";
+let manualInquirySaved = null;
+const openManualInquiry = () => {
+  manualInquiryId = crypto.randomUUID();
+  manualInquirySaved = null;
+  $("#manual-inquiry-form").reset();
+  setMessage($("#manual-inquiry-message"), "");
+  $("#manual-inquiry-dialog").showModal();
+};
+
+const createManualInquiry = async (event) => {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const wantsProposal = event.submitter?.value === "proposal";
+  const buttons = form.querySelectorAll("button");
+  buttons.forEach((button) => { button.disabled = true; });
+  setMessage($("#manual-inquiry-message"), "Saving inquiry…");
+  try {
+    if (!manualInquirySaved) {
+      const response = await fetch("/api/hmp-dashboard", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...Object.fromEntries(new FormData(form)), id: manualInquiryId }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Inquiry could not be saved.");
+      manualInquirySaved = data.inquiry;
+    }
+    const inquiry = manualInquirySaved;
+    inquiries = [inquiry, ...inquiries.filter((item) => item.id !== inquiry.id)];
+    renderMetrics(); renderServiceFilter(); renderServiceMix(); renderInquiries();
+    if (wantsProposal) {
+      const response = await fetch("/api/hmp-messages", {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "create-link", inquiryId: inquiry.id }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || "Inquiry saved. Could not open the proposal; please retry.");
+      await loadMessages();
+      setWorkspaceView("messages", true);
+      openMessageThread(data.conversationId);
+      $("#manual-inquiry-dialog").close();
+      openProposalEditor();
+    } else {
+      $("#manual-inquiry-dialog").close();
+      setWorkspaceView("inquiries", true);
+      openInquiry(inquiry.id);
+    }
+  } catch (error) {
+    setMessage($("#manual-inquiry-message"), error.message || "Inquiry could not be saved.");
+  } finally {
+    buttons.forEach((button) => { button.disabled = false; });
+  }
 };
 
 const sendProposal = async (event) => {
@@ -1442,6 +1497,10 @@ $("#send-new-active-link").addEventListener("click", () => {
 $("#delete-active-conversation").addEventListener("click", deleteActiveConversation);
 $("#open-proposal-editor").addEventListener("click", openProposalEditor);
 $("#create-proposal-button").addEventListener("click", createProposalFromWorkspace);
+$("#add-inquiry-button").addEventListener("click", openManualInquiry);
+$("#new-client-proposal-button").addEventListener("click", openManualInquiry);
+$("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-dialog").close());
+$("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
 $("#proposal-form").addEventListener("submit", sendProposal);
 $("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));

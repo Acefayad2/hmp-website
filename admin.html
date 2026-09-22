@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260915-4" />
+    <link rel="stylesheet" href="admin.css?v=20260922-1" />
   </head>
   <body>
     <main id="admin-root" aria-live="polite">
@@ -89,13 +89,14 @@
               <p id="dashboard-date"></p>
             </div>
             <div class="header-actions">
+              <button class="primary-button" id="add-inquiry-button" type="button">Add inquiry</button>
               <span class="sync-state" id="sync-state" role="status" aria-live="polite">Live updates on</span>
             </div>
           </header>
 
           <section class="metrics" aria-label="Inquiry summary">
             <article class="metric metric-featured">
-              <span>Total inquiries</span><strong id="metric-total">—</strong><small>All website submissions</small>
+              <span>Total inquiries</span><strong id="metric-total">—</strong><small>Website and manual entries</small>
             </article>
             <article class="metric">
               <span>New</span><strong id="metric-new">—</strong><small>Ready for follow-up</small>
@@ -141,7 +142,10 @@
                 <h2>Messages</h2>
                 <p>Reply to clients through the private conversation link connected to each inquiry.</p>
               </div>
-              <button class="primary-button workspace-create-button" id="create-proposal-button" type="button">Create proposal</button>
+              <div class="conversation-heading-actions">
+                <button class="secondary-button" id="new-client-proposal-button" type="button">New client &amp; proposal</button>
+                <button class="primary-button workspace-create-button" id="create-proposal-button" type="button">Create proposal</button>
+              </div>
             </div>
             <div class="messages-layout">
               <aside class="thread-panel">
@@ -334,6 +338,32 @@
         <div class="management-actions">
           <p class="form-message" id="management-message" role="status"></p>
           <button class="primary-button" type="submit">Save changes</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="proposal-editor-dialog" id="manual-inquiry-dialog">
+      <form id="manual-inquiry-form">
+        <div class="dialog-heading">
+          <div><p class="kicker">Client care</p><h2>Add inquiry</h2><p>Enter a client directly. Only their name and email are required. Saving does not send an email.</p></div>
+          <button id="close-manual-inquiry" type="button">Close</button>
+        </div>
+        <div class="proposal-form-body">
+          <div class="proposal-form-grid">
+            <label><span>Client name</span><input name="name" type="text" maxlength="200" autocomplete="name" required /></label>
+            <label><span>Client email</span><input name="email" type="email" maxlength="254" autocomplete="email" required /></label>
+            <label><span>Phone</span><input name="phone" type="tel" maxlength="50" autocomplete="tel" /></label>
+            <label><span>Service</span><select name="service"><option value="">To be confirmed</option><option>Guest Seating Experience</option><option>Money Table Services</option><option>Celebration Accessories</option><option>Multiple services</option><option>Other</option></select></label>
+            <label><span>Event type</span><input name="eventType" type="text" maxlength="200" placeholder="Wedding, conference, birthday…" /></label>
+            <label><span>Event date</span><input name="eventDate" type="date" /></label>
+            <label><span>Guest count</span><input name="guestCount" type="number" min="0" max="100000" step="1" /></label>
+            <label><span>Location</span><input name="location" type="text" maxlength="500" /></label>
+            <label class="proposal-wide"><span>Event details</span><textarea name="details" rows="4" maxlength="5000"></textarea></label>
+          </div>
+          <div class="proposal-form-actions">
+            <p class="form-message" id="manual-inquiry-message" role="status"></p>
+            <div><button class="secondary-button" type="submit" value="save">Save inquiry</button><button class="primary-button" type="submit" value="proposal">Save &amp; create proposal</button></div>
+          </div>
         </div>
       </form>
     </dialog>
@@ -587,6 +617,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260915-4"></script>
+    <script type="module" src="assets/admin.js?v=20260922-1"></script>
   </body>
 </html>

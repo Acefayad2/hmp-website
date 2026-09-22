@@ -1,6 +1,8 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isSameOriginMutation } from "./_conversation-security.mts";
+import { manualInquiryRecord } from "./_manual-inquiry.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -74,6 +76,29 @@ export default async (request: Request, _context: Context) => {
 
   const client = getDatabase();
   if (!client) return json({ error: "Dashboard data is unavailable" }, 503);
+
+  if (request.method === "POST") {
+    if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
+    let row: ReturnType<typeof manualInquiryRecord>;
+    try {
+      const body = await request.json();
+      if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Invalid inquiry.");
+      row = manualInquiryRecord(body, email);
+    } catch (cause) {
+      return json({ error: cause instanceof Error ? cause.message : "Invalid inquiry." }, 400);
+    }
+    // A stable form ID makes retries safe without overwriting a saved inquiry.
+    const { error: insertError } = await client.from("hmp_admin_inquiries")
+      .upsert(row, { onConflict: "submission_id", ignoreDuplicates: true });
+    if (insertError) {
+      console.error("Manual inquiry creation failed", insertError.code);
+      return json({ error: "Inquiry could not be saved. Please try again." }, 502);
+    }
+    const { data, error: readError } = await client.from("hmp_admin_inquiries")
+      .select("*").eq("submission_id", row.submission_id).single();
+    if (readError) return json({ error: "Inquiry was saved, but could not be loaded. Please try again." }, 502);
+    return json({ ok: true, inquiry: normalizeInquiry(data) }, 201);
+  }
 
   if (request.method === "PATCH") {
     let body: Record<string, unknown>;
