@@ -120,19 +120,19 @@ const sendInquiryEmails = async (
     ["Service of interest", row.service],
     ["Estimated guest count", row.guest_count],
     ["Parking fee", row.parking_fee],
-    ["Celebration type", row.celebration_type],
-    ["First celebration date", row.celebration_date],
-    ["First celebration location", row.location],
-    ["First celebration start time", submitted["start-time"]],
-    ["First celebration end time", submitted["end-time"]],
-    ["First celebration vendor exit time", submitted["vendor-exit-time"]],
-    ["Second celebration date", row.second_date],
-    ["Second celebration location", submitted["second-location"]],
-    ["Second celebration guest count", submitted["second-guest-count"]],
-    ["Second celebration start time", submitted["second-start-time"]],
-    ["Second celebration end time", submitted["second-end-time"]],
+    ["Event type", row.celebration_type],
+    ["First event date", row.celebration_date],
+    ["First event location", row.location],
+    ["First event start time", submitted["start-time"]],
+    ["First event end time", submitted["end-time"]],
+    ["First event vendor exit time", submitted["vendor-exit-time"]],
+    ["Second event date", row.second_date],
+    ["Second event location", submitted["second-location"]],
+    ["Second event guest count", submitted["second-guest-count"]],
+    ["Second event start time", submitted["second-start-time"]],
+    ["Second event end time", submitted["second-end-time"]],
     [
-      "Second celebration vendor exit time",
+      "Second event vendor exit time",
       submitted["second-vendor-exit-time"],
     ],
     ["How did you hear about us?", row.referral_source],
@@ -164,7 +164,7 @@ const sendInquiryEmails = async (
         <div style="max-width:640px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden">
           <div style="background:#734949;padding:24px 28px;color:#fff">
             <p style="margin:0 0 6px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p>
-            <h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">New celebration inquiry</h1>
+            <h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">New event inquiry</h1>
           </div>
           <div style="padding:28px">
             <p style="margin:0 0 22px;font-size:16px;line-height:1.6">A new website inquiry is ready in the <a href="https://hmpeds.com/admin" style="color:#9a633b">HMP admin dashboard</a>.</p>
@@ -173,7 +173,7 @@ const sendInquiryEmails = async (
               <tr><td style="padding:9px 0;color:#8b7272">Email</td><td style="padding:9px 0"><a href="mailto:${escapeHtml(clientEmail)}" style="color:#734949">${escapeHtml(clientEmail)}</a></td></tr>
               <tr><td style="padding:9px 0;color:#8b7272">Phone</td><td style="padding:9px 0">${phone}</td></tr>
               <tr><td style="padding:9px 0;color:#8b7272">Service</td><td style="padding:9px 0">${service}</td></tr>
-              <tr><td style="padding:9px 0;color:#8b7272">Celebration</td><td style="padding:9px 0">${celebrationType}</td></tr>
+              <tr><td style="padding:9px 0;color:#8b7272">Event</td><td style="padding:9px 0">${celebrationType}</td></tr>
               <tr><td style="padding:9px 0;color:#8b7272">Date</td><td style="padding:9px 0">${celebrationDate}</td></tr>
               <tr><td style="padding:9px 0;color:#8b7272">Location</td><td style="padding:9px 0">${location}</td></tr>
               <tr><td style="padding:9px 0;color:#8b7272">Schedule</td><td style="padding:9px 0">${schedule}</td></tr>
@@ -206,7 +206,7 @@ const sendInquiryEmails = async (
           </div>
           <div style="padding:30px 28px;font-size:16px;line-height:1.7">
             <p style="margin-top:0">Hello ${clientName},</p>
-            <p>Thank you for considering HMP for your celebration. We received your request for <strong>${service}</strong> and will get back to you within 48 hours.</p>
+            <p>Thank you for considering HMP for your event. We received your request for <strong>${service}</strong> and will get back to you within 48 hours.</p>
             <div style="margin:24px 0;padding:18px;background:#f8f1eb;border-radius:12px">
               <p style="margin:0 0 10px;color:#8b7272;font-size:12px;letter-spacing:1.5px;text-transform:uppercase">Copy of your inquiry</p>
               <table role="presentation" style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5">

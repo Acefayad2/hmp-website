@@ -1,6 +1,6 @@
 const offeringDetails = {
   "club-sign-strobes": {
-    category: "Celebration Accessories",
+    category: "Event Accessories",
     parentUrl: "/celebration-accessories",
     title: "Club Sign + Strobes",
     summary: "Create a high-impact arrival or dance-floor moment with coordinated lighting and signage.",
@@ -11,36 +11,36 @@ const offeringDetails = {
     features: [
       "High-impact entrance or dance-floor presentation",
       "Coordinated setup for a polished visual moment",
-      "Designed to complement the celebration atmosphere",
+      "Designed to complement the event atmosphere",
     ],
     image: "/assets/gallery-details-v2.webp",
-    imageAlt: "Burgundy and ivory celebration accessories arranged with candles and mirrored details",
+    imageAlt: "Burgundy and ivory event accessories arranged with candles and mirrored details",
   },
   "money-guns": {
-    category: "Celebration Accessories",
+    category: "Event Accessories",
     parentUrl: "/celebration-accessories",
     title: "Money Guns",
-    summary: "Add movement and excitement to money-spraying traditions during the celebration.",
+    summary: "Add movement and excitement to money-spraying traditions during the event.",
     heading: "Make the moment feel alive.",
     description:
       "Money guns create an energetic focal point for guests who want to participate in a money-spraying tradition. HMP helps coordinate the accessory with the event flow so the moment stays celebratory and organized.",
     price: "$10",
     features: [
-      "Lightweight celebration accessory",
+      "Lightweight event accessory",
       "Easy to incorporate into planned event moments",
       "Pairs naturally with Money Table Services",
     ],
     image: "/assets/gallery-reception-v2.webp",
-    imageAlt: "Luxury celebration accessories with floral styling and reflective party details",
+    imageAlt: "Luxury event accessories with floral styling and reflective party details",
   },
   "celebration-kit": {
-    category: "Celebration Accessories",
+    category: "Event Accessories",
     parentUrl: "/celebration-accessories",
-    title: "Celebration Kit",
-    summary: "Coordinate the practical signs and stationery your celebration needs in one polished collection.",
+    title: "Event Kit",
+    summary: "Coordinate the practical signs and stationery your event needs in one polished collection.",
     heading: "Keep every detail consistent.",
     description:
-      "The Celebration Kit brings the essential event signs together in a cohesive visual package. It is designed for clients who want card, ceremony, gift, guest-book, table-number, and reserved-table details to feel considered as one collection.",
+      "The Event Kit brings the essential event signs together in a cohesive visual package. It is designed for clients who want card, ceremony, gift, guest-book, table-number, and reserved-table details to feel considered as one collection.",
     price: "$100",
     features: [
       "Card box and ceremony reserved signs",
@@ -48,21 +48,21 @@ const offeringDetails = {
       "Table numbers and reserved-table signs",
     ],
     image: "/assets/celebration-accessories-hero-v2.webp",
-    imageAlt: "Elegant card box, candles, florals, and event stationery arranged for a celebration",
+    imageAlt: "Elegant card box, candles, florals, and event stationery arranged for an event",
   },
   "lux-framed-led-welcome-sign": {
-    category: "Celebration Accessories",
+    category: "Event Accessories",
     parentUrl: "/celebration-accessories",
     title: "Lux-Framed Premium LED Welcome Sign",
     summary: "Welcome guests with a refined digital display in a 27-inch or 32-inch format.",
     heading: "Make the first message memorable.",
     description:
-      "The Lux-Framed Premium LED Welcome Sign gives your arrival area a polished digital focal point. The display can be prepared to complement your celebration and presented in the size that best fits the venue.",
+      "The Lux-Framed Premium LED Welcome Sign gives your arrival area a polished digital focal point. The display can be prepared to complement your event and presented in the size that best fits the venue.",
     price: "$250",
     features: [
       "Available in 27-inch and 32-inch sizes",
       "Framed presentation for an elevated finish",
-      "Customized welcome display for the celebration",
+      "Customized welcome display for the event",
     ],
     image: "/assets/modern-guest-arrival-no-screen.webp",
     imageAlt: "Refined event entrance prepared for a premium welcome display",
@@ -74,7 +74,7 @@ const offeringDetails = {
     summary: "Confirm attendance with a polished RSVP-based arrival experience and custom digital display.",
     heading: "Welcome every guest with clarity.",
     description:
-      "Guest Arrival supports an organized first impression by helping confirm attendance as guests enter. HMP prepares the display and experience around your celebration details so the welcome feels considered from the start.",
+      "Guest Arrival supports an organized first impression by helping confirm attendance as guests enter. HMP prepares the display and experience around your event details so the welcome feels considered from the start.",
     price: "$800",
     features: [
       "RSVP-based attendance confirmation",
@@ -82,7 +82,7 @@ const offeringDetails = {
       "27-inch or 32-inch display options",
     ],
     image: "/assets/modern-guest-arrival.webp",
-    imageAlt: "Premium guest arrival display at an elegant celebration entrance",
+    imageAlt: "Premium guest arrival display at an elegant event entrance",
   },
   "guest-directory": {
     category: "Guest Seating Experience",
@@ -91,7 +91,7 @@ const offeringDetails = {
     summary: "Help guests find their assigned tables through a refined interactive name lookup.",
     heading: "Turn seating into a simple interaction.",
     description:
-      "Guest Directory replaces searching through printed lists with an interactive table lookup. Guests can find their name and seating assignment quickly while the customized display remains aligned with the celebration design.",
+      "Guest Directory replaces searching through printed lists with an interactive table lookup. Guests can find their name and seating assignment quickly while the customized display remains aligned with the event design.",
     price: "$800",
     features: [
       "Interactive name and table lookup",
@@ -108,7 +108,7 @@ const offeringDetails = {
     summary: "Combine attendance confirmation and table lookup in one complete guest journey.",
     heading: "Guide guests from entrance to table.",
     description:
-      "Arrival + Directory brings check-in and seating lookup together so guests can confirm attendance and find their assigned table through one coordinated experience. HMP manages the presentation to support a smooth transition into the celebration.",
+      "Arrival + Directory brings check-in and seating lookup together so guests can confirm attendance and find their assigned table through one coordinated experience. HMP manages the presentation to support a smooth transition into the event.",
     price: "$1,750",
     features: [
       "Attendance confirmation and seating lookup",
@@ -122,10 +122,10 @@ const offeringDetails = {
     category: "Money Table Services",
     parentUrl: "/money-table",
     title: "Money Collecting",
-    summary: "Gather and secure sprayed funds in designated storage bags throughout the celebration.",
+    summary: "Gather and secure sprayed funds in designated storage bags throughout the event.",
     heading: "Keep every collection organized.",
     description:
-      "Money Collecting provides dedicated support for gathering sprayed funds and placing them into designated storage bags. The service helps keep the area orderly while the celebration continues around it.",
+      "Money Collecting provides dedicated support for gathering sprayed funds and placing them into designated storage bags. The service helps keep the area orderly while the event continues around it.",
     price: "$680",
     features: [
       "Dedicated collection support",
@@ -159,7 +159,7 @@ const offeringDetails = {
     summary: "Combine guest exchanges and fund collection in one coordinated money-table service.",
     heading: "Support the full tradition.",
     description:
-      "Changing + Collecting combines denomination exchanges with organized fund collection. This option provides complete support for guests participating in the tradition while keeping collected funds managed throughout the celebration.",
+      "Changing + Collecting combines denomination exchanges with organized fund collection. This option provides complete support for guests participating in the tradition while keeping collected funds managed throughout the event.",
     price: "$850",
     features: [
       "Guest denomination exchange",

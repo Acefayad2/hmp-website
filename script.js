@@ -1,3 +1,5 @@
+// Keep saved service names and old inquiry links compatible with the new wording.
+const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration (Accessories|Kit)\b/g, "Event $1");
 const brandIntro = document.querySelector("[data-brand-intro]");
 
 if (brandIntro && document.documentElement.classList.contains("show-brand-intro")) {
@@ -288,11 +290,11 @@ const otherServiceInput = otherServiceField?.querySelector("textarea");
 let acknowledged = false;
 
 const inquiryServiceOptions = {
-  "Celebration Accessories": {
-    label: "Celebration accessory of interest",
+  "Event Accessories": {
+    label: "Event accessory of interest",
     placeholder: "Choose an accessory",
     options: [
-      "Celebration Kit",
+      "Event Kit",
       "Club Sign + Strobes",
       "Lux-Framed Premium LED Welcome Sign",
       "Money Guns",
@@ -370,8 +372,8 @@ const syncInquiryFields = () => {
 
 if (serviceSelect) {
   const inquiryParams = new URLSearchParams(window.location.search);
-  const requestedService = inquiryParams.get("service");
-  const requestedServiceOption = inquiryParams.get("service-option");
+  const requestedService = eventServiceLabel(inquiryParams.get("service"));
+  const requestedServiceOption = eventServiceLabel(inquiryParams.get("service-option"));
   if (
     requestedService &&
     [...serviceSelect.options].some(
@@ -558,7 +560,7 @@ const createReviewCard = (review, duplicate = false) => {
   const name = document.createElement("strong");
   name.textContent = review.reviewerName || "HMP client";
   const detail = document.createElement("span");
-  detail.textContent = [...new Set([review.reviewerRole, review.service].filter(Boolean))].join(" - ") || "HMP celebration";
+  detail.textContent = [...new Set([review.reviewerRole, eventServiceLabel(review.service)].filter(Boolean))].join(" - ") || "HMP event";
   footer.append(name, detail);
   card.append(stars, quote, footer);
   return card;

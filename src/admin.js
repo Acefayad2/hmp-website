@@ -23,6 +23,7 @@ import {
 } from "../proposal-ui.js";
 
 const $ = (selector) => document.querySelector(selector);
+const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration (Accessories|Kit)\b/g, "Event $1");
 const authShell = $("#auth-shell");
 const dashboard = $("#dashboard");
 const loginForm = $("#login-form");
@@ -210,7 +211,7 @@ const renderMetrics = () => {
 const renderServiceFilter = () => {
   const select = $("#service-filter");
   const current = select.value;
-  const services = [...new Set(inquiries.map((item) => item.service).filter(Boolean))].sort();
+  const services = [...new Set(inquiries.map((item) => eventServiceLabel(item.service)).filter(Boolean))].sort();
   select.innerHTML = '<option value="">All services</option>' + services
     .map((service) => `<option value="${escapeHTML(service)}">${escapeHTML(service)}</option>`)
     .join("");
@@ -219,7 +220,7 @@ const renderServiceFilter = () => {
 
 const renderServiceMix = () => {
   const counts = inquiries.reduce((result, item) => {
-    const service = item.service || "Not specified";
+    const service = eventServiceLabel(item.service) || "Not specified";
     result[service] = (result[service] || 0) + 1;
     return result;
   }, {});
@@ -242,10 +243,10 @@ const filteredInquiries = () => {
   const query = $("#search-input").value.trim().toLowerCase();
   const service = $("#service-filter").value;
   return inquiries.filter((item) => {
-    const haystack = [item.name, item.email, item.phone, item.service, item.location, item.celebrationType]
+    const haystack = [item.name, item.email, item.phone, eventServiceLabel(item.service), item.location, item.celebrationType]
       .join(" ")
       .toLowerCase();
-    return (!query || haystack.includes(query)) && (!service || item.service === service);
+    return (!query || haystack.includes(query)) && (!service || eventServiceLabel(item.service) === service);
   });
 };
 
@@ -261,7 +262,7 @@ const renderInquiries = () => {
           (item) => `
             <button class="inquiry-row" type="button" data-inquiry-id="${escapeHTML(item.id)}">
               <span class="client-cell"><strong>${escapeHTML(item.name || "Unnamed inquiry")}</strong><span>${escapeHTML(item.email || item.phone || "No contact supplied")}</span></span>
-              <span class="service-cell"><strong>${escapeHTML(item.service || "Service not specified")}</strong><span>${escapeHTML(item.location || item.celebrationType || "Location pending")}</span></span>
+              <span class="service-cell"><strong>${escapeHTML(eventServiceLabel(item.service) || "Service not specified")}</strong><span>${escapeHTML(item.location || item.celebrationType || "Location pending")}</span></span>
               <span class="date-cell"><strong>${escapeHTML(formatDate(item.celebrationDate))}</strong><span>Received ${escapeHTML(formatDate(item.receivedAt, true))}</span></span>
               <span class="status-pill">${escapeHTML(item.status || "New")}</span>
             </button>`,
@@ -314,7 +315,7 @@ const openInquiry = (id) => {
   if (!item) return;
   activeInquiryId = item.id;
   $("#detail-name").textContent = item.name || "Unnamed inquiry";
-  $("#detail-service").textContent = item.service || "Service not specified";
+  $("#detail-service").textContent = eventServiceLabel(item.service) || "Service not specified";
   $("#detail-actions").innerHTML = [
     item.email ? `<a href="mailto:${encodeURIComponent(item.email)}">Email client</a>` : "",
     item.phone ? `<a href="tel:${escapeHTML(item.phone.replace(/[^+\d]/g, ""))}">Call ${escapeHTML(item.phone)}</a>` : "",
@@ -461,7 +462,7 @@ const openProposalEditor = () => {
   const values = {
     title: "Money Changing Service Only",
     clientName: thread.clientName,
-    celebrationType: inquiry.celebrationType || thread.service || "",
+    celebrationType: inquiry.celebrationType || eventServiceLabel(thread.service) || "",
     eventDate: inquiry.celebrationDate || thread.celebrationDate || "",
     eventTime: [inquiry.startTime, inquiry.endTime].filter(Boolean).join(" – "),
     eventLocation: inquiry.location || "",
@@ -605,7 +606,7 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation").hidden = false;
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = thread.clientEmail;
-  $("#admin-conversation-service").textContent = thread.service;
+  $("#admin-conversation-service").textContent = eventServiceLabel(thread.service);
   $("#copy-active-link").textContent = thread.active ? "Copy client link" : "Link expired";
   $("#copy-active-link").disabled = !thread.active;
   setMessage($("#admin-message-status"), "");
@@ -634,7 +635,7 @@ const renderMessageThreads = () => {
     date.textContent = thread.lastMessageAt ? formatDate(thread.lastMessageAt, true) : "New link";
     top.append(name, date);
     const service = document.createElement("small");
-    service.textContent = thread.service;
+    service.textContent = eventServiceLabel(thread.service);
     const status = document.createElement("em");
     status.textContent = thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
     button.append(top, service, status);
@@ -1110,7 +1111,7 @@ const renderReviews = () => {
         <button class="review-list-row" type="button" data-review-id="${escapeHTML(review.id)}">
           <span class="review-list-copy"><strong>“${escapeHTML(review.reviewText)}”</strong><small class="review-list-stars" aria-label="${escapeHTML(review.rating || 5)} out of 5">${moons(review.rating)}</small></span>
           <span><strong>${escapeHTML(review.reviewerName)}</strong><small>${escapeHTML(review.reviewerRole || "Client")}</small></span>
-          <span>${escapeHTML(review.service || "General HMP experience")}</span>
+          <span>${escapeHTML(eventServiceLabel(review.service) || "General HMP experience")}</span>
           <span>${escapeHTML(review.displayOrder)}</span>
           <span class="review-status"><span class="status-pill">${review.published ? "Published" : "Draft"}</span></span>
         </button>`,
@@ -1135,7 +1136,7 @@ const openReviewEditor = (review = null) => {
   $("#review-name").value = review?.reviewerName || "";
   $("#review-role").value = review?.reviewerRole || "";
   const selectedServices = new Set(
-    (review?.service || "General HMP experience").split(",").map((service) => service.trim()),
+    (eventServiceLabel(review?.service) || "General HMP experience").split(",").map((service) => service.trim()),
   );
   document.querySelectorAll('[name="reviewServices"]').forEach((input) => {
     input.checked = selectedServices.has(input.value);

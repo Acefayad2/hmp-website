@@ -96,7 +96,7 @@ export default async (request: Request, _context: Context) => {
     return json({
       conversation: {
         clientName: inquiry.client_name || "Client",
-        service: inquiry.service || "Celebration inquiry",
+        service: inquiry.service || "Event inquiry",
         celebrationDate: inquiry.celebration_date || "",
         status: inquiry.status || "New",
         expiresAt: conversation.token_expires_at,

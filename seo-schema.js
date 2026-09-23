@@ -11,27 +11,27 @@
       name: "Event Services in Maryland",
       type: "CollectionPage",
       itemList: [
-        ["Celebration Accessories", "/celebration-accessories"],
+        ["Event Accessories", "/celebration-accessories"],
         ["Guest Seating Experience", "/guest-seating"],
         ["Money Table Services", "/money-table"],
       ],
     },
     "/celebration-accessories": {
-      name: "Celebration Accessory Rentals in Maryland",
+      name: "Event Accessory Rentals in Maryland",
       type: "Service",
-      description: "Club signs, strobes, money guns, celebration kits, card boxes, and premium LED welcome sign rentals for Maryland events.",
+      description: "Club signs, strobes, money guns, event kits, card boxes, and premium LED welcome sign rentals for Maryland events.",
       image: "/assets/celebration-accessories-hero-v2.webp",
     },
     "/guest-seating": {
       name: "Digital Guest Seating and Event Check-In",
       type: "Service",
-      description: "Interactive guest arrival, digital event check-in, seating lookup, and premium LED signage for Maryland celebrations.",
+      description: "Interactive guest arrival, digital event check-in, seating lookup, and premium LED signage for Maryland events.",
       image: "/assets/hmp-hero-welcome.webp",
     },
     "/money-table": {
       name: "Money Table Services in Maryland",
       type: "Service",
-      description: "Organized money collecting, changing, and cash-counting support for celebrations in Maryland.",
+      description: "Organized money collecting, changing, and cash-counting support for events in Maryland.",
       image: "/assets/modern-money-table.webp",
     },
     "/inquiry": {

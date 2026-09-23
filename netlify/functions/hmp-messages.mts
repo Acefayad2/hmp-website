@@ -124,8 +124,8 @@ const sendReplyNotification = async (
       from,
       to: [recipient],
       reply_to: "info@hmpeds.com",
-      subject: isProposal ? "Your HMP service proposal is ready" : "HMP replied to your celebration conversation",
-      html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">${isProposal ? "Your service proposal is ready." : "You have a new reply."}</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>${isProposal ? "HMP prepared a personalized service proposal for your celebration. Open your private portal to review the details and pricing." : "An HMP representative replied to your private celebration conversation."}</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">${isProposal ? "View My Proposal" : "Connect with an Event Specialist"}</a></p><p style="color:#8b7272;font-size:13px">This private link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
+      subject: isProposal ? "Your HMP service proposal is ready" : "HMP replied to your event conversation",
+      html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">${isProposal ? "Your service proposal is ready." : "You have a new reply."}</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>${isProposal ? "HMP prepared a personalized service proposal for your event. Open your private portal to review the details and pricing." : "An HMP representative replied to your private event conversation."}</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">${isProposal ? "View My Proposal" : "Connect with an Event Specialist"}</a></p><p style="color:#8b7272;font-size:13px">This private link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
     }),
   });
   if (!response.ok) console.error("Conversation reply email failed", response.status);
@@ -197,7 +197,7 @@ export default async (request: Request, _context: Context) => {
         inquiryId: row.inquiry_id,
         clientName: inquiry.client_name || "Client",
         clientEmail: inquiry.email || "",
-        service: inquiry.service || "Celebration inquiry",
+        service: inquiry.service || "Event inquiry",
         celebrationDate: inquiry.celebration_date || "",
         inquiryStatus: inquiry.status || "New",
         active: !row.revoked_at && new Date(row.token_expires_at).getTime() > Date.now(),

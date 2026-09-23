@@ -8,6 +8,7 @@ import {
 import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1";
 
 const $ = (selector) => document.querySelector(selector);
+const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration (Accessories|Kit)\b/g, "Event $1");
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const validToken = /^[A-Za-z0-9_-]{43}$/.test(token);
 let loading = false;
@@ -88,7 +89,7 @@ const loadConversation = async ({ quiet = false } = {}) => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Conversation unavailable");
     $("#conversation-title").textContent = `Conversation for ${data.conversation.clientName}`;
-    $("#summary-service").textContent = data.conversation.service;
+    $("#summary-service").textContent = eventServiceLabel(data.conversation.service);
     $("#summary-date").textContent = formatDate(data.conversation.celebrationDate);
     $("#conversation-summary").hidden = false;
     $("#conversation-error").hidden = true;
