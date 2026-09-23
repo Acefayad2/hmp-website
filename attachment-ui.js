@@ -35,6 +35,22 @@ const allowedTypes = new Set([
 const allowedType = (type) =>
   allowedTypes.has(type);
 
+// Some mobile file pickers omit the MIME type. Only infer known supported types.
+const extensionTypes = {
+  jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", gif: "image/gif",
+  webp: "image/webp", heic: "image/heic", heif: "image/heif", avif: "image/avif",
+  mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm", ogv: "video/ogg",
+  avi: "video/x-msvideo", mpeg: "video/mpeg", mpg: "video/mpeg",
+  mp3: "audio/mpeg", m4a: "audio/mp4", wav: "audio/wav", ogg: "audio/ogg",
+  pdf: "application/pdf", doc: "application/msword",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls: "application/vnd.ms-excel", xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt: "application/vnd.ms-powerpoint", pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  txt: "text/plain", csv: "text/csv",
+};
+export const attachmentType = (file) => (file.type || "").toLowerCase()
+  || extensionTypes[file.name.split(".").pop().toLowerCase()] || "";
+
 const previewUrls = new WeakMap();
 
 const clearPreviewUrls = (container) => {
@@ -52,7 +68,7 @@ export const selectedFiles = (input) => {
   if (files.length > MAX_FILES) throw new Error("Attach up to 4 files at a time.");
   if (files.some((file) => file.size > MAX_FILE_BYTES)) throw new Error("Each attachment must be 25 MB or smaller.");
   if (files.reduce((sum, file) => sum + file.size, 0) > MAX_TOTAL_BYTES) throw new Error("Attachments must total 50 MB or less.");
-  if (files.some((file) => !allowedType((file.type || "").toLowerCase()))) throw new Error("One of these file types is not supported.");
+  if (files.some((file) => !allowedType(attachmentType(file)))) throw new Error("One of these file types is not supported. Remove it using its X button.");
   return files;
 };
 
@@ -73,14 +89,9 @@ export const renderAttachmentPreviews = (input, container, summary) => {
   clearPreviewUrls(container);
   container.replaceChildren();
 
-  let files;
-  try {
-    files = selectedFiles(input);
-  } catch {
-    updateAttachmentSummary(input, summary);
-    container.hidden = true;
-    return;
-  }
+  // Invalid selections must remain visible so individual files can be removed.
+  const files = Array.from(input.files || []);
+  updateAttachmentSummary(input, summary);
 
   if (!files.length) {
     container.hidden = true;
@@ -91,29 +102,39 @@ export const renderAttachmentPreviews = (input, container, summary) => {
   files.forEach((file, index) => {
     const card = document.createElement("article");
     card.className = "attachment-preview";
+    const type = attachmentType(file);
+    const supported = allowedType(type);
+    const fallback = document.createElement("span");
+    fallback.className = "attachment-preview__icon";
+    fallback.textContent = supported ? "Preview unavailable in this browser. You can still open or remove this file." : "Unsupported file — please remove";
+    const url = supported ? URL.createObjectURL(new Blob([file], { type })) : "";
+    if (url) urls.push(url);
 
-    if (file.type.startsWith("video/")) {
-      const video = document.createElement("video");
-      const url = URL.createObjectURL(file);
-      urls.push(url);
+    if (!supported) {
+      card.append(fallback);
+    } else if (type.startsWith("video/") || type.startsWith("audio/")) {
+      const video = document.createElement(type.startsWith("video/") ? "video" : "audio");
       video.src = url;
       video.controls = true;
       video.preload = "metadata";
       video.setAttribute("playsinline", "");
       video.setAttribute("aria-label", `Preview ${file.name}`);
+      video.addEventListener("error", () => video.replaceWith(fallback), { once: true });
       card.append(video);
-    } else if (file.type.startsWith("image/")) {
+    } else if (type.startsWith("image/")) {
       const image = document.createElement("img");
-      const url = URL.createObjectURL(file);
-      urls.push(url);
       image.src = url;
       image.alt = `Preview of ${file.name}`;
+      image.addEventListener("error", () => image.replaceWith(fallback), { once: true });
       card.append(image);
+    } else if (type === "application/pdf") {
+      const preview = document.createElement("iframe");
+      preview.src = url;
+      preview.title = `Preview of ${file.name}`;
+      card.append(preview);
     } else {
-      const icon = document.createElement("span");
-      icon.className = "attachment-preview__icon";
-      icon.textContent = "File";
-      card.append(icon);
+      if (supported) fallback.textContent = "Document · Open to review";
+      card.append(fallback);
     }
 
     const details = document.createElement("div");
@@ -123,13 +144,24 @@ export const renderAttachmentPreviews = (input, container, summary) => {
     const size = document.createElement("span");
     size.textContent = formatFileSize(file.size);
     details.append(name, size);
+    if (url) {
+      const open = document.createElement("a");
+      open.href = url;
+      open.target = "_blank";
+      open.rel = "noopener noreferrer";
+      open.textContent = "Open file preview";
+      open.setAttribute("aria-label", `Open preview of ${file.name}`);
+      details.append(open);
+    }
 
     const remove = document.createElement("button");
     remove.type = "button";
     remove.className = "attachment-preview__remove";
-    remove.textContent = "Remove";
+    remove.textContent = "×";
+    remove.title = `Remove ${file.name}`;
     remove.setAttribute("aria-label", `Remove ${file.name}`);
     remove.addEventListener("click", () => {
+      if (input.disabled) return;
       const transfer = new DataTransfer();
       files.forEach((candidate, candidateIndex) => {
         if (candidateIndex !== index) transfer.items.add(candidate);
@@ -147,6 +179,11 @@ export const renderAttachmentPreviews = (input, container, summary) => {
   container.hidden = false;
 };
 
+export const setAttachmentBusy = (input, container, busy) => {
+  input.disabled = busy;
+  container.querySelectorAll("button").forEach((button) => { button.disabled = busy; });
+};
+
 export const uploadAttachments = async ({ files, messageId, prepare }) => {
   const attachments = [];
   for (const file of files) {
@@ -154,12 +191,12 @@ export const uploadAttachments = async ({ files, messageId, prepare }) => {
       action: "prepare-upload",
       messageId,
       name: file.name,
-      type: file.type.toLowerCase(),
+      type: attachmentType(file),
       size: file.size,
     });
     const form = new FormData();
     form.append("cacheControl", "3600");
-    form.append("", file);
+    form.append("", new Blob([file], { type: attachmentType(file) }), file.name);
     const upload = await fetch(prepared.signedUrl, {
       method: "PUT",
       headers: { "x-upsert": "false" },

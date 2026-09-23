@@ -11,6 +11,8 @@ import {
 } from "@netlify/identity";
 import {
   appendAttachments,
+  renderAttachmentPreviews,
+  setAttachmentBusy,
   selectedFiles,
   updateAttachmentSummary,
   uploadAttachments,
@@ -600,6 +602,15 @@ const sendProposal = async (event) => {
 const openMessageThread = (threadId) => {
   const thread = messageThreads.find((candidate) => candidate.id === threadId);
   if (!thread) return;
+  if (threadId !== activeThreadId) {
+    const attachmentInput = $("#admin-message-attachments");
+    if (attachmentInput.disabled) return;
+    if ((attachmentInput.files.length || $("#admin-message-input").value.trim())
+      && !window.confirm("Discard your unsent reply and attachments before opening another conversation?")) return;
+    attachmentInput.value = "";
+    $("#admin-message-input").value = "";
+    renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
+  }
   activeThreadId = thread.id;
   activeConversationUrl = thread.clientUrl;
   $("#admin-conversation-placeholder").hidden = true;
@@ -724,7 +735,7 @@ const sendNewConversationLink = async (inquiryId, statusElement) => {
 
 const sendAdminMessage = async (event) => {
   event.preventDefault();
-  if (!activeThreadId) return;
+  if (!activeThreadId || $("#admin-message-attachments").disabled) return;
   const input = $("#admin-message-input");
   const message = input.value.trim();
   const attachmentInput = $("#admin-message-attachments");
@@ -739,6 +750,7 @@ const sendAdminMessage = async (event) => {
   const requestId = globalThis.crypto.randomUUID();
   const button = event.currentTarget.querySelector("button[type=submit]");
   button.disabled = true;
+  setAttachmentBusy(attachmentInput, $("#admin-message-attachment-previews"), true);
   setMessage($("#admin-message-status"), files.length ? "Uploading attachments…" : "Sending reply…");
   try {
     const attachments = await uploadAttachments({
@@ -768,12 +780,14 @@ const sendAdminMessage = async (event) => {
     input.value = "";
     attachmentInput.value = "";
     updateAttachmentSummary(attachmentInput, $("#admin-message-attachment-summary"));
+    renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
     await loadMessages();
     setMessage($("#admin-message-status"), data.notified ? "Reply sent and client notified by email." : "Reply sent securely.", true);
   } catch (error) {
     setMessage($("#admin-message-status"), error.message || "Reply could not be sent.");
   } finally {
     button.disabled = false;
+    setAttachmentBusy(attachmentInput, $("#admin-message-attachment-previews"), false);
   }
 };
 
@@ -1488,8 +1502,9 @@ $("#thread-list").addEventListener("click", (event) => {
 });
 $("#admin-message-form").addEventListener("submit", sendAdminMessage);
 $("#admin-message-attachments").addEventListener("change", () => {
-  updateAttachmentSummary(
+  renderAttachmentPreviews(
     $("#admin-message-attachments"),
+    $("#admin-message-attachment-previews"),
     $("#admin-message-attachment-summary"),
   );
 });

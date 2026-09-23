@@ -1,10 +1,11 @@
 import {
   appendAttachments,
   renderAttachmentPreviews,
+  setAttachmentBusy,
   selectedFiles,
   updateAttachmentSummary,
   uploadAttachments,
-} from "./attachment-ui.js?v=20260914-1";
+} from "./attachment-ui.js?v=20260923-1";
 import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1";
 
 const $ = (selector) => document.querySelector(selector);
@@ -106,9 +107,10 @@ const loadConversation = async ({ quiet = false } = {}) => {
 $("#message-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = $("#message-input");
-  const button = event.currentTarget.querySelector("button");
+  const button = event.currentTarget.querySelector("button[type=submit]");
   const message = input.value.trim();
   const attachmentInput = $("#message-attachments");
+  if (attachmentInput.disabled) return;
   let files;
   try {
     files = selectedFiles(attachmentInput);
@@ -119,6 +121,7 @@ $("#message-form").addEventListener("submit", async (event) => {
   if (!message && !files.length) return;
   const requestId = globalThis.crypto.randomUUID();
   button.disabled = true;
+  setAttachmentBusy(attachmentInput, $("#message-attachment-previews"), true);
   $("#message-status").textContent = files.length ? "Uploading attachments…" : "Sending…";
   try {
     const attachments = await uploadAttachments({
@@ -159,6 +162,7 @@ $("#message-form").addEventListener("submit", async (event) => {
     $("#message-status").textContent = error.message || "Message could not be sent.";
   } finally {
     button.disabled = false;
+    setAttachmentBusy(attachmentInput, $("#message-attachment-previews"), false);
   }
 });
 

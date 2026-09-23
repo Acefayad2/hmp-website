@@ -1,0 +1,66 @@
+.message-composer > .attachment-previews,
+.admin-message-composer > .attachment-previews {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.message-composer > .attachment-previews[hidden],
+.admin-message-composer > .attachment-previews[hidden] { display: none; }
+.attachment-previews .attachment-preview {
+  position: relative;
+  min-width: 0;
+  padding-top: 48px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: #fffaf6;
+}
+.attachment-previews .attachment-preview img,
+.attachment-previews .attachment-preview video,
+.attachment-previews .attachment-preview iframe {
+  display: block;
+  width: 100%;
+  height: 150px;
+  aspect-ratio: auto;
+  object-fit: contain;
+  border: 0;
+  background: #eadfd9;
+}
+.attachment-previews .attachment-preview audio { display: block; width: 100%; height: 54px; }
+.attachment-previews .attachment-preview__icon {
+  display: grid;
+  min-height: 150px;
+  padding: 16px;
+  box-sizing: border-box;
+  place-items: center;
+  background: #eadfd9;
+  color: #624545;
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+  text-align: center;
+}
+.attachment-previews .attachment-preview__details { display: flex; flex-direction: column; gap: 5px; padding: 12px; min-width: 0; }
+.attachment-previews .attachment-preview__details strong { font-size: 12px; overflow-wrap: anywhere; white-space: normal; }
+.attachment-previews .attachment-preview__details span { font-size: 11px; color: #624545; }
+.attachment-previews .attachment-preview__details a { font-size: 12px; color: #624545; text-decoration: underline; }
+.attachment-previews .attachment-preview__remove {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  bottom: auto;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: #624545;
+  font: 26px/1 Arial, sans-serif;
+  cursor: pointer;
+}
+.attachment-previews .attachment-preview__remove:focus-visible { outline: 2px solid #624545; outline-offset: -4px; }
+.attachment-previews .attachment-preview__remove:disabled { opacity: .5; cursor: wait; }
