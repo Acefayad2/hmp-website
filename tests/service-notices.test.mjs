@@ -3,6 +3,13 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 
+test("money table pricing introduction states the four-hour minimum", () => {
+  const html = readFileSync(new URL("../money-table.html", import.meta.url), "utf8");
+  const introduction = html.match(/<div class="price-header">[\s\S]*?<div class="price-grid">/)?.[0];
+  assert.ok(introduction);
+  assert.match(introduction, /complete support\. A minimum of 4 hours of service is required\./);
+});
+
 test("money table notice states the four-hour minimum and has accessible controls", () => {
   const html = readFileSync(new URL("../inquiry.html", import.meta.url), "utf8");
   const notice = html.match(/<dialog id="money-table-dialog"[\s\S]*?<\/dialog>/)?.[0];
