@@ -296,6 +296,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .invoice-sheet input, .invoice-sheet select, .invoice-sheet textarea { width: 100%; border: 1px solid transparent; border-radius: 6px; color: var(--ink); background: transparent; outline: none; }
 .invoice-sheet input, .invoice-sheet select { min-height: 36px; padding: 0 7px; }
 .invoice-sheet textarea { padding: 7px; resize: vertical; }
+.invoice-item-row textarea { min-height: 76px; line-height: 1.5; overflow: hidden; }
+.invoice-print-text { display: none; }
 .invoice-sheet input:hover, .invoice-sheet select:hover, .invoice-sheet textarea:hover { border-color: var(--line); }
 .invoice-sheet input:focus, .invoice-sheet select:focus, .invoice-sheet textarea:focus { border-color: var(--plum); background: #fff; box-shadow: 0 0 0 3px rgba(196,175,175,.25); }
 .invoice-title-block select { width: 120px; margin-left: auto; text-align: right; }
@@ -534,10 +536,22 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .contract-financial-grid > label { align-items: flex-start; flex-direction: column; }
 }
 @media print {
+  body:not(.printing-contract) > :not(#invoice-editor-dialog) { display: none !important; }
+  body:not(.printing-contract) #invoice-editor-dialog { position: static; width: 100%; max-width: none; height: auto; max-height: none; margin: 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: #fff; }
+  body:not(.printing-contract) #invoice-editor-dialog::backdrop { display: none; }
+  body:not(.printing-contract) #invoice-editor-dialog .invoice-editor-toolbar,
+  body:not(.printing-contract) #invoice-editor-message { display: none; }
+  #invoice-sheet textarea { display: none !important; }
+  #invoice-sheet .invoice-print-text { display: block; padding: 7px; white-space: pre-wrap; overflow-wrap: anywhere; }
   body { background: #fff; }
   body * { visibility: hidden !important; }
   body:not(.printing-contract) #invoice-sheet, body:not(.printing-contract) #invoice-sheet *, body.printing-contract #contract-sheet, body.printing-contract #contract-sheet * { visibility: visible !important; }
   body:not(.printing-contract) #invoice-sheet, body.printing-contract #contract-sheet { position: absolute; inset: 0; width: 100%; min-height: 0; margin: 0; padding: 36px; box-shadow: none; }
+  body:not(.printing-contract) #invoice-sheet { position: static; }
+  #invoice-sheet .invoice-items-section { overflow: visible; }
+  #invoice-sheet .invoice-items-heading { break-after: avoid; }
+  #invoice-items { break-before: avoid; }
+  #invoice-sheet .invoice-item-row { break-inside: avoid; }
   body:not(.printing-contract) #invoice-sheet input, body:not(.printing-contract) #invoice-sheet select, body:not(.printing-contract) #invoice-sheet textarea, body.printing-contract #contract-sheet input, body.printing-contract #contract-sheet select, body.printing-contract #contract-sheet textarea { border: 0 !important; box-shadow: none !important; appearance: none; }
   .remove-line-item, .add-line-item { display: none !important; }
 }

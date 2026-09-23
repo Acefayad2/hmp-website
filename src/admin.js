@@ -822,12 +822,20 @@ const invoiceDueDate = () => {
   return localDateValue(date);
 };
 
+const resizeInvoiceTextareas = () => {
+  if (!$("#invoice-editor-dialog").open) return;
+  document.querySelectorAll("#invoice-sheet textarea").forEach((field) => {
+    field.style.height = "auto";
+    field.style.height = `${field.scrollHeight + 2}px`;
+  });
+};
+
 const renderInvoiceItems = () => {
   $("#invoice-items").innerHTML = invoiceItems
     .map(
       (item) => `
         <div class="invoice-item-row" data-line-item="${escapeHTML(item.id)}">
-          <input data-item-field="description" type="text" maxlength="500" value="${escapeHTML(item.description)}" placeholder="Guest Seating Experience" aria-label="Service description" required />
+          <textarea data-item-field="description" rows="3" maxlength="500" placeholder="Guest Seating Experience&#10;Add service details on a new line" aria-label="Service description" required>${escapeHTML(item.description)}</textarea>
           <input data-item-field="quantity" type="number" min="0.01" step="0.01" value="${escapeHTML(item.quantity)}" aria-label="Quantity" required />
           <input data-item-field="rate" type="number" min="0" step="0.01" value="${escapeHTML(item.rate)}" aria-label="Rate" required />
           <span class="invoice-item-amount">${formatMoney(Number(item.quantity) * Number(item.rate))}</span>
@@ -836,6 +844,7 @@ const renderInvoiceItems = () => {
     )
     .join("");
   calculateInvoiceTotals();
+  resizeInvoiceTextareas();
 };
 
 const calculateInvoiceTotals = () => {
@@ -864,7 +873,7 @@ const addInvoiceItem = (item = {}) => {
     rate: item.rate ?? 0,
   });
   renderInvoiceItems();
-  $("#invoice-items .invoice-item-row:last-child input").focus();
+  $('#invoice-items .invoice-item-row:last-child [data-item-field="description"]').focus();
 };
 
 const invoiceFormFields = {
@@ -872,7 +881,7 @@ const invoiceFormFields = {
   clientName: "#invoice-client-name",
   clientEmail: "#invoice-client-email",
   clientPhone: "#invoice-client-phone",
-  billingAddress: "#invoice-billing-address",
+  eventAddress: "#invoice-event-address",
   issueDate: "#invoice-issue-date",
   dueDate: "#invoice-due-date",
   eventName: "#invoice-event-name",
@@ -906,6 +915,7 @@ const openInvoiceEditor = (invoice = null) => {
   setMessage($("#invoice-editor-message"), "");
   renderInvoiceItems();
   $("#invoice-editor-dialog").showModal();
+  resizeInvoiceTextareas();
 };
 
 const invoicePayload = () => ({
@@ -1512,6 +1522,21 @@ $("#create-invoice-button").addEventListener("click", () => openInvoiceEditor())
 $("#empty-create-invoice").addEventListener("click", () => openInvoiceEditor());
 $("#close-invoice-editor").addEventListener("click", () => $("#invoice-editor-dialog").close());
 $("#print-invoice").addEventListener("click", () => window.print());
+$("#invoice-sheet").addEventListener("input", resizeInvoiceTextareas);
+window.addEventListener("resize", resizeInvoiceTextareas);
+// Plain text can wrap and paginate in print; textarea controls can clip content.
+window.addEventListener("beforeprint", () => {
+  document.querySelectorAll("#invoice-sheet .invoice-print-text").forEach((node) => node.remove());
+  document.querySelectorAll("#invoice-sheet textarea").forEach((field) => {
+    const text = document.createElement("div");
+    text.className = "invoice-print-text";
+    text.textContent = field.value;
+    field.after(text);
+  });
+});
+window.addEventListener("afterprint", () => {
+  document.querySelectorAll("#invoice-sheet .invoice-print-text").forEach((node) => node.remove());
+});
 $("#send-invoice").addEventListener("click", sendInvoice);
 $("#invoice-form").addEventListener("submit", async (event) => {
   event.preventDefault();

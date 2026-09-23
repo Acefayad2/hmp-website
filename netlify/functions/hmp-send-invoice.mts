@@ -40,11 +40,13 @@ const date = (value: unknown) => {
     : new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(parsed);
 };
 
-const renderEmail = (invoice: Record<string, any>) => {
+const multilineHTML = (value: unknown) => escapeHTML(value).replace(/\r\n|\r|\n/g, "<br>");
+
+export const renderEmail = (invoice: Record<string, any>) => {
   const items = Array.isArray(invoice.items) ? invoice.items : [];
   const itemRows = items.map((item) => `
     <tr>
-      <td style="padding:14px 8px;border-bottom:1px solid #eadfda;color:#2e2022">${escapeHTML(item.description)}</td>
+      <td style="padding:14px 8px;border-bottom:1px solid #eadfda;color:#2e2022;overflow-wrap:anywhere">${multilineHTML(item.description)}</td>
       <td style="padding:14px 8px;border-bottom:1px solid #eadfda;text-align:center;color:#756467">${escapeHTML(item.quantity)}</td>
       <td style="padding:14px 8px;border-bottom:1px solid #eadfda;text-align:right;color:#756467">${money(item.rate)}</td>
       <td style="padding:14px 8px;border-bottom:1px solid #eadfda;text-align:right;color:#2e2022;font-weight:600">${money(item.amount)}</td>
@@ -62,6 +64,7 @@ const renderEmail = (invoice: Record<string, any>) => {
           <p style="margin:0 0 8px;color:#756467;font-size:12px;text-transform:uppercase;letter-spacing:1px">Prepared for</p>
           <h2 style="margin:0 0 6px;font-family:Georgia,serif;font-size:30px">${escapeHTML(invoice.client_name)}</h2>
           <p style="margin:0;color:#756467">Issue date: ${date(invoice.issue_date)}<br>Due date: ${date(invoice.due_date)}</p>
+          ${invoice.event_address ? `<p style="margin:18px 0 0;color:#756467;overflow-wrap:anywhere"><strong style="color:#2e2022">Event address:</strong><br>${multilineHTML(invoice.event_address)}</p>` : ""}
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:30px;border-collapse:collapse">
             <thead><tr style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#756467">
               <th align="left" style="padding:10px 8px;border-bottom:1px solid #5f3f41">Service</th>

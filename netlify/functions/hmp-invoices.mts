@@ -43,7 +43,7 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const normalizeInvoice = (record: Record<string, unknown>) => ({
+export const normalizeInvoice = (record: Record<string, unknown>) => ({
   id: record.id || "",
   invoiceNumber: record.invoice_number || "",
   status: record.status || "Draft",
@@ -52,7 +52,7 @@ const normalizeInvoice = (record: Record<string, unknown>) => ({
   clientName: record.client_name || "",
   clientEmail: record.client_email || "",
   clientPhone: record.client_phone || "",
-  billingAddress: record.billing_address || "",
+  eventAddress: record.event_address || "",
   eventName: record.event_name || "",
   eventDate: record.event_date || "",
   currency: record.currency || "USD",
@@ -72,7 +72,7 @@ const normalizeInvoice = (record: Record<string, unknown>) => ({
   updatedAt: record.updated_at || "",
 });
 
-const cleanPayload = (body: Record<string, unknown>) => {
+export const cleanPayload = (body: Record<string, unknown>) => {
   const clientName = text(body.clientName, 200);
   const clientEmail = text(body.clientEmail, 320).toLowerCase();
   const issueDate = text(body.issueDate, 10);
@@ -119,7 +119,8 @@ const cleanPayload = (body: Record<string, unknown>) => {
     client_name: clientName,
     client_email: clientEmail,
     client_phone: text(body.clientPhone, 60) || null,
-    billing_address: text(body.billingAddress, 1000) || null,
+    // Omitted by older clients: leave the saved event address untouched on PATCH.
+    ...(Object.hasOwn(body, "eventAddress") ? { event_address: text(body.eventAddress, 1000) || null } : {}),
     event_name: text(body.eventName, 250) || null,
     event_date: eventDate || null,
     currency: "USD",
