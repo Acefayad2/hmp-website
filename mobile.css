@@ -635,7 +635,7 @@ body {
   backdrop-filter: blur(18px);
 }
 .inquiry-page #inquiry-form:before {
-  content: "01  /  CELEBRATION BRIEF";
+  content: "01  /  EVENT BRIEF";
   display: block;
   margin-bottom: 36px;
   color: var(--bronze);

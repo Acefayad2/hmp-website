@@ -1059,7 +1059,7 @@ footer .brand,
 .inquiry form::before,
 .inner-page .inquiry form::before,
 .inquiry-page #inquiry-form::before {
-  content: "CELEBRATION BRIEF";
+  content: "EVENT BRIEF";
   color: var(--gold);
 }
 
