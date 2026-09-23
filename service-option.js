@@ -126,7 +126,7 @@ const offeringDetails = {
     heading: "Keep every collection organized.",
     description:
       "Money Collecting provides dedicated support for gathering sprayed funds and placing them into designated storage bags. The service helps keep the area orderly while the celebration continues around it.",
-    price: "$330",
+    price: "$680",
     features: [
       "Dedicated collection support",
       "Designated storage bags",
@@ -143,7 +143,7 @@ const offeringDetails = {
     heading: "Make participation easier.",
     description:
       "Money Changing helps guests exchange bills for the denominations needed during money-spraying moments. A dedicated Money Associate manages exchanges so the service stays organized and accessible.",
-    price: "$480",
+    price: "$600",
     features: [
       "Guest denomination exchange",
       "Dedicated Money Associate",
@@ -160,7 +160,7 @@ const offeringDetails = {
     heading: "Support the full tradition.",
     description:
       "Changing + Collecting combines denomination exchanges with organized fund collection. This option provides complete support for guests participating in the tradition while keeping collected funds managed throughout the celebration.",
-    price: "$675",
+    price: "$850",
     features: [
       "Guest denomination exchange",
       "Fund collection and designated storage",
