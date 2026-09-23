@@ -278,7 +278,10 @@ document.querySelectorAll('input[type="time"]').forEach((input) => {
   );
 });
 
-const dialog = document.querySelector("#led-dialog");
+const serviceNotices = {
+  "Guest Seating Experience": { dialog: document.querySelector("#led-dialog"), acknowledged: false },
+  "Money Table Services": { dialog: document.querySelector("#money-table-dialog"), acknowledged: false },
+};
 const serviceSelect = document.querySelector("#service-select");
 const serviceOptionField = document.querySelector("#service-option-field");
 const serviceOptionLabel = document.querySelector("#service-option-label");
@@ -287,7 +290,12 @@ const multipleServicesField = document.querySelector("#multiple-services-field")
 const multipleServicesInput = multipleServicesField?.querySelector("textarea");
 const otherServiceField = document.querySelector("#other-service-field");
 const otherServiceInput = otherServiceField?.querySelector("textarea");
-let acknowledged = false;
+const showServiceNotice = () => {
+  const notice = serviceNotices[serviceSelect?.value];
+  if (!notice?.dialog || notice.acknowledged) return false;
+  if (!notice.dialog.open) notice.dialog.showModal();
+  return true;
+};
 
 const inquiryServiceOptions = {
   "Event Accessories": {
@@ -381,15 +389,7 @@ if (serviceSelect) {
     )
   )
     serviceSelect.value = requestedService;
-  const showSeatingNotice = () => {
-    if (
-      dialog &&
-      !acknowledged &&
-      serviceSelect.value.includes("Guest Seating")
-    )
-      dialog.showModal();
-  };
-  serviceSelect.addEventListener("change", showSeatingNotice);
+  serviceSelect.addEventListener("change", showServiceNotice);
   serviceSelect.addEventListener("change", syncInquiryFields);
   syncInquiryFields();
   if (
@@ -400,25 +400,33 @@ if (serviceSelect) {
   ) {
     serviceOptionSelect.value = requestedServiceOption;
   }
-  if (serviceSelect.value.includes("Guest Seating"))
-    setTimeout(showSeatingNotice, 350);
-  dialog?.querySelector(".dialog-close")?.addEventListener("click", () => {
-    serviceSelect.value = "";
-    dialog.close();
-  });
-  dialog?.querySelector(".dialog-confirm")?.addEventListener("click", () => {
-    acknowledged = true;
-    dialog.close();
-    serviceSelect.focus();
+  if (serviceNotices[serviceSelect.value]) setTimeout(showServiceNotice, 350);
+  Object.values(serviceNotices).forEach((notice) => {
+    const { dialog } = notice;
+    const cancelNotice = () => {
+      serviceSelect.value = "";
+      syncInquiryFields();
+      dialog.close();
+      serviceSelect.focus();
+    };
+    dialog?.querySelector(".dialog-close")?.addEventListener("click", cancelNotice);
+    dialog?.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      cancelNotice();
+    });
+    dialog?.querySelector(".dialog-confirm")?.addEventListener("click", () => {
+      notice.acknowledged = true;
+      dialog.close();
+      serviceSelect.focus();
+    });
   });
 }
 
 const form = document.querySelector("#inquiry-form");
 if (form) {
   form.addEventListener("submit", async (event) => {
-    if (serviceSelect?.value.includes("Guest Seating") && !acknowledged) {
+    if (showServiceNotice()) {
       event.preventDefault();
-      dialog?.showModal();
       return;
     }
     event.preventDefault();
@@ -448,6 +456,7 @@ if (form) {
           `Inquiry sync failed with status ${inquiryResponse.status}`,
         );
       form.reset();
+      Object.values(serviceNotices).forEach((notice) => { notice.acknowledged = false; });
       syncInquiryFields();
       if (status) {
         status.textContent =
