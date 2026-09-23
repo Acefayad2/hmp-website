@@ -657,22 +657,5 @@ backToTopButton.addEventListener("click", () => {
   window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" });
 });
 
-const revealObserver = new IntersectionObserver(
-  (entries) => {
-    entries.forEach((entry) => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add("is-visible");
-        revealObserver.unobserve(entry.target);
-      }
-    });
-  },
-  { threshold: 0.12 },
-);
-document
-  .querySelectorAll(
-    ".section,.service-feature,.service-row,.price-card,.process-step,.page-cta,.decor-gallery-head,.decor-shot,.directory-service,.principle,.reviews-heading",
-  )
-  .forEach((element) => {
-    element.classList.add("scroll-reveal");
-    revealObserver.observe(element);
-  });
+// Keep page content in the native scroll flow. Revealing whole sections (and
+// their children) on intersection made mobile scrolling look delayed and jumpy.

@@ -588,26 +588,12 @@ body {
   transform: translateY(-8px) rotate(-0.35deg);
   box-shadow: 0 60px 95px rgba(8, 4, 5, 0.8);
 }
-.scroll-reveal {
-  opacity: 0;
-  transform: translateY(24px);
-  transition:
-    opacity 0.8s cubic-bezier(0.22, 1, 0.36, 1),
-    transform 0.8s cubic-bezier(0.22, 1, 0.36, 1);
-}
+/* Also keep content visible if a returning visitor has the older script cached. */
+.scroll-reveal,
 .scroll-reveal.is-visible {
   opacity: 1;
   transform: none;
-}
-.service-row:nth-child(2),
-.price-card:nth-child(2),
-.process-step:nth-child(2) {
-  transition-delay: 0.08s;
-}
-.service-row:nth-child(3),
-.price-card:nth-child(3),
-.process-step:nth-child(3) {
-  transition-delay: 0.16s;
+  transition: none;
 }
 .inquiry-page .inquiry {
   position: relative;
@@ -940,10 +926,6 @@ body {
   .page-hero-media {
     transform: none;
     animation: none;
-  }
-  .scroll-reveal {
-    opacity: 1;
-    transform: none;
   }
   .calendar-sheet[open] {
     animation: none;
