@@ -202,6 +202,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .conversation-copy-link { border-color: var(--line); color: var(--plum); }
 .conversation-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .conversation-heading-actions .primary-button { width: auto; min-height: 42px; margin: 0; padding: 0 17px; }
+.conversation-heading-actions .secondary-button { color: var(--plum); background: var(--ivory); border-color: var(--plum); }
+.conversation-heading-actions .secondary-button:hover { background: var(--rose); }
+.conversation-heading-actions .secondary-button:focus-visible { outline: 2px solid var(--plum); outline-offset: 3px; }
 .conversation-delete-button { min-height:42px; padding:0 15px; border:1px solid #a93f4f; border-radius:999px; color:#8b2d3d; background:#fff; cursor:pointer; font-size:9px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; white-space:nowrap; }
 .conversation-delete-button:hover { color:#fff; background:#8b2d3d; }
 .conversation-delete-button:disabled { opacity:.55; cursor:wait; }
