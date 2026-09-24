@@ -79,10 +79,10 @@ const workspaceViews = {
     title: "Client messages",
   },
   invoices: {
-    title: "Invoices",
+    title: "Invoices & Contracts",
   },
   contracts: {
-    title: "Contracts",
+    title: "Invoices & Contracts",
   },
   events: {
     title: "Events",
@@ -133,6 +133,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const isMessages = view === "messages";
   const isInvoices = view === "invoices";
   const isContracts = view === "contracts";
+  const isDocuments = isInvoices || isContracts;
   const isReviews = view === "reviews";
   activeWorkspaceView = view;
 
@@ -140,6 +141,12 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $(".metrics").hidden = !isInquiries;
   $(".dashboard-grid").hidden = !isInquiries;
   $("#messages-workspace").hidden = !isMessages;
+  $("#document-tabs").hidden = !isDocuments;
+  document.querySelectorAll("[data-document-view]").forEach((tab) => {
+    const selected = tab.dataset.documentView === view;
+    tab.setAttribute("aria-selected", String(selected));
+    tab.tabIndex = selected ? 0 : -1;
+  });
   $("#invoice-workspace").hidden = !isInvoices;
   $("#contract-workspace").hidden = !isContracts;
   $("#reviews-workspace").hidden = !isReviews;
@@ -179,7 +186,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   }
 
   document.querySelectorAll("[data-workspace-view]").forEach((link) => {
-    const isActive = link.dataset.workspaceView === view;
+    const isActive = link.dataset.workspaceGroup === "documents" ? isDocuments : link.dataset.workspaceView === view;
     link.classList.toggle("active", isActive);
     if (isActive) link.setAttribute("aria-current", "page");
     else link.removeAttribute("aria-current");
@@ -1474,6 +1481,21 @@ document.querySelectorAll("[data-workspace-view]").forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();
     setWorkspaceView(link.dataset.workspaceView, true);
+  });
+});
+const documentTabs = [...document.querySelectorAll("[data-document-view]")];
+documentTabs.forEach((tab, index) => {
+  tab.addEventListener("click", () => setWorkspaceView(tab.dataset.documentView, true));
+  tab.addEventListener("keydown", (event) => {
+    let next;
+    if (event.key === "ArrowRight") next = (index + 1) % documentTabs.length;
+    else if (event.key === "ArrowLeft") next = (index - 1 + documentTabs.length) % documentTabs.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = documentTabs.length - 1;
+    else return;
+    event.preventDefault();
+    documentTabs[next].focus();
+    setWorkspaceView(documentTabs[next].dataset.documentView, true);
   });
 });
 window.addEventListener("popstate", () => {

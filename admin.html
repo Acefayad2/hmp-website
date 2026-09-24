@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260923-2" />
+    <link rel="stylesheet" href="admin.css?v=20260923-3" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260923-1" />
   </head>
@@ -71,8 +71,7 @@
             <a class="rail-link" href="/dashboard">Dashboard hub</a>
             <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
             <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Messages</a>
-            <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices">Invoices</a>
-            <a class="rail-link" href="/admin?view=contracts" data-workspace-view="contracts">Contracts</a>
+            <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices" data-workspace-group="documents">Invoices &amp; Contracts</a>
             <a class="rail-link" href="/admin?view=events" data-workspace-view="events">Events</a>
             <a class="rail-link" href="/admin?view=reviews" data-workspace-view="reviews">Reviews</a>
             <a class="rail-link" href="/" target="_blank">View website</a>
@@ -189,7 +188,12 @@
             </div>
           </section>
 
-          <section class="invoice-workspace" id="invoice-workspace" hidden>
+          <div class="document-tabs" id="document-tabs" role="tablist" aria-label="Invoices and contracts" hidden>
+            <button type="button" id="invoices-tab" role="tab" data-document-view="invoices" aria-controls="invoice-workspace" aria-selected="true" tabindex="0">Invoices</button>
+            <button type="button" id="contracts-tab" role="tab" data-document-view="contracts" aria-controls="contract-workspace" aria-selected="false" tabindex="-1">Contracts &amp; Forms</button>
+          </div>
+
+          <section class="invoice-workspace" id="invoice-workspace" role="tabpanel" aria-labelledby="invoices-tab" tabindex="0" hidden>
             <div class="workspace-section-header">
               <div>
                 <p class="kicker">Billing workspace</p>
@@ -216,7 +220,7 @@
             </div>
           </section>
 
-          <section class="invoice-workspace" id="contract-workspace" hidden>
+          <section class="invoice-workspace" id="contract-workspace" role="tabpanel" aria-labelledby="contracts-tab" tabindex="0" hidden>
             <section class="agreement-templates" aria-labelledby="client-forms-heading">
               <p class="kicker">Complete & sign online</p>
               <h2 id="client-forms-heading">Client forms</h2>
@@ -629,6 +633,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260923-4"></script>
+    <script type="module" src="assets/admin.js?v=20260923-5"></script>
   </body>
 </html>
