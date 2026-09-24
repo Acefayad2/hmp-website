@@ -1,6 +1,8 @@
-import type { Config, Context } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isSameOriginMutation } from "./_conversation-security.mts";
+import { prepareDocumentConversation, recordSentDocument } from "./_document-messages.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -63,11 +65,12 @@ const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><he
   </div>
 </body></html>`;
 
-export default async (request: Request, _context: Context) => {
+export const createSendContractHandler = ({getUserFn=getUser,databaseFactory=getDatabase,fetchFn=fetch}={}) => async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  const user = await getUser();
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
+  if (!isSameOriginMutation(request)) return json({error:"Invalid request origin"},403);
   const resendKey = Netlify.env.get("RESEND_API_KEY");
   const fromEmail = Netlify.env.get("HMP_CONTRACT_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
   if (!resendKey || !fromEmail) return json({ error: "Email delivery is not configured yet", code: "EMAIL_NOT_CONFIGURED" }, 503);
@@ -77,13 +80,17 @@ export default async (request: Request, _context: Context) => {
   const requestId = typeof body.requestId === "string" ? body.requestId : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidPattern.test(id)) return json({ error: "Invalid contract" }, 400);
-  const client = getDatabase();
+  if (!uuidPattern.test(requestId)) return json({error:"Reopen the contract and try sending again."},400);
+  const client = databaseFactory();
   if (!client) return json({ error: "Contract data is unavailable" }, 503);
   const { data: contract, error: readError } = await client.from("hmp_admin_contracts").select("*").eq("id", id).single();
   if (readError || !contract) return json({ error: "Contract not found" }, 404);
   const recipient = typeof body.recipient === "string" ? body.recipient.trim().toLowerCase() : contract.client_email;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) return json({ error: "A valid recipient email is required" }, 400);
-  const emailResponse = await fetch("https://api.resend.com/emails", {
+  let prepared;
+  try { prepared=await prepareDocumentConversation(client,"contract",contract,recipient,email); }
+  catch(error) { return json({error:error instanceof Error ? error.message : "Conversation unavailable. No email was sent."},409); }
+  const emailResponse = await fetchFn("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${resendKey}`,
@@ -95,7 +102,7 @@ export default async (request: Request, _context: Context) => {
       to: [recipient],
       reply_to: Netlify.env.get("HMP_CONTRACT_REPLY_TO") || Netlify.env.get("HMP_INVOICE_REPLY_TO") || "info@hmpeds.com",
       subject: `Contract ${contract.contract_number} from HMP Luxury Event Services`,
-      html: renderEmail(contract),
+      html: renderEmail(contract).replace("</body>",`<p style="text-align:center"><a href="${escapeHTML(prepared.clientUrl)}">View contract in your private conversation</a></p></body>`),
     }),
   });
   const emailResult = await emailResponse.json().catch(() => ({}));
@@ -103,15 +110,11 @@ export default async (request: Request, _context: Context) => {
     console.error("Contract email delivery failed", emailResponse.status);
     return json({ error: "Contract email could not be sent" }, 502);
   }
-  const sentAt = new Date().toISOString();
-  const { data: updated, error: updateError } = await client.from("hmp_admin_contracts").update({
-    status: "Sent", sent_at: sentAt, sent_to: recipient, email_message_id: emailResult.id || null, updated_at: sentAt,
-  }).eq("id", id).select("*").single();
-  if (updateError) {
-    console.error("Contract sent-status update failed", updateError.code);
-    return json({ error: "Email sent, but contract status could not be updated" }, 502);
-  }
-  return json({ ok: true, contract: updated });
+  try { await recordSentDocument(client,"contract",contract,prepared.conversation,requestId,recipient,emailResult.id || null,email); }
+  catch(error) { return json({error:error instanceof Error ? error.message : "Email sent, but conversation copy could not be saved."},502); }
+  return json({ ok: true, conversationId:prepared.conversation.id });
 };
+
+export default createSendContractHandler();
 
 export const config: Config = { path: "/api/hmp-contracts/send" };

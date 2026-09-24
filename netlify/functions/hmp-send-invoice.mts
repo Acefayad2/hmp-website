@@ -1,6 +1,8 @@
-import type { Config, Context } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isSameOriginMutation } from "./_conversation-security.mts";
+import { prepareDocumentConversation, recordSentDocument } from "./_document-messages.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -92,11 +94,12 @@ export const renderEmail = (invoice: Record<string, any>) => {
   </body></html>`;
 };
 
-export default async (request: Request, _context: Context) => {
+export const createSendInvoiceHandler = ({getUserFn=getUser,databaseFactory=getDatabase,fetchFn=fetch}={}) => async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  const user = await getUser();
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
+  if (!isSameOriginMutation(request)) return json({error:"Invalid request origin"},403);
 
   const resendKey = Netlify.env.get("RESEND_API_KEY");
   const fromEmail = Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
@@ -111,10 +114,12 @@ export default async (request: Request, _context: Context) => {
     return json({ error: "Invalid request" }, 400);
   }
   const id = typeof body.id === "string" ? body.id : "";
+  const requestId = typeof body.requestId === "string" ? body.requestId : "";
   const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (!uuidPattern.test(id)) return json({ error: "Invalid invoice" }, 400);
+  if (!uuidPattern.test(requestId)) return json({error:"Reopen the invoice and try sending again."},400);
 
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Invoice data is unavailable" }, 503);
   const { data: invoice, error: readError } = await client
     .from("hmp_admin_invoices")
@@ -128,15 +133,18 @@ export default async (request: Request, _context: Context) => {
     return json({ error: "A valid recipient email is required" }, 400);
   }
 
-  const emailResponse = await fetch("https://api.resend.com/emails", {
+  let prepared;
+  try { prepared=await prepareDocumentConversation(client,"invoice",invoice,recipient,email); }
+  catch(error) { return json({error:error instanceof Error ? error.message : "Conversation unavailable. No email was sent."},409); }
+  const emailResponse = await fetchFn("https://api.resend.com/emails", {
     method: "POST",
-    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json", "Idempotency-Key":`hmp-invoice/${id}/${requestId}` },
     body: JSON.stringify({
       from: fromEmail,
       to: [recipient],
       reply_to: Netlify.env.get("HMP_INVOICE_REPLY_TO") || "info@hmpeds.com",
       subject: `Invoice ${invoice.invoice_number} from HMP Luxury Event Services`,
-      html: renderEmail(invoice),
+      html: renderEmail(invoice).replace("</body>",`<p style="text-align:center"><a href="${escapeHTML(prepared.clientUrl)}">View invoice in your private conversation</a></p></body>`),
     }),
   });
   const emailResult = await emailResponse.json().catch(() => ({}));
@@ -145,26 +153,13 @@ export default async (request: Request, _context: Context) => {
     return json({ error: "Invoice email could not be sent" }, 502);
   }
 
-  const sentAt = new Date().toISOString();
-  const { data: updated, error: updateError } = await client
-    .from("hmp_admin_invoices")
-    .update({
-      status: "Sent",
-      sent_at: sentAt,
-      sent_to: recipient,
-      email_message_id: emailResult.id || null,
-      updated_at: sentAt,
-    })
-    .eq("id", id)
-    .select("*")
-    .single();
-  if (updateError) {
-    console.error("Invoice sent-status update failed", updateError.code);
-    return json({ error: "Email sent, but invoice status could not be updated" }, 502);
-  }
+  try { await recordSentDocument(client,"invoice",invoice,prepared.conversation,requestId,recipient,emailResult.id || null,email); }
+  catch(error) { return json({error:error instanceof Error ? error.message : "Email sent, but conversation copy could not be saved."},502); }
 
-  return json({ ok: true, invoice: updated });
+  return json({ ok: true, conversationId:prepared.conversation.id });
 };
+
+export default createSendInvoiceHandler();
 
 export const config: Config = {
   path: "/api/hmp-invoices/send",

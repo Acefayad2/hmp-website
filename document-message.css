@@ -1,0 +1,12 @@
+.sent-document { margin: 14px 0; padding: 18px; border: 1px solid #cbb8b0; border-radius: 16px; background: #fffaf5; color: #382728; min-width: 0; overflow-wrap: anywhere; }
+.sent-document h3 { margin: 0 0 10px; font-size: 20px; color: #382728; }
+.sent-document .sent-document-total { color: #5f3f41; font-weight: 700; }
+.sent-document summary { padding: 12px 0; cursor: pointer; font-weight: 700; color: #5f3f41; }
+.sent-document summary:focus-visible { outline: 2px solid #5f3f41; outline-offset: 3px; }
+.sent-document-content { border-top: 1px solid #dfd2cc; padding-top: 10px; }
+.sent-document-content p, .sent-document-content dd { white-space: pre-wrap; color: #382728; }
+.sent-document-content dt { font-weight: 700; margin-top: 14px; }
+.sent-document-content dd { margin: 4px 0 0; }
+.sent-document-items { padding-left: 22px; }
+.sent-document-items li { border-top: 1px solid #dfd2cc; padding: 8px 0; }
+.message.document-message, .admin-message.document-message { width: min(100%, 680px); max-width: 100%; }

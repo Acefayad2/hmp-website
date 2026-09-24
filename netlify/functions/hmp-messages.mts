@@ -213,7 +213,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,service,celebration_date,status").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [] }),
       conversationIds.length
-        ? client.from("hmp_client_messages").select("id,conversation_id,sender,sender_name,body,attachments,created_at,email_notified_at,email_notification_error").in("conversation_id", conversationIds).order("created_at", { ascending: true }).limit(2000)
+        ? client.from("hmp_client_messages").select("id,conversation_id,sender,sender_name,body,attachments,document,created_at,email_notified_at,email_notification_error").in("conversation_id", conversationIds).order("created_at", { ascending: true }).limit(2000)
         : Promise.resolve({ data: [] }),
     ]);
     const signedMessageRows = await Promise.all((messageRows || []).map(async (message) => ({
@@ -243,6 +243,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
             sender: message.sender,
             senderName: message.sender_name || (message.sender === "admin" ? "HMP representative" : inquiry.client_name || "Client"),
             body: message.body,
+            document: message.document || null,
             attachments: message.signedAttachments,
             createdAt: message.created_at,
             emailNotifiedAt: message.email_notified_at || null,

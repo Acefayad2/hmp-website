@@ -1,4 +1,5 @@
 import { loadAgreementForms } from "./agreement-admin.js";
+import { renderDocumentCard } from "../document-message-ui.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import {
@@ -403,6 +404,7 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.createdAt,
   message.emailNotifiedAt,
   message.emailNotificationError,
+  message.document,
   (message.attachments || []).map((attachment) => [
     attachment.id,
     attachment.path,
@@ -433,7 +435,9 @@ const renderAdminMessages = (thread) => {
     const copy = document.createElement("p");
     copy.textContent = message.body;
     article.append(meta);
-    if (proposal) {
+    const documentCard=message.sender === "admin" ? renderDocumentCard(message.document) : null;
+    if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
+    else if (proposal) {
       article.classList.add("proposal-message");
       article.append(renderProposalCard(proposal));
     } else if (message.body) article.append(copy);
@@ -1122,6 +1126,15 @@ const saveContract = async ({ quiet = false } = {}) => {
   }
 };
 
+const documentSendRequests = new Map();
+const documentSendRequestId = (kind, saved) => {
+  // Keep the provider key when retrying unchanged content after a failed send.
+  const {updatedAt,createdAt,inquiryId,status,sentAt,sentTo,...content}=saved;
+  const key=JSON.stringify([kind,content]);
+  if (!documentSendRequests.has(key)) documentSendRequests.set(key,crypto.randomUUID());
+  return {key,id:documentSendRequests.get(key)};
+};
+
 const sendContract = async () => {
   const saved = await saveContract({ quiet: true });
   if (!saved) return;
@@ -1131,6 +1144,7 @@ const sendContract = async () => {
     return;
   }
   if (!window.confirm(`Send ${saved.contractNumber} to ${recipient}?`)) return;
+  const sendRequest=documentSendRequestId("contract",saved);
   const button = $("#send-contract");
   button.disabled = true;
   setMessage($("#contract-editor-message"), `Sending contract to ${recipient}…`);
@@ -1139,14 +1153,15 @@ const sendContract = async () => {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: saved.id, recipient, requestId: crypto.randomUUID() }),
+      body: JSON.stringify({ id: saved.id, recipient, requestId: sendRequest.id }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Contract email could not be sent.");
+    documentSendRequests.delete(sendRequest.key);
     await loadContracts();
     $("#contract-status").value = "Sent";
     $("#send-contract").textContent = "Send again";
-    setMessage($("#contract-editor-message"), `Contract sent to ${recipient}.`, true);
+    setMessage($("#contract-editor-message"), `Contract sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {
     setMessage($("#contract-editor-message"), error.message || "Contract email could not be sent.");
   } finally {
@@ -1352,6 +1367,7 @@ const sendInvoice = async () => {
     return;
   }
   if (!window.confirm(`Send ${saved.invoiceNumber} to ${recipient}?`)) return;
+  const sendRequest=documentSendRequestId("invoice",saved);
 
   const button = $("#send-invoice");
   button.disabled = true;
@@ -1361,14 +1377,15 @@ const sendInvoice = async () => {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: saved.id, recipient }),
+      body: JSON.stringify({ id: saved.id, recipient, requestId: sendRequest.id }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Invoice email could not be sent.");
+    documentSendRequests.delete(sendRequest.key);
     await loadInvoices();
     $("#invoice-status").value = "Sent";
     $("#send-invoice").textContent = "Send again";
-    setMessage($("#invoice-editor-message"), `Invoice sent to ${recipient}.`, true);
+    setMessage($("#invoice-editor-message"), `Invoice sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {
     setMessage($("#invoice-editor-message"), error.message || "Invoice email could not be sent.");
   } finally {

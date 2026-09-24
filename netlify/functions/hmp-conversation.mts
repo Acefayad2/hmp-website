@@ -1,4 +1,4 @@
-import type { Config, Context } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation, tokenHash, validBearerToken } from "./_conversation-security.mts";
 import {
@@ -61,10 +61,10 @@ const sendAdminNotification = async (
   return response.ok;
 };
 
-export default async (request: Request, _context: Context) => {
+export const createConversationHandler = ({databaseFactory=getDatabase}={}) => async (request: Request) => {
   const token = validBearerToken(request);
   if (!token) return json({ error: "This private conversation link is invalid or expired." }, 401);
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Conversation is temporarily unavailable." }, 503);
   const { data: conversation } = await client
     .from("hmp_client_conversations")
@@ -84,7 +84,7 @@ export default async (request: Request, _context: Context) => {
   if (request.method === "GET") {
     const { data: messages, error } = await client
       .from("hmp_client_messages")
-      .select("id,sender,sender_name,body,attachments,created_at")
+      .select("id,sender,sender_name,body,attachments,document,created_at")
       .eq("conversation_id", conversation.id)
       .order("created_at", { ascending: true })
       .limit(500);
@@ -106,6 +106,7 @@ export default async (request: Request, _context: Context) => {
         sender: message.sender,
         senderName: message.sender_name || (message.sender === "admin" ? "HMP representative" : inquiry.client_name || "Client"),
         body: message.body,
+        document: message.document || null,
         attachments: message.signedAttachments,
         createdAt: message.created_at,
       })),
@@ -190,3 +191,4 @@ export default async (request: Request, _context: Context) => {
 };
 
 export const config: Config = { path: "/api/hmp-conversation" };
+export default createConversationHandler();

@@ -17,6 +17,8 @@ const productionFiles = [
   "conversation.css",
   "conversation.js",
   "proposal-ui.js",
+  "document-message-ui.js",
+  "document-message.css",
   "attachment-ui.js",
   "attachment-preview.css",
   "agreement.html",

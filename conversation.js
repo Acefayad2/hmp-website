@@ -7,6 +7,7 @@ import {
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-1";
 import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1";
+import { renderDocumentCard } from "./document-message-ui.js?v=20260923-1";
 
 const $ = (selector) => document.querySelector(selector);
 const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration (Accessories|Kit)\b/g, "Event $1");
@@ -19,6 +20,7 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.id,
   message.sender,
   message.body,
+  message.document,
   message.createdAt,
   (message.attachments || []).map((attachment) => [
     attachment.id,
@@ -64,7 +66,9 @@ const renderMessages = (messages) => {
     time.dateTime = message.createdAt;
     time.textContent = formatDate(message.createdAt, true);
     article.append(name);
-    if (proposal) {
+    const documentCard=message.sender === "admin" ? renderDocumentCard(message.document) : null;
+    if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
+    else if (proposal) {
       article.classList.add("proposal-message");
       article.append(renderProposalCard(proposal));
     }
