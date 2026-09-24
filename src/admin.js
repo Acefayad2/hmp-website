@@ -1,4 +1,5 @@
 import { loadAgreementForms } from "./agreement-admin.js";
+import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
@@ -83,6 +84,9 @@ const workspaceViews = {
   messages: {
     title: "Client messages",
   },
+  proposals: {
+    title: "Proposals",
+  },
   invoices: {
     title: "Invoices & Contracts",
   },
@@ -134,6 +138,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const config = workspaceViews[view];
   const isInquiries = view === "inquiries";
   const isMessages = view === "messages";
+  const isProposals = view === "proposals";
   const isInvoices = view === "invoices";
   const isContracts = view === "contracts";
   const isForms = view === "forms";
@@ -145,6 +150,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $(".metrics").hidden = !isInquiries;
   $(".dashboard-grid").hidden = !isInquiries;
   $("#messages-workspace").hidden = !isMessages;
+  $("#proposals-workspace").hidden = !isProposals;
   $("#document-tabs").hidden = !isDocuments;
   document.querySelectorAll("[data-document-view]").forEach((tab) => {
     const selected = tab.dataset.documentView === view;
@@ -155,13 +161,19 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $("#contract-workspace").hidden = !isContracts;
   $("#forms-workspace").hidden = !isForms;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isInvoices || isContracts || isForms || isReviews;
-  if (!isInquiries && !isMessages && !isInvoices && !isContracts && !isForms && !isReviews) {
+  $("#workspace-empty").hidden = isInquiries || isMessages || isProposals || isInvoices || isContracts || isForms || isReviews;
+  if (!isInquiries && !isMessages && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
   }
   if (isForms) loadAgreementForms();
+  if (isProposals) {
+    setMessage($("#proposal-workspace-status"), "Loading proposals…");
+    loadMessages().then(() => setMessage($("#proposal-workspace-status"), "")).catch((error) => {
+      setMessage($("#proposal-workspace-status"), `Proposals unavailable: ${error.message}`);
+    });
+  }
   if (isInvoices) {
     loadInvoices().catch((error) => {
       $("#invoice-empty").hidden = false;
@@ -690,6 +702,10 @@ const loadMessages = async () => {
   if (!response.ok) throw new Error(data.error || "Messages are unavailable.");
   messageThreads = data.threads || [];
   renderMessageThreads();
+  renderProposalsWorkspace(messageThreads, (threadId) => {
+    openMessageThread(threadId);
+    if (activeThreadId === threadId) setWorkspaceView("messages", true);
+  });
   if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
     openMessageThread(activeThreadId);
   }
@@ -768,6 +784,9 @@ const showMessageNotificationStatus = (data, label = "Reply") => {
     ? `${label} saved in the portal and email notification sent.`
     : `${label} saved in the portal, but email was not confirmed. ${data.notificationError || "Use Retry email notification on the message."}`;
   setMessage($("#admin-message-status"), `${status}${data.notificationWarning ? ` ${data.notificationWarning}` : ""}`, data.notified && !data.notificationWarning);
+  if (activeWorkspaceView === "proposals") {
+    setMessage($("#proposal-workspace-status"), `${status}${data.notificationWarning ? ` ${data.notificationWarning}` : ""}`, data.notified && !data.notificationWarning);
+  }
 };
 
 const retryMessageNotification = async (conversationId, messageId, button) => {
@@ -1420,6 +1439,7 @@ const loadActiveWorkspace = () => {
   if (activeWorkspaceView === "invoices") return loadInvoices();
   if (activeWorkspaceView === "contracts") return loadContracts();
   if (activeWorkspaceView === "messages") return loadMessages();
+  if (activeWorkspaceView === "proposals") return loadMessages();
   if (activeWorkspaceView === "forms") return loadAgreementForms();
   return loadDashboard();
 };
@@ -1626,6 +1646,16 @@ $("#open-proposal-editor").addEventListener("click", openProposalEditor);
 $("#create-proposal-button").addEventListener("click", createProposalFromWorkspace);
 $("#add-inquiry-button").addEventListener("click", openManualInquiry);
 $("#new-client-proposal-button").addEventListener("click", openManualInquiry);
+$("#proposal-workspace-new-client").addEventListener("click", openManualInquiry);
+$("#proposal-client-select").addEventListener("change", (event) => {
+  $("#proposal-workspace-create").disabled = !event.target.value;
+});
+$("#proposal-workspace-create").addEventListener("click", () => {
+  const threadId = $("#proposal-client-select").value;
+  if (!threadId) return;
+  openMessageThread(threadId);
+  if (activeThreadId === threadId) openProposalEditor();
+});
 $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-dialog").close());
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());

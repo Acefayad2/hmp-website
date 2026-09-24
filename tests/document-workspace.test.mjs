@@ -16,7 +16,7 @@ const element = (dataset = {}) => ({
 test("invoices and contracts share one sidebar selection while preserving their routes and loaders", () => {
   const nodes = new Map();
   const tabs = [element({ documentView: "invoices" }), element({ documentView: "contracts" })];
-  const links = [element({ workspaceView: "invoices", workspaceGroup: "documents" }), element({ workspaceView: "messages" }), element({ workspaceView: "forms" })];
+  const links = [element({ workspaceView: "invoices", workspaceGroup: "documents" }), element({ workspaceView: "messages" }), element({ workspaceView: "forms" }), element({ workspaceView: "proposals" })];
   const calls = [];
   const paths = [];
   const $ = (selector) => {
@@ -25,6 +25,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
   };
   const context = {
     $, document: { querySelectorAll: (selector) => selector === "[data-document-view]" ? tabs : links },
+    setMessage: (node, text) => { node.textContent = text; },
     history: { pushState: (_, __, path) => paths.push(path) },
     ...Object.fromEntries(["Invoices", "Contracts", "Messages", "Reviews", "AgreementForms"].map((name) => [
       `load${name}`, () => { calls.push(name); return Promise.resolve(); },
@@ -65,6 +66,19 @@ test("invoices and contracts share one sidebar selection while preserving their 
   }
   navigate("invoices");
   assert.equal($("#forms-workspace").hidden, true);
+  navigate("proposals", true);
+  assert.equal($(".dashboard-header h1").textContent, "Proposals");
+  assert.equal($("#proposals-workspace").hidden, false);
+  assert.equal($("#document-tabs").hidden, true);
+  assert.equal($("#invoice-workspace").hidden, true);
+  assert.equal($("#contract-workspace").hidden, true);
+  assert.equal($("#messages-workspace").hidden, true);
+  assert.equal(links[3].attributes["aria-current"], "page");
+  assert.equal(links[0].attributes["aria-current"], undefined);
+  assert.equal(paths.at(-1), "/admin?view=proposals");
+  assert.equal(calls.at(-1), "Messages");
+  navigate("invoices");
+  assert.equal($("#proposals-workspace").hidden, true);
 });
 
 test("sidebar has one document entry and both accessible tab panels remain available", () => {
@@ -75,6 +89,7 @@ test("sidebar has one document entry and both accessible tab panels remain avail
   assert.match(html, /id="invoice-workspace" role="tabpanel" aria-labelledby="invoices-tab"/);
   assert.match(html, /id="contract-workspace" role="tabpanel" aria-labelledby="contracts-tab"/);
   assert.match(html, /data-workspace-view="forms">Forms<\/a>/);
+  assert.match(html, /data-workspace-view="proposals">Proposals<\/a>/);
   assert.doesNotMatch(html, /data-workspace-view="events"/);
   const forms = html.slice(html.indexOf('id="forms-workspace"'), html.indexOf('id="contract-workspace"'));
   assert.match(forms, /id="agreement-template-list"/);

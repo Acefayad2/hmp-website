@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260923-4" />
+    <link rel="stylesheet" href="admin.css?v=20260923-5" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260923-1" />
@@ -73,6 +73,7 @@
             <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
             <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Messages</a>
             <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices" data-workspace-group="documents">Invoices &amp; Contracts</a>
+            <a class="rail-link" href="/admin?view=proposals" data-workspace-view="proposals">Proposals</a>
             <a class="rail-link" href="/admin?view=forms" data-workspace-view="forms">Forms</a>
             <a class="rail-link" href="/admin?view=reviews" data-workspace-view="reviews">Reviews</a>
             <a class="rail-link" href="/" target="_blank">View website</a>
@@ -187,6 +188,31 @@
                   </form>
                 </div>
               </section>
+            </div>
+          </section>
+
+          <section class="invoice-workspace" id="proposals-workspace" aria-labelledby="proposals-heading" hidden>
+            <div class="workspace-section-header">
+              <div>
+                <p class="kicker">Client pricing</p>
+                <h2 id="proposals-heading">Proposals</h2>
+                <p>Create a proposal for an existing or new client. Sent proposals also stay in the client conversation.</p>
+              </div>
+              <div class="conversation-heading-actions">
+                <button class="secondary-button" id="proposal-workspace-new-client" type="button">New client &amp; proposal</button>
+              </div>
+            </div>
+            <div class="proposal-client-picker">
+              <label for="proposal-client-select">Existing client conversation</label>
+              <select id="proposal-client-select"><option value="">Choose a client</option></select>
+              <button class="primary-button" id="proposal-workspace-create" type="button" disabled>Create proposal</button>
+            </div>
+            <p class="form-message" id="proposal-workspace-status" role="status"></p>
+            <p id="proposal-workspace-count">0 sent proposals</p>
+            <div id="proposal-workspace-list"></div>
+            <div class="invoice-empty" id="proposal-workspace-empty">
+              <h3>No proposals sent yet</h3>
+              <p>Choose a client above or use New client &amp; proposal to get started.</p>
             </div>
           </section>
 
@@ -658,6 +684,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260923-10"></script>
+    <script type="module" src="assets/admin.js?v=20260923-11"></script>
   </body>
 </html>
