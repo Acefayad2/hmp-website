@@ -1,6 +1,7 @@
-import type { Config, Context } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { isSameOriginMutation } from "./_conversation-security.mts";
 
 const json = (
   body: unknown,
@@ -53,6 +54,7 @@ const normalizeReview = (record: Record<string, unknown>) => ({
   service: record.service || "",
   rating: number(record.rating, 5),
   published: Boolean(record.published),
+  clientSubmitted: Boolean(record.source_request_id),
   displayOrder: number(record.display_order),
   createdAt: record.created_at || "",
   updatedAt: record.updated_at || "",
@@ -70,7 +72,7 @@ const cleanPayload = (body: Record<string, unknown>) => {
     review_text: reviewText,
     service: text(body.service, 160) || null,
     rating: Math.min(5, Math.max(1, Math.round(number(body.rating, 5)))),
-    published: body.published !== false,
+    published: body.published === true,
     is_placeholder: false,
     display_order: Math.min(
       100000,
@@ -80,21 +82,22 @@ const cleanPayload = (body: Record<string, unknown>) => {
   };
 };
 
-const requireAdmin = async () => {
-  const user = await getUser();
+const requireAdmin = async (getUserFn = getUser) => {
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   return email && allowedEmails().includes(email) ? user : null;
 };
 
-export default async (request: Request, _context: Context) => {
-  const client = getDatabase();
+export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getDatabase} = {}) => async (request: Request) => {
+  if (request.method !== "GET" && !isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
+  const client = databaseFactory();
   if (!client) return json({ error: "Review data is unavailable" }, 503);
 
   const url = new URL(request.url);
   const adminRequest = url.searchParams.get("admin") === "1";
 
   if (request.method === "GET") {
-    const user = adminRequest ? await requireAdmin() : null;
+    const user = adminRequest ? await requireAdmin(getUserFn) : null;
     if (adminRequest && !user) return json({ error: "Unauthorized" }, 401);
 
     let query = client
@@ -122,7 +125,7 @@ export default async (request: Request, _context: Context) => {
     );
   }
 
-  const user = await requireAdmin();
+  const user = await requireAdmin(getUserFn);
   if (!user) return json({ error: "Unauthorized" }, 401);
 
   if (request.method === "POST" || request.method === "PATCH") {
@@ -201,6 +204,8 @@ export default async (request: Request, _context: Context) => {
 
   return json({ error: "Method not allowed" }, 405);
 };
+
+export default createReviewHandler();
 
 export const config: Config = {
   path: "/api/hmp-reviews",

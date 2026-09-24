@@ -266,8 +266,12 @@
                 <h2>Reviews</h2>
                 <p>Add, edit, publish, and arrange the testimonials shown on the HMP website.</p>
               </div>
-              <button class="primary-button workspace-create-button" id="create-review-button" type="button">Add review</button>
+              <div class="review-save-actions">
+                <button class="primary-button" id="request-review-button" type="button">Request review by email</button>
+                <button class="primary-button workspace-create-button" id="create-review-button" type="button">Add review</button>
+              </div>
             </div>
+            <p>Client submissions stay private until you open the review and choose Approve &amp; publish. Delete a review to decline it.</p>
             <div class="review-list-panel">
               <div class="review-list-heading">
                 <span>Review</span><span>Client</span><span>Service</span><span>Order</span><span>Status</span>
@@ -596,6 +600,19 @@
       </form>
     </dialog>
 
+    <dialog class="agreement-dialog" id="review-request-dialog" aria-labelledby="review-request-title">
+      <header><h2 id="review-request-title">Request a client review</h2><button class="agreement-button secondary" id="close-review-request" type="button">Close</button></header>
+      <p>Email a private link for the client to share their experience. Nothing is published without admin approval.</p>
+      <form id="review-request-form">
+        <div class="agreement-grid">
+          <label class="agreement-field">Client name<input name="clientName" maxlength="120" required></label>
+          <label class="agreement-field">Client email<input name="clientEmail" type="email" maxlength="320" required></label>
+        </div>
+        <div class="agreement-actions"><button class="agreement-button" type="submit">Send review request</button></div>
+        <p class="agreement-status" id="review-request-message" role="status"></p>
+      </form>
+    </dialog>
+
     <dialog class="review-editor-dialog" id="review-editor-dialog">
       <form id="review-form">
         <div class="dialog-heading">
@@ -616,18 +633,21 @@
               <label><input type="checkbox" name="reviewServices" value="Event Accessories" /><span>Event Accessories</span></label>
               <label><input type="checkbox" name="reviewServices" value="Guest Seating Experience" /><span>Guest Seating Experience</span></label>
               <label><input type="checkbox" name="reviewServices" value="Money Table Services" /><span>Money Table Services</span></label>
+              <label><input type="checkbox" name="reviewServices" value="Welcome Sign Services" /><span>Welcome Sign Services</span></label>
+              <label><input type="checkbox" name="reviewServices" value="LED Signage" /><span>LED Signage</span></label>
             </fieldset>
             <label><span>Crescent rating</span><select id="review-rating" name="rating"><option value="5">5 crescents</option><option value="4">4 crescents</option><option value="3">3 crescents</option><option value="2">2 crescents</option><option value="1">1 crescent</option></select></label>
             <label><span>Display order</span><input id="review-order" name="displayOrder" type="number" min="-100000" max="100000" step="1" /></label>
             <label class="review-copy-field"><span>Review <small>1,200 character limit</small></span><textarea id="review-text" name="reviewText" rows="7" maxlength="1200" required placeholder="Enter the client’s review in their own words."></textarea></label>
           </div>
           <div class="review-toggle-grid">
-            <label><input id="review-published" name="published" type="checkbox" checked /><span><strong>Published</strong><small>Show this review on the website</small></span></label>
+            <label><input id="review-published" name="published" type="checkbox" /><span><strong>Approved for website</strong><small>Publish only after you have reviewed and approved the content</small></span></label>
           </div>
           <div class="review-form-actions">
             <button class="review-delete-button" id="delete-review" type="button" hidden>Delete review</button>
             <p class="form-message" id="review-editor-message" role="status"></p>
             <div class="review-save-actions">
+              <button class="primary-button" id="approve-review" type="button" hidden>Approve &amp; publish</button>
               <button class="review-another-button" id="save-another-review" type="submit">Save &amp; add another review</button>
               <button class="primary-button" type="submit">Save review</button>
             </div>
@@ -636,6 +656,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260923-6"></script>
+    <script type="module" src="assets/admin.js?v=20260923-7"></script>
   </body>
 </html>

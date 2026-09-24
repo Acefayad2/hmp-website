@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+  <title>Share your experience | HMP Luxury Event Services</title>
+  <link rel="stylesheet" href="agreement.css?v=20260923-1">
+</head><body class="agreement-page">
+  <main class="agreement-shell">
+    <img class="agreement-logo" src="/assets/brand/hmp-logo-header-2026.png" alt="HMP Luxury Event Services">
+    <h1>Share your HMP experience</h1>
+    <p>We welcome your honest feedback. Your review stays private until an HMP administrator approves it for the website.</p>
+    <p id="review-message" class="agreement-status" role="status">Loading your private review link…</p>
+    <form id="client-review-form" class="agreement-panel" hidden>
+      <div class="agreement-grid">
+        <label class="agreement-field">Display name<input name="reviewerName" maxlength="120" required autocomplete="name"></label>
+        <label class="agreement-field">Client detail (optional)<input name="reviewerRole" maxlength="160" placeholder="Host, event planner…"></label>
+        <label class="agreement-field">Rating<select name="rating" required><option value="">Choose a rating</option><option value="5">5 crescents — Excellent</option><option value="4">4 crescents — Good</option><option value="3">3 crescents — Average</option><option value="2">2 crescents — Fair</option><option value="1">1 crescent — Poor</option></select></label>
+        <fieldset class="agreement-wide" id="client-review-services"><legend>Services reviewed (select all that apply)</legend></fieldset>
+        <label class="agreement-field agreement-wide">Your review<textarea name="reviewText" rows="7" maxlength="1200" required placeholder="Tell us about your experience (up to 1,200 characters)."></textarea></label>
+      </div>
+      <label class="agreement-checkbox"><input name="consent" type="checkbox" required><span id="review-consent"></span></label>
+      <button class="agreement-button" type="submit">Submit for approval</button>
+    </form>
+    <p>Need help? <a href="mailto:info@hmpeds.com">Connect with an event specialist</a>.</p>
+  </main>
+  <script type="module" src="review-client.mjs?v=20260923-1"></script>
+</body></html>

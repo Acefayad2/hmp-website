@@ -1,4 +1,5 @@
 import { loadAgreementForms } from "./agreement-admin.js";
+import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import {
   acceptInvite,
@@ -1136,13 +1137,14 @@ const renderReviews = () => {
           <span><strong>${escapeHTML(review.reviewerName)}</strong><small>${escapeHTML(review.reviewerRole || "Client")}</small></span>
           <span>${escapeHTML(eventServiceLabel(review.service) || "General HMP experience")}</span>
           <span>${escapeHTML(review.displayOrder)}</span>
-          <span class="review-status"><span class="status-pill">${review.published ? "Published" : "Draft"}</span></span>
+          <span class="review-status"><span class="status-pill">${review.published ? "Published" : review.clientSubmitted ? "Awaiting approval" : "Draft"}</span></span>
         </button>`,
     )
     .join("");
 };
 
 const loadReviews = async () => {
+  await loadReviewRequests();
   const response = await fetch("/api/hmp-reviews?admin=1", {
     credentials: "same-origin",
     cache: "no-store",
@@ -1167,7 +1169,8 @@ const openReviewEditor = (review = null) => {
   $("#review-rating").value = String(review?.rating || 5);
   $("#review-order").value = review?.displayOrder ?? (Math.max(0, ...reviews.map((item) => Number(item.displayOrder) || 0)) + 10);
   $("#review-text").value = review?.reviewText || "";
-  $("#review-published").checked = review ? Boolean(review.published) : true;
+  $("#review-published").checked = Boolean(review?.published);
+  $("#approve-review").hidden = !review || review.published;
   $("#delete-review").hidden = !review;
   setMessage($("#review-editor-message"), "");
   $("#review-editor-dialog").showModal();
@@ -1222,6 +1225,7 @@ const saveReview = async (event) => {
       activeReviewId = "";
       form.reset();
       $("#review-editor-title").textContent = "Add another service review";
+      $("#approve-review").hidden = true;
       $("#review-name").value = reviewerName;
       $("#review-role").value = reviewerRole;
       $("#review-rating").value = "5";
@@ -1232,7 +1236,8 @@ const saveReview = async (event) => {
     } else {
       activeReviewId = saved.id;
       $("#delete-review").hidden = false;
-      setMessage($("#review-editor-message"), "Review saved and website content updated.", true);
+      $("#approve-review").hidden = saved.published;
+      setMessage($("#review-editor-message"), saved.published ? "Review approved and published on the website." : "Review saved privately. It is not published on the website.", true);
     }
   } catch (error) {
     setMessage($("#review-editor-message"), error.message || "Review could not be saved.");
@@ -1653,6 +1658,10 @@ $("#create-review-button").addEventListener("click", () => openReviewEditor());
 $("#empty-create-review").addEventListener("click", () => openReviewEditor());
 $("#close-review-editor").addEventListener("click", () => $("#review-editor-dialog").close());
 $("#review-form").addEventListener("submit", saveReview);
+$("#approve-review").addEventListener("click", () => {
+  $("#review-published").checked = true;
+  $("#review-form").requestSubmit();
+});
 $("#review-services").addEventListener("change", (event) => {
   const changed = event.target.closest('[name="reviewServices"]');
   if (!changed || !changed.checked) return;
