@@ -84,11 +84,8 @@ const workspaceViews = {
   contracts: {
     title: "Invoices & Contracts",
   },
-  events: {
-    title: "Events",
-    label: "Event workspace",
-    emptyTitle: "No events yet",
-    emptyCopy: "Confirmed events will appear here when event tracking is connected.",
+  forms: {
+    title: "Forms",
   },
   reviews: {
     title: "Reviews",
@@ -127,12 +124,14 @@ const setMessage = (element, message, success = false) => {
 };
 
 const setWorkspaceView = (requestedView, updateUrl = false) => {
+  if (requestedView === "events") requestedView = "forms";
   const view = workspaceViews[requestedView] ? requestedView : "inquiries";
   const config = workspaceViews[view];
   const isInquiries = view === "inquiries";
   const isMessages = view === "messages";
   const isInvoices = view === "invoices";
   const isContracts = view === "contracts";
+  const isForms = view === "forms";
   const isDocuments = isInvoices || isContracts;
   const isReviews = view === "reviews";
   activeWorkspaceView = view;
@@ -149,13 +148,15 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   });
   $("#invoice-workspace").hidden = !isInvoices;
   $("#contract-workspace").hidden = !isContracts;
+  $("#forms-workspace").hidden = !isForms;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isInvoices || isContracts || isReviews;
-  if (!isInquiries && !isMessages && !isInvoices && !isContracts && !isReviews) {
+  $("#workspace-empty").hidden = isInquiries || isMessages || isInvoices || isContracts || isForms || isReviews;
+  if (!isInquiries && !isMessages && !isInvoices && !isContracts && !isForms && !isReviews) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
   }
+  if (isForms) loadAgreementForms();
   if (isInvoices) {
     loadInvoices().catch((error) => {
       $("#invoice-empty").hidden = false;
@@ -1047,7 +1048,6 @@ const renderContracts = () => {
 };
 
 const loadContracts = async () => {
-  await loadAgreementForms();
   const response = await fetch("/api/hmp-contracts", { credentials: "same-origin", cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Contract data is unavailable.");
@@ -1361,7 +1361,7 @@ const loadActiveWorkspace = () => {
   if (activeWorkspaceView === "invoices") return loadInvoices();
   if (activeWorkspaceView === "contracts") return loadContracts();
   if (activeWorkspaceView === "messages") return loadMessages();
-  if (activeWorkspaceView === "events") return Promise.resolve();
+  if (activeWorkspaceView === "forms") return loadAgreementForms();
   return loadDashboard();
 };
 
