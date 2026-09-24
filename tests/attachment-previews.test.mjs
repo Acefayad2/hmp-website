@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { attachmentType, selectedFiles, uploadAttachments } from "../attachment-ui.js";
+import { attachmentType, selectedFiles, uploadAttachments, stageAttachments, clearStagedAttachments, removeStagedAttachment, pendingFiles } from "../attachment-ui.js";
 
 test("mobile files with missing MIME types use only supported extensions", () => {
   assert.equal(attachmentType({ name: "PHONE.MOV", type: "" }), "video/quicktime");
@@ -34,6 +34,32 @@ test("both composers wire previews and select the send button explicitly", () =>
     assert.ok(read(html).includes(`id="${prefix}message-attachment-previews"`));
     assert.ok(read(script).includes("renderAttachmentPreviews"));
     assert.ok(read(script).includes("setAttachmentBusy"));
+    assert.ok(read(script).includes("stageAttachments"));
+    assert.ok(read(script).includes("clearStagedAttachments"));
+    assert.match(read(html),/type="file" multiple/);
     assert.ok(read(script).includes('querySelector("button[type=submit]")'));
   }
+});
+
+test("files remain local, accumulate across picker selections, and can be removed before sending", () => {
+  const a=new File(["a"],"a.png",{type:"image/png",lastModified:1});
+  const b=new File(["b"],"b.png",{type:"image/png",lastModified:2});
+  const c=new File(["c"],"c.pdf",{type:"application/pdf",lastModified:3});
+  const input={files:[a,b],value:"selection",disabled:false};
+  stageAttachments(input);assert.equal(input.value,"");assert.deepEqual(selectedFiles(input),[a,b]);
+  input.files=[b,c];stageAttachments(input);assert.deepEqual(selectedFiles(input),[a,b,c]);
+  input.files=[];stageAttachments(input);assert.deepEqual(selectedFiles(input),[a,b,c]);
+  removeStagedAttachment(input,1);assert.deepEqual(selectedFiles(input),[a,c]);
+  input.files=[b];stageAttachments(input);assert.deepEqual(selectedFiles(input),[a,c,b]);
+  clearStagedAttachments(input);assert.deepEqual(pendingFiles(input),[]);
+});
+
+test("invalid queued selections remain removable and queues are isolated between composers", () => {
+  const files=Array.from({length:5},(_,i)=>new File(["image"],`${i}.png`,{type:"image/png"}));
+  const input={files,disabled:false},other={files:[],disabled:false};
+  stageAttachments(input);assert.throws(()=>selectedFiles(input),/up to 4/);
+  assert.equal(pendingFiles(input).length,5);assert.equal(pendingFiles(other).length,0);
+  removeStagedAttachment(input,0);assert.equal(selectedFiles(input).length,4);
+  input.disabled=true;removeStagedAttachment(input,0);input.files=[];stageAttachments(input);
+  assert.equal(selectedFiles(input).length,4);
 });

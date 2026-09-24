@@ -64,3 +64,5 @@
 }
 .attachment-previews .attachment-preview__remove:focus-visible { outline: 2px solid #624545; outline-offset: -4px; }
 .attachment-previews .attachment-preview__remove:disabled { opacity: .5; cursor: wait; }
+.message-composer > .attachment-draft-hint,
+.admin-message-composer > .attachment-draft-hint { margin: 12px 0 0; color: #624545; font-size: 12px; line-height: 1.5; }

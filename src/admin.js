@@ -15,6 +15,9 @@ import {
 } from "@netlify/identity";
 import {
   appendAttachments,
+  stageAttachments,
+  clearStagedAttachments,
+  pendingFiles,
   renderAttachmentPreviews,
   setAttachmentBusy,
   selectedFiles,
@@ -632,9 +635,9 @@ const openMessageThread = (threadId) => {
   if (threadId !== activeThreadId) {
     const attachmentInput = $("#admin-message-attachments");
     if (attachmentInput.disabled) return;
-    if ((attachmentInput.files.length || $("#admin-message-input").value.trim())
+    if ((pendingFiles(attachmentInput).length || $("#admin-message-input").value.trim())
       && !window.confirm("Discard your unsent reply and attachments before opening another conversation?")) return;
-    attachmentInput.value = "";
+    clearStagedAttachments(attachmentInput);
     $("#admin-message-input").value = "";
     renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
   }
@@ -826,7 +829,7 @@ const sendAdminMessage = async (event) => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Reply could not be sent.");
     input.value = "";
-    attachmentInput.value = "";
+    clearStagedAttachments(attachmentInput);
     updateAttachmentSummary(attachmentInput, $("#admin-message-attachment-summary"));
     renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
     await loadMessages();
@@ -1592,11 +1595,19 @@ $("#thread-list").addEventListener("click", (event) => {
 });
 $("#admin-message-form").addEventListener("submit", sendAdminMessage);
 $("#admin-message-attachments").addEventListener("change", () => {
+  stageAttachments($("#admin-message-attachments"));
   renderAttachmentPreviews(
     $("#admin-message-attachments"),
     $("#admin-message-attachment-previews"),
     $("#admin-message-attachment-summary"),
   );
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (pendingFiles($("#admin-message-attachments")).length) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
 });
 $("#copy-active-link").addEventListener("click", async () => {
   try {

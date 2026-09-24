@@ -52,6 +52,29 @@ export const attachmentType = (file) => (file.type || "").toLowerCase()
   || extensionTypes[file.name.split(".").pop().toLowerCase()] || "";
 
 const previewUrls = new WeakMap();
+// Files stay on this device until the composer explicitly calls uploadAttachments.
+// Keep a separate queue so opening the picker again adds files instead of replacing them.
+const attachmentDrafts = new WeakMap();
+export const pendingFiles = input => [...(attachmentDrafts.get(input) || Array.from(input.files || []))];
+export const stageAttachments = input => {
+  if (input.disabled) return;
+  const files = [...(attachmentDrafts.get(input) || [])];
+  for (const file of Array.from(input.files || [])) {
+    if (!files.some(existing => existing.name === file.name && existing.size === file.size
+      && existing.lastModified === file.lastModified && existing.type === file.type)) files.push(file);
+  }
+  attachmentDrafts.set(input, files);
+  input.value = "";
+};
+export const clearStagedAttachments = input => {
+  attachmentDrafts.set(input, []);
+  input.value = "";
+};
+export const removeStagedAttachment = (input, index) => {
+  if (input.disabled) return;
+  attachmentDrafts.set(input, pendingFiles(input).filter((_, candidateIndex) => candidateIndex !== index));
+  input.value = "";
+};
 
 const clearPreviewUrls = (container) => {
   (previewUrls.get(container) || []).forEach((url) => URL.revokeObjectURL(url));
@@ -64,7 +87,7 @@ export const formatFileSize = (bytes) => {
 };
 
 export const selectedFiles = (input) => {
-  const files = Array.from(input.files || []);
+  const files = pendingFiles(input);
   if (files.length > MAX_FILES) throw new Error("Attach up to 4 files at a time.");
   if (files.some((file) => file.size > MAX_FILE_BYTES)) throw new Error("Each attachment must be 25 MB or smaller.");
   if (files.reduce((sum, file) => sum + file.size, 0) > MAX_TOTAL_BYTES) throw new Error("Attachments must total 50 MB or less.");
@@ -76,7 +99,7 @@ export const updateAttachmentSummary = (input, summary) => {
   try {
     const files = selectedFiles(input);
     summary.textContent = files.length
-      ? `${files.length} file${files.length === 1 ? "" : "s"} ready · ${formatFileSize(files.reduce((sum, file) => sum + file.size, 0))}`
+      ? `${files.length} file${files.length === 1 ? "" : "s"} ready · ${formatFileSize(files.reduce((sum, file) => sum + file.size, 0))} · Not uploaded yet. Click Send when ready.`
       : "Up to 4 files · 25 MB each";
     summary.classList.remove("error");
   } catch (error) {
@@ -90,7 +113,7 @@ export const renderAttachmentPreviews = (input, container, summary) => {
   container.replaceChildren();
 
   // Invalid selections must remain visible so individual files can be removed.
-  const files = Array.from(input.files || []);
+  const files = pendingFiles(input);
   updateAttachmentSummary(input, summary);
 
   if (!files.length) {
@@ -162,11 +185,7 @@ export const renderAttachmentPreviews = (input, container, summary) => {
     remove.setAttribute("aria-label", `Remove ${file.name}`);
     remove.addEventListener("click", () => {
       if (input.disabled) return;
-      const transfer = new DataTransfer();
-      files.forEach((candidate, candidateIndex) => {
-        if (candidateIndex !== index) transfer.items.add(candidate);
-      });
-      input.files = transfer.files;
+      removeStagedAttachment(input, index);
       updateAttachmentSummary(input, summary);
       renderAttachmentPreviews(input, container, summary);
     });

@@ -18,7 +18,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="admin.css?v=20260923-4" />
-    <link rel="stylesheet" href="attachment-preview.css?v=20260923-1" />
+    <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260923-1" />
   </head>
@@ -179,9 +179,10 @@
                     <div class="attachment-picker">
                       <label class="attachment-button" for="admin-message-attachments">＋ Add photos or files</label>
                       <input id="admin-message-attachments" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
-                      <span id="admin-message-attachment-summary">Up to 4 files · 25 MB each</span>
+                      <span id="admin-message-attachment-summary" role="status">Up to 4 files · 25 MB each</span>
                     </div>
                     <div class="attachment-previews" id="admin-message-attachment-previews" hidden></div>
+                    <p class="attachment-draft-hint">Select multiple photos or add more files. Preview or remove them with × before clicking Send. Nothing uploads until you send.</p>
                     <div><p class="form-message" id="admin-message-status" role="status"></p><button class="primary-button" type="submit">Send reply</button></div>
                   </form>
                 </div>
@@ -657,6 +658,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260923-9"></script>
+    <script type="module" src="assets/admin.js?v=20260923-10"></script>
   </body>
 </html>

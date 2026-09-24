@@ -1,11 +1,14 @@
 import {
   appendAttachments,
+  stageAttachments,
+  clearStagedAttachments,
+  pendingFiles,
   renderAttachmentPreviews,
   setAttachmentBusy,
   selectedFiles,
   updateAttachmentSummary,
   uploadAttachments,
-} from "./attachment-ui.js?v=20260923-1";
+} from "./attachment-ui.js?v=20260923-2";
 import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1";
 import { renderDocumentCard } from "./document-message-ui.js?v=20260923-1";
 
@@ -153,7 +156,7 @@ $("#message-form").addEventListener("submit", async (event) => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Message could not be sent.");
     input.value = "";
-    attachmentInput.value = "";
+    clearStagedAttachments(attachmentInput);
     updateAttachmentSummary(attachmentInput, $("#message-attachment-summary"));
     renderAttachmentPreviews(
       attachmentInput,
@@ -172,9 +175,17 @@ $("#message-form").addEventListener("submit", async (event) => {
 
 $("#message-attachments").addEventListener("change", () => {
   const input = $("#message-attachments");
+  stageAttachments(input);
   const summary = $("#message-attachment-summary");
   updateAttachmentSummary(input, summary);
   renderAttachmentPreviews(input, $("#message-attachment-previews"), summary);
+});
+
+window.addEventListener("beforeunload", (event) => {
+  if (pendingFiles($("#message-attachments")).length) {
+    event.preventDefault();
+    event.returnValue = "";
+  }
 });
 
 if (validToken) {
