@@ -19,6 +19,7 @@
     />
     <link rel="stylesheet" href="admin.css?v=20260923-1" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-1" />
+    <link rel="stylesheet" href="agreement.css?v=20260923-1" />
   </head>
   <body>
     <main id="admin-root" aria-live="polite">
@@ -216,6 +217,15 @@
           </section>
 
           <section class="invoice-workspace" id="contract-workspace" hidden>
+            <section class="agreement-templates" aria-labelledby="client-forms-heading">
+              <p class="kicker">Complete & sign online</p>
+              <h2 id="client-forms-heading">Client forms</h2>
+              <p>Choose an agreement, prepare the service details, and send a private link. Completed forms and signatures return here automatically.</p>
+              <div class="agreement-grid" id="agreement-template-list"></div>
+              <h3>Client form records</h3>
+              <p id="agreement-list-message" class="agreement-status" role="status"></p>
+              <div id="agreement-list" class="agreement-list"></div>
+            </section>
             <div class="workspace-section-header">
               <div>
                 <p class="kicker">Agreement workspace</p>
@@ -619,6 +629,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260923-1"></script>
+    <script type="module" src="assets/admin.js?v=20260923-3"></script>
   </body>
 </html>

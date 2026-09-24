@@ -1,3 +1,4 @@
+import { loadAgreementForms } from "./agreement-admin.js";
 import {
   acceptInvite,
   getUser,
@@ -1039,6 +1040,7 @@ const renderContracts = () => {
 };
 
 const loadContracts = async () => {
+  await loadAgreementForms();
   const response = await fetch("/api/hmp-contracts", { credentials: "same-origin", cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Contract data is unavailable.");
