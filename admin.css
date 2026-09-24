@@ -68,12 +68,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .sync-state::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: #708974; }
 
 .metrics { display: grid; grid-template-columns: 1.15fr repeat(3, 1fr); gap: 12px; margin: 38px 0 22px; }
-.metric { min-height: 158px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; background: rgba(255,255,255,.65); }
+.metric { min-width: 0; min-height: 158px; padding: 24px; border: 1px solid var(--line); border-radius: 16px; color: var(--ink); background: rgba(255,255,255,.65); text-align: left; cursor: pointer; }
+.metric:hover { border-color: var(--plum); }
+.metric:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
 .metric-featured { color: #fff; border-color: transparent; background: var(--plum); }
 .metric span { display: block; color: var(--muted); font-size: 10px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; }
-.metric-featured span, .metric-featured small { color: rgba(255,255,255,.68); }
 .metric strong { display: block; margin: 15px 0 5px; font: 600 48px/.8 var(--serif); }
 .metric small { color: var(--muted); font-size: 11px; }
+.metric-featured span, .metric-featured small { color: var(--ivory); }
 
 .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1fr) 285px; gap: 22px; align-items: start; }
 .inquiry-panel, .service-panel { border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.72); }

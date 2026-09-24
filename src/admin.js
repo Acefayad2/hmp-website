@@ -1,4 +1,5 @@
 import { loadAgreementForms } from "./agreement-admin.js";
+import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import {
   acceptInvite,
   getUser,
@@ -38,6 +39,7 @@ const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
 
 let inquiries = [];
+let activeInquiryFilter = "all";
 let invoices = [];
 let invoiceItems = [];
 let activeInvoiceId = "";
@@ -196,19 +198,11 @@ const showPasswordForm = (message) => {
 };
 
 const renderMetrics = () => {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const upcoming = inquiries.filter((item) => {
-    const date = parseDate(item.celebrationDate);
-    return date && date >= today;
-  }).length;
-  const largest = Math.max(0, ...inquiries.map((item) => Number(item.guestCount) || 0));
+  const groups = inquiryGroups(inquiries);
   $("#metric-total").textContent = inquiries.length;
-  $("#metric-new").textContent = inquiries.filter(
-    (item) => String(item.status).toLowerCase() === "new",
-  ).length;
-  $("#metric-upcoming").textContent = upcoming;
-  $("#metric-guests").textContent = largest || "—";
+  $("#metric-new").textContent = groups.new.length;
+  $("#metric-upcoming").textContent = groups.upcoming.length;
+  $("#metric-guests").textContent = groups.largest[0]?.guestCount || "—";
 };
 
 const renderServiceFilter = () => {
@@ -245,7 +239,7 @@ const renderServiceMix = () => {
 const filteredInquiries = () => {
   const query = $("#search-input").value.trim().toLowerCase();
   const service = $("#service-filter").value;
-  return inquiries.filter((item) => {
+  return inquiryGroups(inquiries)[activeInquiryFilter].filter((item) => {
     const haystack = [item.name, item.email, item.phone, eventServiceLabel(item.service), item.location, item.celebrationType]
       .join(" ")
       .toLowerCase();
@@ -255,6 +249,12 @@ const filteredInquiries = () => {
 
 const renderInquiries = () => {
   const filtered = filteredInquiries();
+  $("#inquiry-list-title").textContent = inquiryFilterTitles[activeInquiryFilter];
+  document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
+    const selected = button.dataset.inquiryFilter === activeInquiryFilter;
+    button.classList.toggle("metric-featured", selected);
+    button.setAttribute("aria-pressed", String(selected));
+  });
   $("#result-count").textContent = `${filtered.length} of ${inquiries.length} inquiries`;
   emptyState.hidden = filtered.length > 0;
   inquiryList.hidden = filtered.length === 0;
@@ -1460,6 +1460,16 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("focus", () => syncActiveWorkspace().catch(() => {}));
 $("#search-input").addEventListener("input", renderInquiries);
 $("#service-filter").addEventListener("change", renderInquiries);
+document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
+  button.addEventListener("click", () => {
+    activeInquiryFilter = button.dataset.inquiryFilter;
+    if (activeInquiryFilter === "all") {
+      $("#search-input").value = "";
+      $("#service-filter").value = "";
+    }
+    renderInquiries();
+  });
+});
 document.querySelectorAll("[data-workspace-view]").forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();

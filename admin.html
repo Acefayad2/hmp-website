@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260923-1" />
+    <link rel="stylesheet" href="admin.css?v=20260923-2" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260923-1" />
   </head>
@@ -97,26 +97,26 @@
           </header>
 
           <section class="metrics" aria-label="Inquiry summary">
-            <article class="metric metric-featured">
+            <button type="button" class="metric metric-featured" data-inquiry-filter="all" aria-pressed="true" aria-controls="inquiry-list">
               <span>Total inquiries</span><strong id="metric-total">—</strong><small>Website and manual entries</small>
-            </article>
-            <article class="metric">
+            </button>
+            <button type="button" class="metric" data-inquiry-filter="new" aria-pressed="false" aria-controls="inquiry-list">
               <span>New</span><strong id="metric-new">—</strong><small>Ready for follow-up</small>
-            </article>
-            <article class="metric">
+            </button>
+            <button type="button" class="metric" data-inquiry-filter="upcoming" aria-pressed="false" aria-controls="inquiry-list">
               <span>Upcoming</span><strong id="metric-upcoming">—</strong><small>Events ahead</small>
-            </article>
-            <article class="metric">
+            </button>
+            <button type="button" class="metric" data-inquiry-filter="largest" aria-pressed="false" aria-controls="inquiry-list">
               <span>Largest event</span><strong id="metric-guests">—</strong><small>Guests in one inquiry</small>
-            </article>
+            </button>
           </section>
 
           <section class="dashboard-grid">
             <div class="inquiry-panel">
               <div class="panel-heading">
                 <div>
-                  <h2>Event inquiries</h2>
-                  <p id="result-count">Loading submissions…</p>
+                  <h2 id="inquiry-list-title">Event inquiries</h2>
+                  <p id="result-count" role="status">Loading submissions…</p>
                 </div>
                 <div class="filters">
                   <label class="search-field"><span>Search</span><input id="search-input" type="search" placeholder="Name, email, service…" /></label>
@@ -125,7 +125,7 @@
               </div>
               <div class="inquiry-list" id="inquiry-list"></div>
               <div class="empty-state" id="empty-state" hidden>
-                <span>HMP</span><h3>No inquiries match</h3><p>Clear the filters to return to the full event list.</p>
+                <span>HMP</span><h3>No inquiries match</h3><p>Select Total inquiries to clear the filters and return to the full event list.</p>
               </div>
             </div>
 
@@ -629,6 +629,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260923-3"></script>
+    <script type="module" src="assets/admin.js?v=20260923-4"></script>
   </body>
 </html>
