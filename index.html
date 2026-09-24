@@ -118,6 +118,7 @@
     <link rel="stylesheet" href="mobile.css" />
     <link rel="stylesheet" href="pages.css" />
     <link rel="stylesheet" href="brand.css?v=20260923-intro" />
+    <link rel="stylesheet" href="hero-slideshow.css?v=20260923-1" />
   </head>
   <body>
     <div class="brand-intro" data-brand-intro aria-hidden="true">
@@ -169,12 +170,27 @@
     </header>
 
     <main id="main-content">
-      <section class="hero">
-        <div
-          class="hero-media"
-          role="img"
-          aria-label="Unoccupied candlelit event venue with floral tables"
-        ></div>
+      <section class="hero" data-hero-slideshow>
+        <div class="hero-media hero-visual" role="region" aria-roledescription="carousel" aria-label="Event inspiration">
+          <div class="hero-frame is-active" data-hero-frame aria-hidden="false">
+            <img src="assets/hero-wedding-higgsfield.webp" width="1920" height="1097" fetchpriority="high" alt="Candlelit wedding reception with ivory flowers and crystal chandeliers, before guests arrive" />
+          </div>
+          <div class="hero-frame" data-hero-frame aria-hidden="true">
+            <img src="assets/hero-graduation-2027-higgsfield.webp" width="1920" height="1097" fetchpriority="low" alt="Class of 2027 graduation party with a cap, diploma, cake, and gold balloons" />
+          </div>
+          <div class="hero-frame" data-hero-frame aria-hidden="true">
+            <img src="assets/hero-birthday-higgsfield.webp" width="1920" height="1097" fetchpriority="low" alt="Elegant birthday party with a candle-topped cake and blush, ivory, and gold balloons" />
+          </div>
+          <div class="hero-slideshow-controls" data-hero-controls hidden>
+            <div class="hero-scene-options" role="group" aria-label="Choose an event scene">
+              <button type="button" data-hero-select="0" aria-pressed="true"><span aria-hidden="true">01</span> Weddings</button>
+              <button type="button" data-hero-select="1" aria-pressed="false"><span aria-hidden="true">02</span> Class of 2027</button>
+              <button type="button" data-hero-select="2" aria-pressed="false"><span aria-hidden="true">03</span> Birthdays</button>
+            </div>
+            <button type="button" class="hero-playback" data-hero-playback aria-label="Pause slideshow"><span data-hero-playback-icon aria-hidden="true">Ⅱ</span></button>
+          </div>
+          <span class="hero-sr-only" data-hero-status aria-live="polite" aria-atomic="true"></span>
+        </div>
         <div class="hero-shade"></div>
         <div class="hero-copy reveal">
           <p class="eyebrow">Welcome to HMP Luxury Event Services</p>
@@ -474,5 +490,6 @@
     </footer>
 
     <script src="script.js?v=20260923-1"></script>
+    <script src="hero-slideshow.js?v=20260923-1" defer></script>
   </body>
 </html>
