@@ -3,6 +3,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 
+test("inquiry selectors show the money table minimum without changing submitted values", () => {
+  const html = readFileSync(new URL("../inquiry.html", import.meta.url), "utf8");
+  assert.match(html, /<option value="Money Table Services">Money Table Services — 4-hour minimum<\/option>/);
+  const source = readFileSync(new URL("../script.js", import.meta.url), "utf8");
+  const code = source.match(/const inquiryServiceOptions = \{[\s\S]*?\n\};/)[0];
+  const config = runInNewContext(`${code}\ninquiryServiceOptions`);
+  assert.equal(config["Money Table Services"].label, "Money table service of interest — 4-hour minimum");
+  assert.deepEqual(Array.from(config["Money Table Services"].options), ["Changing + Collecting", "Money Changing", "Money Collecting"]);
+});
+
 test("money table pricing introduction states the four-hour minimum", () => {
   const html = readFileSync(new URL("../money-table.html", import.meta.url), "utf8");
   const introduction = html.match(/<div class="price-header">[\s\S]*?<div class="price-grid">/)?.[0];

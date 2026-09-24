@@ -314,7 +314,7 @@ const inquiryServiceOptions = {
     options: ["Arrival + Directory", "Guest Arrival", "Guest Directory"],
   },
   "Money Table Services": {
-    label: "Money table service of interest",
+    label: "Money table service of interest — 4-hour minimum",
     placeholder: "Choose a money table service",
     options: [
       "Changing + Collecting",
