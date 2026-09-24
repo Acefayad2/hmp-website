@@ -21,3 +21,8 @@ test("visible field labels change without breaking inquiry submission keys", () 
     assert.ok(!page(file).includes("CELEBRATION BRIEF"))
   }
 })
+
+test("inquiry travel notice is prominent without changing fee wording", () => {
+  assert.match(page("inquiry.html"), /class="fine travel-notice"> Travel and lodging fees may apply for locations more than 30 miles from Laurel, Maryland\./)
+  assert.match(page("pages.css"), /\.inquiry-page \.inquiry-intro \.travel-notice \{[^}]*font-size: clamp\(1rem, 1\.3vw, 1\.125rem\) !important;[^}]*font-weight: 700;/)
+})

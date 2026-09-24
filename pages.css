@@ -454,6 +454,13 @@
 .inquiry-page .inquiry {
   padding-top: 70px;
 }
+.inquiry-page .inquiry-intro .travel-notice {
+  /* Override the shared fine-print size without enlarging other form notes. */
+  font-size: clamp(1rem, 1.3vw, 1.125rem) !important;
+  font-weight: 700;
+  line-height: 1.65;
+  color: var(--ink);
+}
 .inner-footer {
   margin-top: 0;
 }
