@@ -1,6 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { readMessageHistory } from "./_message-history.mts";
 import {
   clientConversationUrl,
   conversationToken,
@@ -208,14 +209,15 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const conversationRows = conversations || [];
     const inquiryIds = conversationRows.map((row) => row.inquiry_id);
     const conversationIds = conversationRows.map((row) => row.id);
-    const [{ data: inquiryRows }, { data: messageRows }] = await Promise.all([
+    const [{ data: inquiryRows, error: inquiryError }, { data: messageRows, error: messageError }] = await Promise.all([
       inquiryIds.length
         ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,service,celebration_date,status").in("submission_id", inquiryIds)
-        : Promise.resolve({ data: [] }),
-      conversationIds.length
-        ? client.from("hmp_client_messages").select("id,conversation_id,sender,sender_name,body,attachments,document,created_at,email_notified_at,email_notification_error").in("conversation_id", conversationIds).order("created_at", { ascending: true }).limit(2000)
-        : Promise.resolve({ data: [] }),
+        : Promise.resolve({ data: [], error: null }),
+      readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,email_notified_at,email_notification_error"),
     ]);
+    // A database/schema failure is not an empty conversation. Keep the UI's
+    // existing data and surface a retryable error instead of hiding messages.
+    if (inquiryError || messageError) return json({ error: "Messages are temporarily unavailable. Please try again." }, 502);
     const signedMessageRows = await Promise.all((messageRows || []).map(async (message) => ({
       ...message,
       signedAttachments: await signAttachments(client, message.attachments),

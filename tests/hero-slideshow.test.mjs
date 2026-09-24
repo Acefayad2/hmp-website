@@ -90,3 +90,17 @@ test("hero has three local images, an initial no-JS scene, and reduced-motion CS
   assert.match(css, /prefers-reduced-motion: reduce/)
   assert.match(css, /focus-visible/)
 })
+
+test("a slow image cannot finish an automatic transition after pause or leaving the hero", async () => {
+  for (const stop of [f => f.playback.events.click(), f => f.visibility(false), f => { f.doc.hidden = true; f.doc.events.visibilitychange() }]) {
+    const f = fixture()
+    let finish
+    f.images[1].decode = () => new Promise(resolve => { finish = resolve })
+    const pending = f.tick()
+    stop(f)
+    finish()
+    await pending
+    assert.equal(f.frames[1].classList.contains('is-active'), false)
+    assert.equal(f.hasTimer(), false)
+  }
+})

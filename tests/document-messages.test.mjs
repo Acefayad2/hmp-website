@@ -15,7 +15,7 @@ function database(){
   const rows={hmp_admin_invoices:[structuredClone(record)],hmp_admin_contracts:[structuredClone(record)],hmp_admin_inquiries:[{submission_id:inquiryId,email:record.client_email,client_name:record.client_name,celebration_date:record.event_date}],hmp_client_conversations:[{id:conversationId,inquiry_id:inquiryId,token_nonce:"nonce",access_token_hash:tokenHash(token),token_expires_at:"2099-01-01",revoked_at:null}],hmp_client_messages:[]};
   return {rows,failSave:false,from(table){
     let filters=[],op="read",payload,options;
-    const q={select(){return this;},order(){return this;},limit(){return this;},eq(k,v){filters.push(r=>r[k]===v);return this;},in(k,v){filters.push(r=>v.includes(r[k]));return this;},
+    const q={select(){return this;},order(){return this;},limit(){return this;},range(){return this;},eq(k,v){filters.push(r=>r[k]===v);return this;},in(k,v){filters.push(r=>v.includes(r[k]));return this;},
       update(v){op="update";payload=v;return this;},upsert(v,o){op="upsert";payload=v;options=o;return this;},
       execute(single=false){let found=rows[table].filter(r=>filters.every(f=>f(r)));if(op==="update")found.forEach(r=>Object.assign(r,payload));
         if(op==="upsert"){const exists=rows[table].find(r=>r[options.onConflict]===payload[options.onConflict]);if(!exists)rows[table].push(structuredClone(payload));found=[exists || payload];}

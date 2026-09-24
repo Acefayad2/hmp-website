@@ -1,5 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { readMessageHistory } from "./_message-history.mts";
 import { isSameOriginMutation, tokenHash, validBearerToken } from "./_conversation-security.mts";
 import {
   completeAttachmentUploads,
@@ -82,12 +83,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   if (!inquiry) return json({ error: "Conversation is unavailable." }, 404);
 
   if (request.method === "GET") {
-    const { data: messages, error } = await client
-      .from("hmp_client_messages")
-      .select("id,sender,sender_name,body,attachments,document,created_at")
-      .eq("conversation_id", conversation.id)
-      .order("created_at", { ascending: true })
-      .limit(500);
+    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at");
     if (error) return json({ error: "Conversation is temporarily unavailable." }, 502);
     const signedMessages = await Promise.all((messages || []).map(async (message) => ({
       ...message,

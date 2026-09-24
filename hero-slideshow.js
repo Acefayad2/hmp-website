@@ -34,6 +34,11 @@
       return; // Never crossfade to an unloaded or failed image.
     }
     if (token !== request) return;
+    // Decoding may finish after the visitor pauses or leaves the hero.
+    if (!manual && (paused || hovered || !visible || document.hidden)) {
+      schedule();
+      return;
+    }
     current = index;
     frames.forEach((frame, i) => {
       frame.classList.toggle('is-active', i === index);

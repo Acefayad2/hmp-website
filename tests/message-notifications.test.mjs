@@ -10,7 +10,7 @@ function fakeDatabase(messages=[]) {
   return {from(table){
     const rows=table==="hmp_client_messages" ? messages : table==="hmp_client_conversations" ? [conversation] : [inquiry];
     let filters=[],op="read",payload;
-    const q={select(){return this;},order(){return this;},limit(){return this;},
+    const q={select(){return this;},order(){return this;},limit(){return this;},range(){return this;},
       eq(k,v){filters.push(row=>row[k]===v);return this;},
       is(k,v){filters.push(row=>(row[k] ?? null)===v);return this;},
       in(k,v){filters.push(row=>v.includes(row[k]));return this;},
@@ -92,4 +92,19 @@ test("proposals and attachment-only messages use the same notification path",asy
   const message={id:messageId,conversation_id:conversationId,sender:"admin",body:"",attachments:[{name:"video.mp4"}]};
   assert.equal((await notifyStoredMessage(fakeDatabase([message]),inquiry,conversation,message,fetchFn)).notified,true);
   assert.match(emails[1].subject,/replied/);
+});
+
+test("database read failures cannot look like empty conversations or missing proposals", async () => {
+  for (const failedTable of ["hmp_admin_inquiries", "hmp_client_messages"]) {
+    const database = fakeDatabase([]);
+    const from = database.from.bind(database);
+    database.from = table => {
+      const query = from(table);
+      if (table === failedTable) query.execute = () => ({ data: null, error: { message: "schema unavailable" } });
+      return query;
+    };
+    const response = await handler(database, async () => { throw new Error("No email expected"); })(new Request("https://hmpeds.com/api/hmp-messages"));
+    assert.equal(response.status, 502);
+    assert.match((await response.json()).error, /temporarily unavailable/);
+  }
 });

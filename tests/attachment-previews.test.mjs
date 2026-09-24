@@ -18,6 +18,20 @@ test("attachment limits still block invalid sends", () => {
   assert.throws(() => selectedFiles({ files: Array(3).fill({ ...file, size: 20 * 1024 * 1024 }) }), /50 MB/);
 });
 
+test("client conversation policy permits local image and PDF previews without permitting script blobs", () => {
+  const config = readFileSync(new URL("../netlify.toml", import.meta.url), "utf8");
+  const section = config.split('for = "/conversation*"')[1].split("[[headers]]")[0];
+  const policy = section.match(/Content-Security-Policy = "([^"]+)"/)[1];
+  const directives = Object.fromEntries(policy.split(";").map(value => {
+    const [name, ...sources] = value.trim().split(/\s+/); return [name, sources];
+  }));
+  assert.ok(directives["img-src"].includes("blob:"));
+  assert.deepEqual(directives["frame-src"], ["blob:"]);
+  assert.deepEqual(directives["script-src"], ["'self'"]);
+  assert.deepEqual(directives["object-src"], ["'none'"]);
+  assert.deepEqual(directives["frame-ancestors"], ["'none'"]);
+});
+
 test("upload preparation uses the same inferred type as the preview", async () => {
   const file = new File(["sample"], "clip.MOV");
   let metadata;
