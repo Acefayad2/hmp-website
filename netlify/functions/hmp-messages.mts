@@ -1,4 +1,4 @@
-import type { Config, Context } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -96,24 +96,29 @@ const getDatabase = () => {
   return database;
 };
 
-const sendReplyNotification = async (
+export const sendReplyNotification = async (
   inquiry: Record<string, unknown>,
   conversation: Record<string, unknown>,
   messageId: string,
   isProposal = false,
+  fetchFn = fetch,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
   const from =
     Netlify.env.get("HMP_INQUIRY_FROM_EMAIL") ||
     Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
   const recipient = cleanText(inquiry.email, 320).toLowerCase();
-  if (!apiKey || !from || !recipient) return false;
+  if (!apiKey || !from) throw new Error("Email notifications are not configured. Contact HMP support to check the email sender.");
+  if (!emailPattern.test(recipient)) throw new Error("The client needs a valid email address before a notification can be sent.");
+  if (conversation.revoked_at || !conversation.token_nonce || !(Date.parse(String(conversation.token_expires_at)) > Date.now())) {
+    throw new Error("The client link is inactive. Use Send new link, then retry the email notification.");
+  }
 
   const link = clientConversationUrl(
     String(conversation.id),
     String(conversation.token_nonce),
   );
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetchFn("https://api.resend.com/emails", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -130,6 +135,32 @@ const sendReplyNotification = async (
   });
   if (!response.ok) console.error("Conversation reply email failed", response.status);
   return response.ok;
+};
+
+export const notifyStoredMessage = async (client: any, inquiry: any, conversation: any, message: any, fetchFn = fetch) => {
+  if (message.email_notified_at) return {notified:true, notificationError:""};
+  let notified=false, notificationError="";
+  try {
+    if (!inquiry) throw new Error("Client details are unavailable. Refresh the conversation before retrying.");
+    notified=await sendReplyNotification(inquiry,conversation,message.id,String(message.body || "").startsWith(proposalPrefix),fetchFn);
+    if(!notified) notificationError="The email provider did not accept the notification. Retry the email notification.";
+  } catch(error) {
+    notificationError=error instanceof Error && /^(Email notifications|The client|Client details)/.test(error.message)
+      ? error.message : "Email delivery could not be confirmed. Retry the email notification.";
+  }
+  // Never let an overlapping failed retry overwrite an already successful send.
+  let query=client.from("hmp_client_messages").update(notified
+    ? {email_notified_at:new Date().toISOString(),email_notification_error:null}
+    : {email_notification_error:notificationError})
+    .eq("id",message.id).eq("conversation_id",conversation.id).eq("sender","admin");
+  if(!notified) query=query.is("email_notified_at",null);
+  try {
+    const {error}=await query;
+    if(error) return {notified, notificationError, notificationWarning:"Notification status could not be saved. Refresh and verify email status before retrying."};
+  } catch {
+    return {notified, notificationError, notificationWarning:"Notification status could not be saved. Refresh and verify email status before retrying."};
+  }
+  return {notified,notificationError};
 };
 
 const sendAccessLink = async (
@@ -157,14 +188,14 @@ const sendAccessLink = async (
   return response.ok;
 };
 
-export default async (request: Request, _context: Context) => {
-  const user = await getUser();
+export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = getDatabase, fetchFn = fetch} = {}) => async (request: Request) => {
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Messages are unavailable" }, 503);
 
   if (request.method === "GET") {
@@ -182,7 +213,7 @@ export default async (request: Request, _context: Context) => {
         ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,service,celebration_date,status").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [] }),
       conversationIds.length
-        ? client.from("hmp_client_messages").select("id,conversation_id,sender,sender_name,body,attachments,created_at").in("conversation_id", conversationIds).order("created_at", { ascending: true }).limit(2000)
+        ? client.from("hmp_client_messages").select("id,conversation_id,sender,sender_name,body,attachments,created_at,email_notified_at,email_notification_error").in("conversation_id", conversationIds).order("created_at", { ascending: true }).limit(2000)
         : Promise.resolve({ data: [] }),
     ]);
     const signedMessageRows = await Promise.all((messageRows || []).map(async (message) => ({
@@ -214,6 +245,8 @@ export default async (request: Request, _context: Context) => {
             body: message.body,
             attachments: message.signedAttachments,
             createdAt: message.created_at,
+            emailNotifiedAt: message.email_notified_at || null,
+            emailNotificationError: message.email_notification_error || "",
           })),
       };
     });
@@ -230,6 +263,17 @@ export default async (request: Request, _context: Context) => {
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (action === "retry-notification") {
+    const conversationId=cleanText(body.conversationId,36), messageId=cleanText(body.messageId,36);
+    if(!uuidPattern.test(conversationId) || !uuidPattern.test(messageId)) return json({error:"Invalid message"},400);
+    const {data:conversation}=await client.from("hmp_client_conversations").select("*").eq("id",conversationId).maybeSingle();
+    if(!conversation) return json({error:"Conversation not found"},404);
+    const {data:message}=await client.from("hmp_client_messages").select("*").eq("id",messageId).eq("conversation_id",conversationId).eq("sender","admin").maybeSingle();
+    if(!message) return json({error:"Admin message not found"},404);
+    const {data:inquiry}=await client.from("hmp_admin_inquiries").select("client_name,email,service").eq("submission_id",conversation.inquiry_id).maybeSingle();
+    return json({ok:true,...await notifyStoredMessage(client,inquiry,conversation,message,fetchFn)});
+  }
 
   if (action === "prepare-upload") {
     const conversationId = cleanText(body.conversationId, 36);
@@ -362,27 +406,29 @@ export default async (request: Request, _context: Context) => {
     const now = new Date().toISOString();
     const { data: inserted, error } = await client
       .from("hmp_client_messages")
-      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message, attachments })
+      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message, attachments, email_notification_error: "Email notification not yet confirmed. Retry if this status persists." })
       .select("id,sender,sender_name,body,attachments,created_at")
       .single();
     if (error?.code === "23505") {
       const { data: existing } = await client
         .from("hmp_client_messages")
-        .select("id,sender,sender_name,body,attachments,created_at")
+        .select("id,sender,sender_name,body,attachments,created_at,email_notified_at,email_notification_error")
         .eq("id", requestId)
         .eq("conversation_id", conversationId)
         .eq("sender", "admin")
         .maybeSingle();
-      if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, attachments: existing.attachments, createdAt: existing.created_at }, notified: false });
+      if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, attachments: existing.attachments, createdAt: existing.created_at }, ...await notifyStoredMessage(client,inquiry,conversation,existing,fetchFn) });
     }
     if (error || !inserted) return json({ error: "Message could not be sent" }, 502);
     await completeAttachmentUploads(client, attachments);
     await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
-    const notified = inquiry ? await sendReplyNotification(inquiry, conversation, inserted.id, message.startsWith(proposalPrefix)).catch(() => false) : false;
-    return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, notified });
+    const notification = await notifyStoredMessage(client,inquiry,conversation,inserted,fetchFn);
+    return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, ...notification });
   }
 
   return json({ error: "Invalid action" }, 400);
 };
+
+export default createMessagesHandler();
 
 export const config: Config = { path: "/api/hmp-messages" };

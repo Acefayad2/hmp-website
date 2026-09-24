@@ -223,6 +223,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-message strong,.admin-message time { font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
 .admin-message time { opacity: .65; }
 .admin-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.admin-message .message-email-status { margin-top:12px; font-size:12px; }
+.message-email-retry { margin-top:8px; border:1px solid currentColor; border-radius:18px; padding:10px 14px; color:inherit; background:transparent; font:inherit; font-size:12px; cursor:pointer; }
+.message-email-retry:disabled { opacity:.6; cursor:wait; }
+.message-email-retry:focus-visible { outline:2px solid currentColor; outline-offset:3px; }
 .admin-message > .message-attachments { display: grid; justify-content: stretch; gap: 9px; margin: 10px 0 0; }
 .message-attachments img { display: block; width: min(100%,360px); max-height: 280px; border-radius: 11px; object-fit: cover; background: rgba(0,0,0,.08); }
 .message-attachments video { display: block; width: min(100%,360px); aspect-ratio: 16/9; border-radius: 11px; object-fit: contain; background: #1f1718; }

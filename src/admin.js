@@ -401,6 +401,8 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.sender,
   message.body,
   message.createdAt,
+  message.emailNotifiedAt,
+  message.emailNotificationError,
   (message.attachments || []).map((attachment) => [
     attachment.id,
     attachment.path,
@@ -436,6 +438,19 @@ const renderAdminMessages = (thread) => {
       article.append(renderProposalCard(proposal));
     } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
+    if (message.sender === "admin" && (message.emailNotifiedAt || message.emailNotificationError)) {
+      const status=document.createElement("p");
+      status.className="message-email-status";
+      status.textContent=message.emailNotifiedAt ? "Email notification sent" : `Email not confirmed: ${message.emailNotificationError}`;
+      article.append(status);
+      if (!message.emailNotifiedAt) {
+        const retry=document.createElement("button");
+        retry.type="button"; retry.className="message-email-retry";
+        retry.textContent="Retry email notification";
+        retry.addEventListener("click",()=>retryMessageNotification(thread.id,message.id,retry));
+        article.append(retry);
+      }
+    }
     list.append(article);
   });
   $("#admin-message-empty").hidden = (thread.messages || []).length > 0;
@@ -598,9 +613,7 @@ const sendProposal = async (event) => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Proposal could not be sent.");
     await loadMessages();
-    setMessage($("#admin-message-status"), data.notified
-      ? "Proposal sent to the portal and client notified by email."
-      : "Proposal sent securely to the client portal.", true);
+    showMessageNotificationStatus(data,"Proposal");
     $("#proposal-editor-dialog").close();
   } catch (error) {
     setMessage($("#proposal-editor-message"), error.message || "Proposal could not be sent.");
@@ -743,6 +756,27 @@ const sendNewConversationLink = async (inquiryId, statusElement) => {
   }
 };
 
+const showMessageNotificationStatus = (data, label = "Reply") => {
+  const status=data.notified
+    ? `${label} saved in the portal and email notification sent.`
+    : `${label} saved in the portal, but email was not confirmed. ${data.notificationError || "Use Retry email notification on the message."}`;
+  setMessage($("#admin-message-status"), `${status}${data.notificationWarning ? ` ${data.notificationWarning}` : ""}`, data.notified && !data.notificationWarning);
+};
+
+const retryMessageNotification = async (conversationId, messageId, button) => {
+  button.disabled=true;
+  button.textContent="Retrying email…";
+  try {
+    const response=await fetch("/api/hmp-messages",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"retry-notification",conversationId,messageId})});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok)throw new Error(data.error || "Email notification could not be retried.");
+    await loadMessages();
+    if(activeThreadId===conversationId)showMessageNotificationStatus(data,"Message");
+  } catch(error) {
+    if(activeThreadId===conversationId)setMessage($("#admin-message-status"),error.message);
+  } finally {button.disabled=false;button.textContent="Retry email notification";}
+};
+
 const sendAdminMessage = async (event) => {
   event.preventDefault();
   if (!activeThreadId || $("#admin-message-attachments").disabled) return;
@@ -792,7 +826,7 @@ const sendAdminMessage = async (event) => {
     updateAttachmentSummary(attachmentInput, $("#admin-message-attachment-summary"));
     renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
     await loadMessages();
-    setMessage($("#admin-message-status"), data.notified ? "Reply sent and client notified by email." : "Reply sent securely.", true);
+    showMessageNotificationStatus(data);
   } catch (error) {
     setMessage($("#admin-message-status"), error.message || "Reply could not be sent.");
   } finally {
