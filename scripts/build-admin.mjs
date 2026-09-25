@@ -57,6 +57,8 @@ const productionFiles = [
   "assets/hero-graduation-2027-higgsfield.webp",
   "assets/hero-birthday-higgsfield.webp",
   "assets/hmp-hero-welcome.webp",
+  "assets/guest-check-in-kiosks.webp",
+  "assets/guest-check-in-desk.webp",
   "assets/celebration-accessories-hero-v2.webp",
   "assets/gallery-arrival-v2.webp",
   "assets/gallery-details-v2.webp",

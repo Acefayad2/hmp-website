@@ -6,7 +6,7 @@ import { runInNewContext } from "node:vm";
 test("every local homepage image, script and stylesheet is packaged for production", () => {
   const source = readFileSync(new URL("../scripts/build-admin.mjs", import.meta.url), "utf8");
   const manifest = runInNewContext(source.match(/const productionFiles = \[[\s\S]*?\];/)[0] + "\nproductionFiles");
-  const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
+  const html = ["index.html", "guest-seating.html"].map((file) => readFileSync(new URL(`../${file}`, import.meta.url), "utf8")).join("\n");
   const tags = html.match(/<(?:img|script)\b[^>]*>|<link\b[^>]*rel="stylesheet"[^>]*>/g) || [];
   for (const tag of tags) {
     const url = tag.match(/(?:src|href)="([^"]+)"/)?.[1];
