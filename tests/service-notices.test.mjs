@@ -20,6 +20,21 @@ test("money table pricing introduction states the four-hour minimum", () => {
   assert.match(introduction, /complete support\. A minimum of 4 hours of service is required\./);
 });
 
+test("money table prices increase in document order with matching inquiry links and numbering", () => {
+  const html = readFileSync(new URL("../money-table.html", import.meta.url), "utf8");
+  const cards = [...html.matchAll(/<a\s+class="price-card"[\s\S]*?<\/a>/g)].map(([card]) => ({
+    title: card.match(/<h3>(.*?)<\/h3>/)[1],
+    price: Number(card.match(/Starting price \$(\d+)/)[1]),
+    number: card.match(/<span class="num">(.*?)<\/span>/)[1],
+    option: new URL(card.match(/href="([^"]+)"/)[1].replaceAll("&amp;", "&"), "https://hmpeds.com").searchParams.get("service-option"),
+  }));
+  assert.deepEqual(cards, [
+    { title: "Money Changing", price: 600, number: "01", option: "Money Changing" },
+    { title: "Money Collecting", price: 680, number: "02", option: "Money Collecting" },
+    { title: "Changing + Collecting", price: 850, number: "03", option: "Changing + Collecting" },
+  ]);
+});
+
 test("money table notice states the four-hour minimum and has accessible controls", () => {
   const html = readFileSync(new URL("../inquiry.html", import.meta.url), "utf8");
   const notice = html.match(/<dialog id="money-table-dialog"[\s\S]*?<\/dialog>/)?.[0];
