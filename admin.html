@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260923-5" />
+    <link rel="stylesheet" href="admin.css?v=20260925-receipts" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260923-1" />
@@ -249,6 +249,12 @@
           </section>
 
           <section class="invoice-workspace" id="forms-workspace" aria-labelledby="client-forms-heading" hidden>
+            <section class="agreement-templates" aria-labelledby="receipt-template-heading">
+              <p class="kicker">After payment</p>
+              <h2 id="receipt-template-heading">Payment receipts</h2>
+              <p>Prepare a branded receipt from a paid invoice, then save a PDF to share with your client.</p>
+              <button class="agreement-button" id="create-receipt" type="button">Create payment receipt</button>
+            </section>
             <section class="agreement-templates" aria-labelledby="client-forms-heading">
               <p class="kicker">Complete & sign online</p>
               <h2 id="client-forms-heading">Client forms</h2>
@@ -684,6 +690,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260923-11"></script>
+    <script type="module" src="assets/admin.js?v=20260925-receipts"></script>
   </body>
 </html>

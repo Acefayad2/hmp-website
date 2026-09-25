@@ -1,4 +1,5 @@
 import { loadAgreementForms } from "./agreement-admin.js";
+import "./receipt-admin.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
