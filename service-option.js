@@ -36,11 +36,11 @@ const offeringDetails = {
   "celebration-kit": {
     category: "Event Accessories",
     parentUrl: "/celebration-accessories",
-    title: "Event Kit",
+    title: "Celebration Kit",
     summary: "Coordinate the practical signs and stationery your event needs in one polished collection.",
     heading: "Keep every detail consistent.",
     description:
-      "The Event Kit brings the essential event signs together in a cohesive visual package. It is designed for clients who want card, ceremony, gift, guest-book, table-number, and reserved-table details to feel considered as one collection.",
+      "The Celebration Kit brings the essential event signs together in a cohesive visual package. It is designed for clients who want card, ceremony, gift, guest-book, table-number, and reserved-table details to feel considered as one collection.",
     price: "$100",
     features: [
       "Card box and ceremony reserved signs",

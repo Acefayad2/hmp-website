@@ -13,7 +13,7 @@ import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1
 import { renderDocumentCard } from "./document-message-ui.js?v=20260923-1";
 
 const $ = (selector) => document.querySelector(selector);
-const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration (Accessories|Kit)\b/g, "Event $1");
+const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration Accessories\b/g, "Event Accessories").replace(/\bEvent Kit\b/g, "Celebration Kit");
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const validToken = /^[A-Za-z0-9_-]{43}$/.test(token);
 let loading = false;

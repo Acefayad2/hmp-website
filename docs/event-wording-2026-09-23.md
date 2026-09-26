@@ -1,5 +1,14 @@
 # Event wording update
 
+## September 26 product-name exception
+
+The user restored **Celebration Kit** as the package name. Its card, detail page,
+inquiry choice, metadata and displayed service labels use that name. Both old
+"Event Kit" and "Celebration Kit" inquiry links remain compatible. General copy
+and the Event Accessories category still use "event"; stored records are unchanged.
+
+## Original September 23 change
+
 - Replaced authored “celebration”/“occasion” wording with “event” (including plurals) across public pages, service details, metadata, accessible labels, admin labels, and inquiry/message email templates.
 - Renamed the displayed services to Event Accessories and Event Kit.
 - Preserved existing page URLs, form field names, and database/API keys for compatibility. Old inquiry links select the newly named services correctly.

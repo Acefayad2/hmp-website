@@ -34,7 +34,7 @@ import {
 } from "../proposal-ui.js";
 
 const $ = (selector) => document.querySelector(selector);
-const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration (Accessories|Kit)\b/g, "Event $1");
+const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration Accessories\b/g, "Event Accessories").replace(/\bEvent Kit\b/g, "Celebration Kit");
 const authShell = $("#auth-shell");
 const dashboard = $("#dashboard");
 const loginForm = $("#login-form");

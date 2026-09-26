@@ -1,5 +1,5 @@
 // Keep saved service names and old inquiry links compatible with the new wording.
-const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration (Accessories|Kit)\b/g, "Event $1");
+const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration Accessories\b/g, "Event Accessories").replace(/\bEvent Kit\b/g, "Celebration Kit");
 const brandIntro = document.querySelector("[data-brand-intro]");
 
 if (brandIntro && document.documentElement.classList.contains("show-brand-intro")) {
@@ -302,7 +302,7 @@ const inquiryServiceOptions = {
     label: "Event accessory of interest",
     placeholder: "Choose an accessory",
     options: [
-      "Event Kit",
+      "Celebration Kit",
       "Club Sign + Strobes",
       "Lux-Framed Premium LED Welcome Sign",
       "Money Guns",

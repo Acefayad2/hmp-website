@@ -19,7 +19,7 @@
     "/celebration-accessories": {
       name: "Event Accessory Rentals in Maryland",
       type: "Service",
-      description: "Club signs, strobes, money guns, event kits, card boxes, and premium LED welcome sign rentals for Maryland events.",
+      description: "Club signs, strobes, money guns, Celebration Kits, card boxes, and premium LED welcome sign rentals for Maryland events.",
       image: "/assets/celebration-accessories-hero-v2.webp",
     },
     "/guest-seating": {
