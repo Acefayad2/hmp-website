@@ -29,47 +29,17 @@
   to { transform: scale(1.045); }
 }
 .hero[data-hero-slideshow] .hero-shade { pointer-events: none; }
-.hero-slideshow-controls {
-  position: absolute;
-  z-index: 3;
-  bottom: 34px;
-  left: 8vw;
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  color: #fff8ef;
-}
-.hero-slideshow-controls[hidden] { display: none; }
-.hero-scene-options { display: flex; gap: 20px; }
-.hero-scene-options button {
-  position: relative;
-  min-height: 48px;
-  padding: 10px 0 14px;
+.slideshow-motion-toggle {
+  padding: 0;
   border: 0;
-  border-bottom: 2px solid rgba(255, 248, 239, .35);
   background: transparent;
   color: inherit;
-  cursor: pointer;
-  font-size: 12px;
-  letter-spacing: .025em;
-  text-shadow: 0 1px 5px #241519;
-  transition: border-color .25s ease;
-}
-.hero-scene-options button span { margin-right: 7px; font-size: 9px; }
-.hero-scene-options button[aria-pressed="true"] { border-color: #e8be89; }
-.hero-scene-options button:hover { border-color: #fff8ef; }
-.hero-playback {
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 1px solid rgba(255, 248, 239, .6);
-  background: rgba(36, 21, 25, .45);
-  color: inherit;
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
   cursor: pointer;
 }
-.hero-playback:hover { background: #604545; }
-.hero-slideshow-controls button:focus-visible { outline: 2px solid #fff8ef; outline-offset: 5px; }
-.hero-sr-only { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.slideshow-motion-toggle:focus-visible { outline: 2px solid currentColor; outline-offset: 5px; }
 @media (min-width: 801px) {
   .hero[data-hero-slideshow] .hero-shade {
     background: linear-gradient(90deg, rgba(36, 21, 25, .82) 0%, rgba(36, 21, 25, .64) 50%, rgba(36, 21, 25, .08) 82%),
@@ -77,24 +47,10 @@
   }
   .hero .hero-visual { overflow: visible; }
   .hero-frame { overflow: hidden; }
-  .hero-slideshow-controls { z-index: 3; }
-  .hero[data-hero-slideshow] .hero-copy { padding-bottom: 100px; }
   .hero[data-hero-slideshow] .hero-note { bottom: 50px; }
 }
 @media (max-width: 800px) {
   .hero-frame img { object-position: 90% center; }
-  .hero-slideshow-controls {
-    left: 0;
-    right: 0;
-    bottom: 0;
-    gap: 12px;
-    padding: 38px 16px 18px;
-    background: linear-gradient(transparent, rgba(26, 16, 20, .94));
-  }
-  .hero-scene-options { flex: 1; justify-content: space-between; gap: 10px; }
-  .hero-scene-options button { font-size: 10px; line-height: 1.35; text-align: left; }
-  .hero-scene-options button span { display: block; margin: 0 0 4px; font-size: 9px; }
-  .hero-playback { flex: 0 0 44px; width: 44px; height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-frame { transition: none; }

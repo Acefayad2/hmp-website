@@ -59,6 +59,7 @@ const productionFiles = [
   "assets/hmp-hero-welcome.webp",
   "assets/guest-check-in-kiosks.webp",
   "assets/guest-check-in-desk.webp",
+  "assets/guest-check-in-baby-shower.webp",
   "assets/celebration-accessories-hero-v2.webp",
   "assets/gallery-arrival-v2.webp",
   "assets/gallery-details-v2.webp",

@@ -14,34 +14,33 @@ function element() {
   }
 }
 function fixture(reduced = false) {
-  const hero = element(), playback = element(), icon = element(), status = element(), controls = element()
+  const hero = element(), playback = element()
   const images = Array.from({ length: 3 }, (_, i) => ({ alt: `Scene ${i}`, decode: async () => {} }))
   const frames = images.map(img => ({ ...element(), querySelector: () => img }))
-  const buttons = images.map(() => element())
-  hero.querySelectorAll = selector => selector === '[data-hero-frame]' ? frames : buttons
-  hero.querySelector = selector => ({ '[data-hero-playback]': playback, '[data-hero-playback-icon]': icon, '[data-hero-status]': status, '[data-hero-controls]': controls })[selector]
+  hero.querySelectorAll = () => frames
+  hero.contains = target => target === hero
   let timer, observer
   const motion = { matches: reduced, addEventListener: (_, cb) => { motion.change = cb } }
-  const doc = { hidden: false, events: {}, querySelector: () => hero, addEventListener: (name, cb) => { doc.events[name] = cb } }
+  const doc = { hidden: false, events: {}, querySelector: selector => selector === '[data-hero-slideshow]' ? hero : playback, addEventListener: (name, cb) => { doc.events[name] = cb } }
   const win = { matchMedia: () => motion, setTimeout: cb => { timer = cb; return 1 }, clearTimeout: () => { timer = undefined }, IntersectionObserver: true }
   runInNewContext(source, { document: doc, window: win, IntersectionObserver: class { constructor(cb) { observer = cb } observe() {} } })
-  return { hero, playback, icon, status, controls, images, frames, buttons, motion, doc, tick: () => timer?.(), hasTimer: () => Boolean(timer), visibility: visible => observer([{ isIntersecting: visible }]) }
+  return { hero, playback, images, frames, motion, doc, tick: () => timer?.(), hasTimer: () => Boolean(timer), visibility: visible => observer([{ isIntersecting: visible }]) }
 }
 
-test("hero cycles scenes, manual choice pauses, and play resumes", async () => {
+test("hero cycles all scenes and footer playback pauses and resumes", async () => {
   const f = fixture()
-  assert.equal(f.controls.hidden, false)
+  assert.equal(f.playback.hidden, false)
   await f.tick()
-  assert.equal(f.buttons[1].attrs['aria-pressed'], 'true')
-  await f.buttons[2].events.click()
+  assert.equal(f.frames[1].attrs['aria-hidden'], 'false')
+  await f.tick()
   assert.equal(f.frames[2].attrs['aria-hidden'], 'false')
   assert.equal(f.frames[1].attrs['aria-hidden'], 'true')
-  assert.equal(f.status.textContent, 'Scene 2')
+  f.playback.events.click()
   assert.equal(f.hasTimer(), false)
-  assert.equal(f.playback.attrs['aria-label'], 'Play slideshow')
+  assert.equal(f.playback.textContent, 'Play homepage slideshow')
   f.playback.events.click()
   await f.tick()
-  assert.equal(f.buttons[0].attrs['aria-pressed'], 'true')
+  assert.equal(f.frames[0].attrs['aria-hidden'], 'false')
 })
 
 test("reduced motion disables autoplay; offscreen and hidden pages suspend it", () => {
@@ -63,16 +62,32 @@ test("reduced motion disables autoplay; offscreen and hidden pages suspend it", 
   assert.equal(f.hasTimer(), false)
 })
 
-test("hover and keyboard interaction pause motion; failed images never replace a scene", async () => {
+test("mouse hovering over the hero does not stop automatic playback", async () => {
   const f = fixture()
-  f.hero.events.pointerenter({ pointerType: 'mouse' })
-  assert.equal(f.hasTimer(), false)
-  f.hero.events.pointerleave()
+  f.hero.events.pointerenter?.({ pointerType: 'mouse' })
   assert.equal(f.hasTimer(), true)
-  f.hero.events.focusin({ target: f.buttons[0] })
+  await f.tick()
+  assert.equal(f.frames[1].attrs['aria-hidden'], 'false')
+})
+
+test("focus temporarily suspends playback without undoing an explicit pause", () => {
+  const f = fixture()
+  f.hero.events.focusin()
   assert.equal(f.hasTimer(), false)
+  f.hero.events.focusout({ relatedTarget: f.hero })
+  assert.equal(f.hasTimer(), false)
+  f.hero.events.focusout({ relatedTarget: null })
+  assert.equal(f.hasTimer(), true)
+  f.playback.events.click()
+  f.hero.events.focusin()
+  f.hero.events.focusout({ relatedTarget: null })
+  assert.equal(f.hasTimer(), false)
+})
+
+test("failed images never replace the current scene", async () => {
+  const f = fixture()
   f.images[1].decode = async () => { throw new Error('image unavailable') }
-  await f.buttons[1].events.click()
+  await f.tick()
   assert.equal(f.frames[1].classList.contains('is-active'), false)
   assert.equal(f.hasTimer(), false)
 })
@@ -85,14 +100,15 @@ test("hero has three local images, an initial no-JS scene, and reduced-motion CS
   assets.forEach(asset => assert.ok(existsSync(new URL(`../${asset}`, import.meta.url))))
   assert.match(hero, /hero-frame is-active/)
   assert.match(hero, /Class of 2027/)
-  assert.match(hero, /data-hero-controls hidden/)
+  assert.doesNotMatch(hero, /data-hero-controls|data-hero-select|data-hero-playback/)
+  assert.match(html.slice(html.indexOf('<footer>')), /data-hero-playback hidden/)
   const css = readFileSync(new URL('../hero-slideshow.css', import.meta.url), 'utf8')
   assert.match(css, /prefers-reduced-motion: reduce/)
   assert.match(css, /focus-visible/)
 })
 
 test("a slow image cannot finish an automatic transition after pause or leaving the hero", async () => {
-  for (const stop of [f => f.playback.events.click(), f => f.visibility(false), f => { f.doc.hidden = true; f.doc.events.visibilitychange() }]) {
+  for (const stop of [f => f.playback.events.click(), f => f.hero.events.focusin(), f => f.visibility(false), f => { f.doc.hidden = true; f.doc.events.visibilitychange() }]) {
     const f = fixture()
     let finish
     f.images[1].decode = () => new Promise(resolve => { finish = resolve })
@@ -103,4 +119,13 @@ test("a slow image cannot finish an automatic transition after pause or leaving 
     assert.equal(f.frames[1].classList.contains('is-active'), false)
     assert.equal(f.hasTimer(), false)
   }
+})
+
+test("services uses the baby-shower check-in image and ships it in the build", () => {
+  const services = readFileSync(new URL('../services.html', import.meta.url), 'utf8')
+  const build = readFileSync(new URL('../scripts/build-admin.mjs', import.meta.url), 'utf8')
+  const asset = 'assets/guest-check-in-baby-shower.webp'
+  assert.ok(services.includes(`src="${asset}"`))
+  assert.ok(build.includes(`"${asset}"`))
+  assert.ok(existsSync(new URL(`../${asset}`, import.meta.url)))
 })
