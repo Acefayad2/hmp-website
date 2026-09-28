@@ -84,23 +84,6 @@ const offeringDetails = {
     image: "/assets/modern-guest-arrival.webp",
     imageAlt: "Premium guest arrival display at an elegant event entrance",
   },
-  "guest-directory": {
-    category: "Guest Seating Experience",
-    parentUrl: "/guest-seating",
-    title: "Guest Directory",
-    summary: "Help guests find their assigned tables through a refined interactive name lookup.",
-    heading: "Turn seating into a simple interaction.",
-    description:
-      "Guest Directory replaces searching through printed lists with an interactive table lookup. Guests can find their name and seating assignment quickly while the customized display remains aligned with the event design.",
-    price: "$800",
-    features: [
-      "Interactive name and table lookup",
-      "Customized Premium LED Signage",
-      "Clear guest direction from arrival to reception",
-    ],
-    image: "/assets/gallery-arrival-v2.webp",
-    imageAlt: "Interactive guest seating directory presented on premium event signage",
-  },
   "arrival-directory": {
     category: "Guest Seating Experience",
     parentUrl: "/guest-seating",
@@ -109,7 +92,7 @@ const offeringDetails = {
     heading: "Guide guests from entrance to table.",
     description:
       "Arrival + Directory brings check-in and seating lookup together so guests can confirm attendance and find their assigned table through one coordinated experience. HMP manages the presentation to support a smooth transition into the event.",
-    price: "$1,750",
+    price: "$1,450",
     features: [
       "Attendance confirmation and seating lookup",
       "One coordinated arrival experience",
@@ -175,7 +158,7 @@ const offeringKey = window.location.pathname.split("/").filter(Boolean).pop();
 const offering = offeringDetails[offeringKey];
 
 if (!offering) {
-  window.location.replace("/services");
+  window.location.replace(offeringKey === "guest-directory" ? "/guest-seating" : "/services");
 } else {
   const inquiryUrl = `/inquiry?service=${encodeURIComponent(offering.category)}&service-option=${encodeURIComponent(offering.title)}`;
   const pageTitle = `${offering.title} in Maryland | HMP`;

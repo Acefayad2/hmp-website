@@ -356,6 +356,11 @@
   border-top: 1px solid rgba(255, 255, 255, 0.25);
   border-left: 1px solid rgba(255, 255, 255, 0.25);
 }
+@media (min-width: 801px) {
+  .guest-seating-page .price-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .price-card {
   padding: 34px;
   min-height: 290px;

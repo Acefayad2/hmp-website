@@ -17,6 +17,6 @@ test("seating starting prices state both guest-count and distance conditions bef
   const html = read("guest-seating.html").replace(/\s+/g, " ");
   assert.match(html, /Starting prices shown apply to events with up to 230 guests at venues within 30 miles of Laurel, MD\./);
   assert.ok(html.indexOf('class="seating-price-note"') < html.indexOf('class="price-grid"'));
-  assert.match(html, /Starting price \$1,750/);
-  assert.equal((html.match(/Starting price \$800/g) || []).length, 2);
+  assert.match(html, /Starting price \$1,450/);
+  assert.equal((html.match(/Starting price \$800/g) || []).length, 1);
 });
