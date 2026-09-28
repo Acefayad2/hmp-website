@@ -1,6 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
+import { portalPinId, requireClientPin } from "./_client-pin.mts";
 import { isSameOriginMutation, tokenHash, validBearerToken } from "./_conversation-security.mts";
 import {
   completeAttachmentUploads,
@@ -75,6 +76,11 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   if (!conversation || conversation.revoked_at || new Date(conversation.token_expires_at).getTime() <= Date.now()) {
     return json({ error: "This private conversation link is invalid or expired." }, 401);
   }
+  const pinResponse = await requireClientPin(request, client,
+    portalPinId(`message:${conversation.id}`, token),
+    Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
+    new URL(request.url).searchParams.get("pin") || "");
+  if (pinResponse) return pinResponse;
   const { data: inquiry } = await client
     .from("hmp_admin_inquiries")
     .select("client_name,service,celebration_date,status,email")

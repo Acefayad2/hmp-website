@@ -714,6 +714,7 @@ const loadMessages = async () => {
 
 const createConversationLink = async () => {
   if (!activeInquiryId) return;
+  if (messageThreads.some((thread) => thread.inquiryId === activeInquiryId) && !window.confirm("Renew this private link? The old link, PIN, and client sessions will stop working. Share the new link so the client can create a new PIN.")) return;
   const button = $("#create-conversation-link");
   button.disabled = true;
   setMessage($("#conversation-link-message"), "Creating a secure private link…");
@@ -740,7 +741,7 @@ const createConversationLink = async () => {
   }
 };
 
-const sendNewConversationLink = async (inquiryId, statusElement) => {
+const sendNewConversationLink = async (inquiryId, statusElement, resetPin = false) => {
   const inquiry = inquiries.find((candidate) => candidate.id === inquiryId);
   const thread = messageThreads.find((candidate) => candidate.inquiryId === inquiryId);
   const clientName = inquiry?.name || thread?.clientName || "this client";
@@ -749,9 +750,9 @@ const sendNewConversationLink = async (inquiryId, statusElement) => {
     setMessage(statusElement, "Add a client email before sending a new link.");
     return;
   }
-  if (!window.confirm(`Send a new private conversation link to ${clientName} at ${clientEmail}? The previous link will stop working.`)) return;
+  if (!window.confirm(`${resetPin ? "Reset the client PIN and send" : "Send"} a new private conversation link to ${clientName} at ${clientEmail}? The previous link and sessions will stop working. The client will choose a new PIN. Messages will not be deleted.`)) return;
 
-  const buttons = document.querySelectorAll("#send-new-conversation-link, #send-new-active-link");
+  const buttons = document.querySelectorAll("#send-new-conversation-link, #send-new-active-link, #reset-client-pin");
   buttons.forEach((button) => { button.disabled = true; });
   setMessage(statusElement, "Creating and emailing a new private link…");
   try {
@@ -759,7 +760,7 @@ const sendNewConversationLink = async (inquiryId, statusElement) => {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send-link", inquiryId }),
+      body: JSON.stringify({ action: resetPin ? "reset-pin" : "send-link", inquiryId }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "New link could not be created.");
@@ -769,7 +770,7 @@ const sendNewConversationLink = async (inquiryId, statusElement) => {
     $("#open-conversation").hidden = false;
     $("#create-conversation-link").textContent = "Renew private link";
     if (data.emailed) {
-      setMessage(statusElement, `A new private link was emailed to ${clientEmail}.`, true);
+      setMessage(statusElement, `A new private link was emailed to ${clientEmail}. The client can create a new PIN when they open it.`, true);
     } else {
       setMessage(statusElement, "The new link was created, but email delivery failed. Copy the link and send it manually.");
     }
@@ -1641,6 +1642,10 @@ $("#copy-active-link").addEventListener("click", async () => {
 $("#send-new-active-link").addEventListener("click", () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"));
+});
+$("#reset-client-pin").addEventListener("click", () => {
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"), true);
 });
 $("#delete-active-conversation").addEventListener("click", deleteActiveConversation);
 $("#open-proposal-editor").addEventListener("click", openProposalEditor);

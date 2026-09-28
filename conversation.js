@@ -17,6 +17,9 @@ const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebra
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const validToken = /^[A-Za-z0-9_-]{43}$/.test(token);
 let loading = false;
+let authBusy = false;
+let loadVersion = 0;
+let pinMode = "login";
 let renderedMessageSignature = "";
 
 const getMessageSignature = (messages = []) => JSON.stringify(messages.map((message) => [
@@ -44,12 +47,47 @@ const formatDate = (value, includeTime = false) => {
 };
 
 const showError = () => {
+  $("#client-pin-form").hidden = true;
+  $("#client-sign-out").hidden = true;
+  $("#conversation-summary").hidden = true;
+  $("#message-list").replaceChildren();
+  renderedMessageSignature = "";
   $("#conversation-title").textContent = "Private conversation unavailable";
   $("#conversation-error").hidden = false;
   $("#message-list").hidden = true;
   $("#message-empty").hidden = true;
   $("#message-form").hidden = true;
 };
+
+const showPin = (code) => {
+  const wasHidden = $("#client-pin-form").hidden;
+  pinMode = code === "CLIENT_PIN_SETUP" ? "setup" : "login";
+  $("#conversation-title").textContent = pinMode === "setup" ? "Create your PIN" : "Welcome back";
+  $("#client-pin-help").textContent = pinMode === "setup"
+    ? "Choose a 6-digit PIN to protect this portal. Use your private link and PIN whenever you sign in."
+    : "Enter your 6-digit PIN to view your messages and contact HMP.";
+  $("#client-pin-submit").textContent = pinMode === "setup" ? "Create PIN and continue" : "Sign in";
+  $("#client-pin").autocomplete = pinMode === "setup" ? "new-password" : "current-password";
+  $("#client-pin-confirm-group").hidden = pinMode !== "setup";
+  $("#client-pin-confirm").required = pinMode === "setup";
+  $("#client-pin-form").hidden = false;
+  $("#client-sign-out").hidden = true;
+  $("#conversation-error").hidden = true;
+  $("#conversation-summary").hidden = true;
+  $("#message-form").hidden = true;
+  $("#message-empty").hidden = true;
+  $("#message-list").hidden = true;
+  $("#message-list").replaceChildren();
+  renderedMessageSignature = "";
+  if (wasHidden) {
+    $("#client-pin").value = "";
+    $("#client-pin-confirm").value = "";
+    $("#client-pin-status").textContent = "";
+    $("#client-pin").focus();
+  }
+};
+
+const pinRequired = (data) => ["CLIENT_PIN_SETUP", "CLIENT_PIN_REQUIRED"].includes(data.code);
 
 const renderMessages = (messages) => {
   const signature = getMessageSignature(messages);
@@ -86,16 +124,22 @@ const renderMessages = (messages) => {
 };
 
 const loadConversation = async ({ quiet = false } = {}) => {
-  if (!validToken || loading) return showError();
+  if (loading || authBusy) return;
+  if (!validToken) return showError();
   loading = true;
+  const version = ++loadVersion;
   try {
     const response = await fetch("/api/hmp-conversation", {
       headers: { Authorization: `Bearer ${token}` },
-      credentials: "omit",
+      credentials: "same-origin",
       cache: "no-store",
     });
     const data = await response.json().catch(() => ({}));
+    if (version !== loadVersion) return;
+    if (pinRequired(data)) { showPin(data.code); return; }
     if (!response.ok) throw new Error(data.error || "Conversation unavailable");
+    $("#client-pin-form").hidden = true;
+    $("#client-sign-out").hidden = false;
     $("#conversation-title").textContent = `Conversation for ${data.conversation.clientName}`;
     $("#summary-service").textContent = eventServiceLabel(data.conversation.service);
     $("#summary-date").textContent = formatDate(data.conversation.celebrationDate);
@@ -105,11 +149,53 @@ const loadConversation = async ({ quiet = false } = {}) => {
     renderMessages(data.messages || []);
     if (!quiet) $("#message-input").focus();
   } catch {
-    showError();
+    if (version === loadVersion) showError();
   } finally {
-    loading = false;
+    if (version === loadVersion) loading = false;
   }
 };
+
+$("#client-pin-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = $("#client-pin-submit");
+  if (button.disabled) return;
+  button.disabled = true;
+  authBusy = true;
+  loadVersion++;
+  loading = false;
+  $("#client-pin-status").textContent = "";
+  try {
+    const response = await fetch(`/api/hmp-conversation?pin=${pinMode}`, {
+      method: "POST", credentials: "same-origin",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ pin: $("#client-pin").value, confirmPin: $("#client-pin-confirm").value }),
+    });
+    const data = await response.json();
+    if (pinRequired(data)) showPin(data.code);
+    if (!response.ok) throw new Error(data.error || "Sign-in failed.");
+    $("#client-pin").value = "";
+    $("#client-pin-confirm").value = "";
+    authBusy = false;
+    await loadConversation();
+  } catch (error) { $("#client-pin-status").textContent = error.message || "Please try again."; }
+  finally { button.disabled = false; authBusy = false; }
+});
+
+$("#client-sign-out").addEventListener("click", async () => {
+  if (authBusy) return;
+  authBusy = true;
+  loadVersion++;
+  loading = false;
+  const response = await fetch("/api/hmp-conversation?pin=logout", {
+    method: "POST", credentials: "same-origin", headers: { Authorization: `Bearer ${token}` },
+  }).catch(() => null);
+  authBusy = false;
+  if (!response?.ok) { $("#message-status").textContent = "Sign-out could not be confirmed. Please try again."; return; }
+  $("#message-input").value = "";
+  clearStagedAttachments($("#message-attachments"));
+  renderAttachmentPreviews($("#message-attachments"), $("#message-attachment-previews"), $("#message-attachment-summary"));
+  showPin("CLIENT_PIN_REQUIRED");
+});
 
 $("#message-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -138,10 +224,11 @@ $("#message-form").addEventListener("submit", async (event) => {
         const response = await fetch("/api/hmp-conversation", {
           method: "POST",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          credentials: "omit",
+          credentials: "same-origin",
           body: JSON.stringify(payload),
         });
         const data = await response.json().catch(() => ({}));
+        if (pinRequired(data)) showPin(data.code);
         if (!response.ok) throw new Error(data.error || "Attachment could not be uploaded.");
         return data;
       },
@@ -150,10 +237,11 @@ $("#message-form").addEventListener("submit", async (event) => {
     const response = await fetch("/api/hmp-conversation", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      credentials: "omit",
+      credentials: "same-origin",
       body: JSON.stringify({ message, requestId, attachments }),
     });
     const data = await response.json().catch(() => ({}));
+    if (pinRequired(data)) showPin(data.code);
     if (!response.ok) throw new Error(data.error || "Message could not be sent.");
     input.value = "";
     clearStagedAttachments(attachmentInput);

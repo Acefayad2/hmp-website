@@ -167,6 +167,7 @@ export const notifyStoredMessage = async (client: any, inquiry: any, conversatio
 const sendAccessLink = async (
   inquiry: Record<string, unknown>,
   link: string,
+  fetchFn: typeof fetch = fetch,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
   const from =
@@ -174,7 +175,7 @@ const sendAccessLink = async (
     Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
   const recipient = cleanText(inquiry.email, 320).toLowerCase();
   if (!apiKey || !from || !emailPattern.test(recipient)) return false;
-  const response = await fetch("https://api.resend.com/emails", {
+  const response = await fetchFn("https://api.resend.com/emails", {
     method: "POST",
     headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -182,7 +183,7 @@ const sendAccessLink = async (
       to: [recipient],
       reply_to: "info@hmpeds.com",
       subject: "Your new private HMP conversation link",
-      html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">Your new private link is ready.</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>Here is your new link to continue your private conversation with the HMP team. Your previous link is no longer active.</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">Connect with an Event Specialist</a></p><p style="color:#8b7272;font-size:13px">This link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
+      html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">Your new private link is ready.</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>Here is your new link to continue your private conversation with the HMP team. Your previous link and PIN are no longer active. Open this new link to choose your own 6-digit PIN. If you ever need to reset it, contact the HMP team.</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">Connect with an Event Specialist</a></p><p style="color:#8b7272;font-size:13px">This link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
     }),
   });
   if (!response.ok) console.error("Conversation link email failed", response.status);
@@ -301,7 +302,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     }
   }
 
-  if (action === "create-link" || action === "send-link") {
+  if (action === "create-link" || action === "send-link" || action === "reset-pin") {
     const inquiryId = cleanText(body.inquiryId, 36);
     if (!uuidPattern.test(inquiryId)) return json({ error: "Invalid inquiry" }, 400);
     const { data: inquiry } = await client
@@ -331,15 +332,15 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const { error } = await client.from("hmp_client_conversations").upsert(row, { onConflict: "inquiry_id" });
     if (error) return json({ error: "Private link could not be created" }, 502);
     const clientUrl = `https://hmpeds.com/conversation#token=${token}`;
-    const emailed = action === "send-link"
-      ? await sendAccessLink(inquiry, clientUrl).catch(() => false)
+    const emailed = action === "send-link" || action === "reset-pin"
+      ? await sendAccessLink(inquiry, clientUrl, fetchFn).catch(() => false)
       : false;
     return json({
       ok: true,
       conversationId,
       clientUrl,
       expiresAt,
-      ...(action === "send-link" ? { emailed } : {}),
+      ...(action === "send-link" || action === "reset-pin" ? { emailed } : {}),
     });
   }
 

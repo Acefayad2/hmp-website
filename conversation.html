@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="conversation.css?v=20260915-2" />
+    <link rel="stylesheet" href="conversation.css?v=20260928-pin" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
   </head>
@@ -44,6 +44,19 @@
           <h3>We couldn’t open this conversation.</h3>
           <p>This private link may be incomplete or expired. Contact <a href="mailto:info@hmpeds.com">info@hmpeds.com</a> for a new link.</p>
         </div>
+        <form class="client-pin-form" id="client-pin-form" hidden>
+          <p id="client-pin-help">Enter your 6-digit PIN to continue.</p>
+          <label for="client-pin">PIN</label>
+          <input id="client-pin" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="current-password" required />
+          <div id="client-pin-confirm-group" hidden>
+            <label for="client-pin-confirm">Confirm PIN</label>
+            <input id="client-pin-confirm" type="password" inputmode="numeric" pattern="[0-9]{6}" minlength="6" maxlength="6" autocomplete="new-password" />
+          </div>
+          <p id="client-pin-status" role="alert"></p>
+          <button type="submit" id="client-pin-submit">Sign in</button>
+          <p>Forgot your PIN? Only the HMP team can reset it. Contact <a href="mailto:info@hmpeds.com">info@hmpeds.com</a>.</p>
+        </form>
+        <button class="client-sign-out" type="button" id="client-sign-out" hidden>Sign out of client portal</button>
         <div class="message-list" id="message-list" hidden></div>
         <div class="message-empty" id="message-empty" hidden>
           <span>☾</span>
@@ -65,6 +78,6 @@
       </section>
     </main>
     <footer><span>HMP Luxury Event Services</span><a href="mailto:info@hmpeds.com">info@hmpeds.com</a></footer>
-    <script type="module" src="conversation.js?v=20260923-4"></script>
+    <script type="module" src="conversation.js?v=20260928-pin"></script>
   </body>
 </html>
