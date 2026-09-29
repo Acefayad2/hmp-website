@@ -6,7 +6,7 @@ const sections = [
   ["forms", "Search forms", "Form name, payment receipt, bank, contact…", ".client-form-card, #receipt-template", ["client-google-forms"]],
   ["invoice", "Search invoices", "Invoice number, client, event, status…", ".invoice-list-row", ["invoice-list"]],
   ["contract", "Search contracts", "Client, email, contract, service, status…", ".contract-list-row, .agreement-template, .agreement-row", ["contract-list", "agreement-template-list", "agreement-list"]],
-  ["reviews", "Search reviews", "Client, review text, service, request status…", ".review-list-row, #review-requests-list .agreement-row", ["review-list", "review-requests-list"]],
+  ["reviews", "Search reviews", "Client, review text, service, request status…", ".review-list-row, .archived-review, #review-requests-list .agreement-row", ["review-list", "review-archive-list", "review-requests-list"]],
 ];
 
 for (const [section, label, placeholder, items, lists] of sections) {

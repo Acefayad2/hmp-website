@@ -54,6 +54,7 @@ const normalizeReview = (record: Record<string, unknown>) => ({
   service: record.service || "",
   rating: number(record.rating, 5),
   published: Boolean(record.published),
+  archivedAt: record.archived_at || null,
   clientSubmitted: Boolean(record.source_request_id),
   displayOrder: number(record.display_order),
   createdAt: record.created_at || "",
@@ -100,24 +101,31 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
     const user = adminRequest ? await requireAdmin(getUserFn) : null;
     if (adminRequest && !user) return json({ error: "Unauthorized" }, 401);
 
-    let query = client
-      .from("hmp_admin_reviews")
-      .select("*")
-      .eq("is_placeholder", false)
-      .order("display_order", { ascending: true })
-      .order("created_at", { ascending: false })
-      .limit(100);
-    if (!adminRequest) query = query.eq("published", true);
+    const records: Record<string, unknown>[] = [];
+    for (let offset = 0; ; offset += 100) {
+      let query = client
+        .from("hmp_admin_reviews")
+        .select("*")
+        .eq("is_placeholder", false)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true });
+      query = adminRequest
+        ? query.range(offset, offset + 99)
+        : query.limit(100).eq("published", true).is("archived_at", null);
 
-    const { data, error } = await query;
-    if (error) {
-      console.error("Supabase review read failed", error.code);
-      return json({ error: "Review data is unavailable" }, 502);
+      const { data, error } = await query;
+      if (error) {
+        console.error("Supabase review read failed", error.code);
+        return json({ error: "Review data is unavailable" }, 502);
+      }
+      records.push(...(data || []));
+      if (!adminRequest || !data || data.length < 100) break;
     }
 
     return json(
       {
-        reviews: (data || []).map((record) => normalizeReview(record)),
+        reviews: records.map((record) => normalizeReview(record)),
         updatedAt: new Date().toISOString(),
       },
       200,
@@ -127,6 +135,35 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
 
   const user = await requireAdmin(getUserFn);
   if (!user) return json({ error: "Unauthorized" }, 401);
+
+  // Keep DELETE compatible with older open Admin tabs, but never remove a row.
+  if (request.method === "DELETE" || request.method === "PATCH") {
+    let body: Record<string, unknown>;
+    try {
+      body = await request.clone().json();
+      if (!body || typeof body !== "object") throw new Error("Invalid request");
+    } catch {
+      return json({ error: "Invalid request" }, 400);
+    }
+    if (request.method === "DELETE" || body.action === "archive" || body.action === "restore") {
+      const id = text(body.id, 36);
+      if (!uuidPattern.test(id)) return json({ error: "Invalid review" }, 400);
+      const restore = request.method === "PATCH" && body.action === "restore";
+      const now = new Date().toISOString();
+      let query = client.from("hmp_admin_reviews")
+        .update({ archived_at: restore ? null : now, published: false, updated_at: now })
+        .eq("id", id);
+      if (restore) query = query.not("archived_at", "is", null);
+      const { data, error } = await query.select("*").maybeSingle();
+      if (error) {
+        console.error("Supabase review archive change failed", error.code);
+        return json({ error: `Review could not be ${restore ? "restored" : "archived"}` }, 502);
+      }
+      if (!data) return json({ error: restore ? "Archived review not found" : "Review not found" }, 404);
+      return json({ ok: true, review: normalizeReview(data) });
+    }
+    if (body.action !== undefined) return json({ error: "Invalid review action" }, 400);
+  }
 
   if (request.method === "POST" || request.method === "PATCH") {
     let body: Record<string, unknown>;
@@ -165,6 +202,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
       .from("hmp_admin_reviews")
       .update(payload)
       .eq("id", id)
+      .is("archived_at", null)
       .select("*")
       .single();
     if (error) {
@@ -173,33 +211,13 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
         {
           error:
             error.code === "PGRST116"
-              ? "Review not found"
+              ? "Review not found or archived. Refresh the list and restore it before editing."
               : "Review could not be saved",
         },
         error.code === "PGRST116" ? 404 : 502,
       );
     }
     return json({ ok: true, review: normalizeReview(data) });
-  }
-
-  if (request.method === "DELETE") {
-    let body: Record<string, unknown>;
-    try {
-      body = await request.json();
-    } catch {
-      return json({ error: "Invalid request" }, 400);
-    }
-    const id = text(body.id, 36);
-    if (!uuidPattern.test(id)) return json({ error: "Invalid review" }, 400);
-    const { error } = await client
-      .from("hmp_admin_reviews")
-      .delete()
-      .eq("id", id);
-    if (error) {
-      console.error("Supabase review delete failed", error.code);
-      return json({ error: "Review could not be deleted" }, 502);
-    }
-    return json({ ok: true });
   }
 
   return json({ error: "Method not allowed" }, 405);

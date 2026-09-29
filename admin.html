@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260925-receipts" />
+    <link rel="stylesheet" href="admin.css?v=20260929-archive" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
@@ -345,7 +345,7 @@
                 <button class="primary-button workspace-create-button" id="create-review-button" type="button">Add review</button>
               </div>
             </div>
-            <p>Client submissions stay private until you open the review and choose Approve &amp; publish. Delete a review to decline it.</p>
+            <p>Client submissions stay private until you open the review and choose Approve &amp; publish. Archive a review to remove it from the website without deleting it.</p>
             <div class="review-list-panel">
               <div class="review-list-heading">
                 <span>Review</span><span>Client</span><span>Service</span><span>Order</span><span>Status</span>
@@ -353,11 +353,18 @@
               <div id="review-list"></div>
               <div class="review-empty" id="review-empty">
                 <span>HMP</span>
-                <h3>No reviews yet</h3>
-                <p>Add the first testimonial for the HMP website.</p>
+                <h3>No active reviews</h3>
+                <p>Add a testimonial or restore a review from the archive below.</p>
                 <button class="text-button" id="empty-create-review" type="button">Add review</button>
               </div>
             </div>
+            <section class="agreement-templates" id="archived-reviews" aria-labelledby="archived-reviews-title">
+              <h3 id="archived-reviews-title">Archived reviews</h3>
+              <p>Kept privately for your records. Restore a review to the active list, then approve it when you’re ready to publish.</p>
+              <p id="review-archive-message" role="status" aria-live="polite"></p>
+              <p id="review-archive-empty">No archived reviews.</p>
+              <div id="review-archive-list"></div>
+            </section>
           </section>
 
           <section class="workspace-empty" id="workspace-empty" hidden>
@@ -718,7 +725,7 @@
             <label><input id="review-published" name="published" type="checkbox" /><span><strong>Approved for website</strong><small>Publish only after you have reviewed and approved the content</small></span></label>
           </div>
           <div class="review-form-actions">
-            <button class="review-delete-button" id="delete-review" type="button" hidden>Delete review</button>
+            <button class="review-delete-button" id="delete-review" type="button" hidden>Archive review</button>
             <p class="form-message" id="review-editor-message" role="status"></p>
             <div class="review-save-actions">
               <button class="primary-button" id="approve-review" type="button" hidden>Approve &amp; publish</button>
@@ -730,6 +737,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260929-search"></script>
+    <script type="module" src="assets/admin.js?v=20260929-archive"></script>
   </body>
 </html>

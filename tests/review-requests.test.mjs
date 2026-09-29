@@ -16,6 +16,8 @@ function database(requests=[], reviews=[]) {
     let filters=[],operation="read",payload,ignore=false;
     const q={
       select(){return this;},order(){return this;},limit(){return this;},
+      range(){return this;},
+      is(k,v){filters.push(row=>(row[k] ?? null)===v);return this;},
       eq(k,v){filters.push(row=>row[k]===v);return this;},
       insert(v){operation="insert";payload=v;return this;},
       upsert(v,opts){operation="insert";payload=v;ignore=opts?.ignoreDuplicates;return this;},

@@ -1203,13 +1203,28 @@ const sendContract = async () => {
 const renderReviews = () => {
   const list = $("#review-list");
   const empty = $("#review-empty");
-  empty.hidden = reviews.length > 0;
-  list.hidden = reviews.length === 0;
+  const active = reviews.filter((review) => !review.archivedAt);
+  const archived = reviews.filter((review) => review.archivedAt)
+    .sort((a, b) => String(b.archivedAt).localeCompare(String(a.archivedAt)));
+  empty.hidden = active.length > 0;
+  list.hidden = active.length === 0;
+  $("#review-archive-empty").hidden = archived.length > 0;
+  $("#review-archive-list").innerHTML = archived.map((review) => `
+    <article class="archived-review">
+      <div>
+        <span class="status-pill">Archived · Not published</span>
+        <h4>${escapeHTML(review.reviewerName)}</h4>
+        <p>${escapeHTML(review.reviewerRole || "Client")} · ${escapeHTML(eventServiceLabel(review.service) || "General HMP experience")} · ${escapeHTML(review.rating || 5)} / 5</p>
+        <p class="archived-review-text">${escapeHTML(review.reviewText)}</p>
+        <small>Archived ${escapeHTML(new Date(review.archivedAt).toLocaleDateString())}</small>
+      </div>
+      <button class="primary-button" type="button" data-restore-review="${escapeHTML(review.id)}" aria-label="Restore review from ${escapeHTML(review.reviewerName)}">Restore review</button>
+    </article>`).join("");
   const moons = (rating) => Array.from(
     { length: Math.min(5, Math.max(1, Number(rating) || 5)) },
     () => '<span class="review-list-moon" aria-hidden="true"></span>',
   ).join("");
-  list.innerHTML = reviews
+  list.innerHTML = active
     .map(
       (review) => `
         <button class="review-list-row" type="button" data-review-id="${escapeHTML(review.id)}">
@@ -1326,12 +1341,12 @@ const saveReview = async (event) => {
   }
 };
 
-const deleteReview = async () => {
+const archiveReview = async () => {
   const review = reviews.find((item) => item.id === activeReviewId);
-  if (!review || !window.confirm(`Delete the review from ${review.reviewerName}?`)) return;
+  if (!review || !window.confirm(`Archive the review from ${review.reviewerName}? It will be removed from the website and kept below the active reviews. You can restore it later.`)) return;
   const button = $("#delete-review");
   button.disabled = true;
-  setMessage($("#review-editor-message"), "Deleting review…");
+  setMessage($("#review-editor-message"), "Archiving review…");
   try {
     const response = await fetch("/api/hmp-reviews", {
       method: "DELETE",
@@ -1340,15 +1355,39 @@ const deleteReview = async () => {
       body: JSON.stringify({ id: activeReviewId }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Review could not be deleted.");
-    reviews = reviews.filter((item) => item.id !== activeReviewId);
+    if (!response.ok) throw new Error(data.error || "Review could not be archived.");
+    reviews = reviews.map((item) => item.id === review.id ? data.review : item);
     renderReviews();
     $("#review-editor-dialog").close();
+    setMessage($("#review-archive-message"), "Review archived privately. You can restore it below.", true);
+    $("#review-archive-message").scrollIntoView({ block: "nearest" });
   } catch (error) {
-    setMessage($("#review-editor-message"), error.message || "Review could not be deleted.");
+    setMessage($("#review-editor-message"), error.message || "Review could not be archived.");
   } finally {
     button.disabled = false;
   }
+};
+
+const restoreReview = async (event) => {
+  const button = event.target.closest("[data-restore-review]");
+  if (!button) return;
+  button.disabled = true;
+  setMessage($("#review-archive-message"), "Restoring review…");
+  try {
+    const response = await fetch("/api/hmp-reviews", {
+      method: "PATCH", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: button.dataset.restoreReview, action: "restore" }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Review could not be restored.");
+    reviews = reviews.map((item) => item.id === data.review.id ? data.review : item);
+    renderReviews();
+    setMessage($("#review-archive-message"), "Review restored to the active list. It remains private until you approve & publish it.", true);
+    openReviewEditor(data.review);
+  } catch (error) {
+    setMessage($("#review-archive-message"), error.message || "Review could not be restored.");
+  } finally { button.disabled = false; }
 };
 
 const saveInvoice = async ({ quiet = false } = {}) => {
@@ -1785,7 +1824,8 @@ $("#review-services").addEventListener("change", (event) => {
     if (general) general.checked = false;
   }
 });
-$("#delete-review").addEventListener("click", deleteReview);
+$("#delete-review").addEventListener("click", archiveReview);
+$("#review-archive-list").addEventListener("click", restoreReview);
 $("#review-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-review-id]");
   if (!row) return;

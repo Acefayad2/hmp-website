@@ -4,7 +4,7 @@ const dialog=$("#review-request-dialog"), form=$("#review-request-form"), messag
 const panel=document.createElement("section");
 panel.className="agreement-templates";
 panel.innerHTML='<h3>Email review requests</h3><p id="review-requests-status" class="agreement-status" role="status"></p><div id="review-requests-list" class="agreement-list"></div>';
-$("#reviews-workspace").append(panel);
+$("#reviews-workspace").insertBefore(panel, $("#archived-reviews"));
 let requests=[], requestId="", busy=false;
 const request = async (body) => {
   const response=await fetch("/api/hmp-review-requests",{method:body ? "POST" : "GET",credentials:"same-origin",cache:"no-store",...(body ? {headers:{"Content-Type":"application/json"},body:JSON.stringify(body)} : {})});
