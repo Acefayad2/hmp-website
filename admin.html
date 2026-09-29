@@ -21,6 +21,7 @@
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
+    <link rel="stylesheet" href="page-search.css?v=20260929-1" />
   </head>
   <body>
     <main id="admin-root" aria-live="polite">
@@ -120,7 +121,8 @@
                   <p id="result-count" role="status">Loading submissions…</p>
                 </div>
                 <div class="filters">
-                  <label class="search-field"><span>Search</span><input id="search-input" type="search" placeholder="Name, email, service…" /></label>
+                  <label class="search-field"><span>Search inquiries</span><input id="search-input" type="search" placeholder="Client, email, event, service, status…" aria-controls="inquiry-list" /></label>
+                  <button type="button" class="text-button" id="clear-inquiry-search">Clear search</button>
                   <label><span>Service</span><select id="service-filter"><option value="">All services</option></select></label>
                 </div>
               </div>
@@ -250,7 +252,7 @@
           </section>
 
           <section class="invoice-workspace" id="forms-workspace" aria-labelledby="client-forms-heading" hidden>
-            <section class="agreement-templates" aria-labelledby="receipt-template-heading">
+            <section class="agreement-templates" id="receipt-template" aria-labelledby="receipt-template-heading">
               <p class="kicker">After payment</p>
               <h2 id="receipt-template-heading">Payment receipts</h2>
               <p>Prepare a branded receipt from a paid invoice, then save a PDF to share with your client.</p>
@@ -728,6 +730,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260929-forms"></script>
+    <script type="module" src="assets/admin.js?v=20260929-search"></script>
   </body>
 </html>

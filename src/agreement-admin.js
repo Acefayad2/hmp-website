@@ -1,5 +1,6 @@
 import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
 import terms from "../data/agreement-terms.json";
+import { searchText } from "../page-search.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "../agreement-ui.mjs";
 
 const $ = selector => document.querySelector(selector);
@@ -30,7 +31,7 @@ export async function loadAgreementForms() {
     const {agreements} = await agreementRequest(endpoint);
     message.classList.add("neutral");
     message.textContent = agreements.length ? "" : "No agreement records yet. Choose a template above to get started.";
-    $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}"><span><strong>${escape(row.client_name)}</strong><small>${escape(agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");
+    $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");
   } catch (error) { message.classList.remove("neutral"); message.textContent = error.message; }
 }
 $("#agreement-list").addEventListener("click", async event => {

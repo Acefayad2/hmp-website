@@ -1,4 +1,5 @@
 import { parseProposal, renderProposalCard } from "../proposal-ui.js";
+import { searchText } from "../page-search.js";
 
 export const collectProposals = (threads = []) => threads.flatMap((thread) =>
   (thread.messages || []).flatMap((message) => {
@@ -24,7 +25,7 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
   const records = collectProposals(threads);
   document.querySelector("#proposal-workspace-empty").hidden = records.length > 0;
   document.querySelector("#proposal-workspace-count").textContent = `${records.length} sent proposal${records.length === 1 ? "" : "s"}`;
-  const signature = JSON.stringify(records.map(({ thread, message }) => [thread.id, thread.clientName, message.id, message.body, message.createdAt]));
+  const signature = JSON.stringify(records.map(({ thread, message }) => [thread.id, thread.clientName, thread.clientEmail, message.id, message.body, message.createdAt]));
   if (signature === renderedSignature) return;
   renderedSignature = signature;
   const list = document.querySelector("#proposal-workspace-list");
@@ -34,6 +35,7 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
     const record = document.createElement("details");
     record.className = "proposal-record";
     record.dataset.proposalId = message.id;
+    record.dataset.searchText = searchText(thread.clientEmail, thread.service, proposal.serviceFee, message.createdAt);
     record.open = expanded.has(message.id);
     const summary = document.createElement("summary");
     const title = document.createElement("strong");

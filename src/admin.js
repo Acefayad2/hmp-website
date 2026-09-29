@@ -5,6 +5,8 @@ import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
+import "./admin-search.js";
+import { matchesSearch, searchText } from "../page-search.js";
 import {
   acceptInvite,
   getUser,
@@ -267,15 +269,15 @@ const filteredInquiries = () => {
   const query = $("#search-input").value.trim().toLowerCase();
   const service = $("#service-filter").value;
   return inquiryGroups(inquiries)[activeInquiryFilter].filter((item) => {
-    const haystack = [item.name, item.email, item.phone, eventServiceLabel(item.service), item.location, item.celebrationType]
-      .join(" ")
-      .toLowerCase();
-    return (!query || haystack.includes(query)) && (!service || eventServiceLabel(item.service) === service);
+    const haystack = searchText(item.name, item.email, item.phone, eventServiceLabel(item.service), item.location,
+      item.celebrationType, item.celebrationDate, formatDate(item.celebrationDate), item.status, item.message, item.notes);
+    return matchesSearch(haystack, query) && (!service || eventServiceLabel(item.service) === service);
   });
 };
 
 const renderInquiries = () => {
   const filtered = filteredInquiries();
+  $("#clear-inquiry-search").disabled = !$("#search-input").value;
   $("#inquiry-list-title").textContent = inquiryFilterTitles[activeInquiryFilter];
   document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
     const selected = button.dataset.inquiryFilter === activeInquiryFilter;
@@ -682,6 +684,10 @@ const renderMessageThreads = () => {
     button.type = "button";
     button.className = "thread-row";
     button.dataset.threadId = thread.id;
+    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.service,
+      (thread.messages || []).map(message => [message.body, message.createdAt,
+        (message.attachments || []).map(file => file.name), message.document?.number,
+        message.document?.event_name, message.document?.notes]));
     if (thread.id === activeThreadId) button.classList.add("active");
     const top = document.createElement("span");
     const name = document.createElement("strong");
@@ -1022,7 +1028,7 @@ const renderInvoices = () => {
   list.innerHTML = invoices
     .map(
       (invoice) => `
-        <button class="invoice-list-row" type="button" data-invoice-id="${escapeHTML(invoice.id)}">
+        <button class="invoice-list-row" type="button" data-invoice-id="${escapeHTML(invoice.id)}" data-search-text="${escapeHTML(searchText(invoice.eventName, invoice.eventAddress, invoice.eventDate, invoice.clientPhone, invoice.notes, invoice.paymentTerms, invoice.total, (invoice.items || []).map(item => item.description)))}">
           <span><strong>${escapeHTML(invoice.invoiceNumber)}</strong><small>${escapeHTML(formatDate(invoice.issueDate))}</small></span>
           <span><strong>${escapeHTML(invoice.clientName)}</strong><small>${escapeHTML(invoice.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(invoice.dueDate))}</span>
@@ -1100,7 +1106,7 @@ const renderContracts = () => {
   list.innerHTML = contracts
     .map(
       (contract) => `
-        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}">
+        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
           <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
           <span><strong>${escapeHTML(contract.clientName)}</strong><small>${escapeHTML(contract.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(contract.eventDate))}</span>
@@ -1548,6 +1554,13 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("focus", () => syncActiveWorkspace().catch(() => {}));
 $("#search-input").addEventListener("input", renderInquiries);
+$("#search-input").addEventListener("search", renderInquiries);
+$("#clear-inquiry-search").addEventListener("click", () => {
+  $("#search-input").value = ""; renderInquiries(); $("#search-input").focus();
+});
+$("#search-input").addEventListener("keydown", event => {
+  if (event.key === "Escape") { event.preventDefault(); $("#search-input").value = ""; renderInquiries(); }
+});
 $("#service-filter").addEventListener("change", renderInquiries);
 document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
   button.addEventListener("click", () => {

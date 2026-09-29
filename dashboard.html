@@ -17,6 +17,7 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="dashboard.css?v=20260908-1" />
+    <link rel="stylesheet" href="page-search.css?v=20260929-1" />
   </head>
   <body>
     <a class="skip-link" href="#workspace-list">Skip to workspaces</a>
@@ -34,11 +35,12 @@
         <p>Choose the workspace that matches what you are working on.</p>
       </section>
 
+      <div id="hub-search"></div>
       <section class="workspace-list" id="workspace-list" aria-label="HMP workspaces">
         <a class="workspace workspace-primary" href="/admin">
           <span class="workspace-copy">
             <strong>Website Admin</strong>
-            <small>Inquiries, client messages, invoices, contracts, events, and reviews.</small>
+            <small>Inquiries, client messages, proposals, forms, invoices, contracts, and reviews.</small>
           </span>
           <span class="workspace-action">Open admin <span aria-hidden="true">&rarr;</span></span>
         </a>
@@ -65,5 +67,6 @@
         <a href="mailto:info@hmpeds.com">Need help?</a>
       </footer>
     </main>
+    <script type="module" src="dashboard-search.js?v=20260929-1"></script>
   </body>
 </html>

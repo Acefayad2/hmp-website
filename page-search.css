@@ -1,0 +1,14 @@
+[data-search-hidden="true"] { display:none !important; }
+.filters #clear-inquiry-search { grid-row:2; grid-column:1/-1; justify-self:start; min-height:36px; }
+.filters input[type="search"] { font-size:16px; }
+.page-search { margin:0 0 24px; padding:18px 20px; border:1px solid #d9c7c0; border-radius:16px; background:#fffdf9; color:#4c3335; }
+.page-search > label { display:block; margin-bottom:10px; font-size:16px; font-weight:700; }
+.page-search-row { display:flex; align-items:stretch; gap:12px; }
+.page-search input { box-sizing:border-box; flex:1; width:100%; min-width:0; min-height:48px; border:1px solid #bba6a2; border-radius:10px; padding:12px 14px; background:white; color:#332527; font:inherit; font-size:16px; }
+.page-search input::placeholder { color:#756568; opacity:1; }
+.page-search button { flex:none; min-height:48px; padding:10px 18px; border:1px solid #68474a; border-radius:10px; background:#68474a; color:#fffdf9; font:inherit; cursor:pointer; }
+.page-search button:disabled { opacity:.55; cursor:default; }
+.page-search :focus-visible { outline:3px solid #a66e39; outline-offset:3px; }
+.page-search > p { margin:10px 0 0; font-size:14px; line-height:1.5; }
+.page-search > p:empty { display:none; }
+@media(max-width:600px) { .page-search { padding:16px; } .page-search-row { gap:8px; } .page-search button { padding:10px 12px; } }
