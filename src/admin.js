@@ -1,5 +1,6 @@
 import { loadAgreementForms } from "./agreement-admin.js";
 import "./receipt-admin.js";
+import "./client-forms.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
@@ -168,7 +169,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
   }
-  if (isForms) loadAgreementForms();
+  if (isContracts) loadAgreementForms();
   if (isProposals) {
     setMessage($("#proposal-workspace-status"), "Loading proposals…");
     loadMessages().then(() => setMessage($("#proposal-workspace-status"), "")).catch((error) => {
@@ -1439,10 +1440,10 @@ const loadDashboard = async () => {
 const loadActiveWorkspace = () => {
   if (activeWorkspaceView === "reviews") return loadReviews();
   if (activeWorkspaceView === "invoices") return loadInvoices();
-  if (activeWorkspaceView === "contracts") return loadContracts();
+  if (activeWorkspaceView === "contracts") return Promise.all([loadContracts(), loadAgreementForms()]);
   if (activeWorkspaceView === "messages") return loadMessages();
   if (activeWorkspaceView === "proposals") return loadMessages();
-  if (activeWorkspaceView === "forms") return loadAgreementForms();
+  if (activeWorkspaceView === "forms") return Promise.resolve();
   return loadDashboard();
 };
 

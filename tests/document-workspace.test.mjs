@@ -50,7 +50,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
   assert.equal($("#invoice-workspace").hidden, true);
   assert.equal($("#contract-workspace").hidden, true);
   assert.equal(links[0].attributes["aria-current"], undefined);
-  assert.deepEqual(calls, ["Invoices", "Contracts", "Messages"]);
+  assert.deepEqual(calls, ["Invoices", "AgreementForms", "Contracts", "Messages"]);
   assert.deepEqual(paths, ["/admin?view=invoices", "/admin?view=contracts", "/admin?view=messages"]);
   for (const view of ["forms", "events"]) {
     navigate(view, true);
@@ -62,7 +62,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
     assert.equal(links[2].attributes["aria-current"], "page");
     assert.equal(links[0].attributes["aria-current"], undefined);
     assert.equal(paths.at(-1), "/admin?view=forms");
-    assert.equal(calls.at(-1), "AgreementForms");
+    assert.equal(calls.at(-1), "Messages", "Google Forms navigation must not fetch agreement records");
   }
   navigate("invoices");
   assert.equal($("#forms-workspace").hidden, true);
@@ -92,16 +92,23 @@ test("sidebar has one document entry and both accessible tab panels remain avail
   assert.match(html, /data-workspace-view="proposals">Proposals<\/a>/);
   assert.doesNotMatch(html, /data-workspace-view="events"/);
   const forms = html.slice(html.indexOf('id="forms-workspace"'), html.indexOf('id="contract-workspace"'));
-  assert.match(forms, /id="agreement-template-list"/);
-  assert.match(forms, /id="agreement-list"/);
-  assert.doesNotMatch(html.slice(html.indexOf('id="contract-workspace"')), /id="agreement-template-list"/);
+  assert.match(forms, /id="client-google-forms"/);
+  assert.doesNotMatch(forms, /id="agreement-template-list"/);
+  assert.match(html.slice(html.indexOf('id="contract-workspace"')), /id="agreement-template-list"/);
+  assert.match(html.slice(html.indexOf('id="contract-workspace"')), /id="agreement-list"/);
 });
 
-test("Forms refreshes its records independently of contracts", () => {
+test("Google Forms needs no records fetch and Contracts refreshes both agreement collections", async () => {
   const loader = source.slice(source.indexOf("const loadActiveWorkspace ="), source.indexOf("const syncActiveWorkspace ="));
   let loaded = false;
   runInNewContext(`const activeWorkspaceView = "forms"; ${loader}; loadActiveWorkspace();`, {
     loadAgreementForms: () => { loaded = true; },
   });
-  assert.equal(loaded, true);
+  assert.equal(loaded, false);
+  const calls = [];
+  await runInNewContext(`const activeWorkspaceView = "contracts"; ${loader}; loadActiveWorkspace();`, {
+    loadAgreementForms: () => { calls.push("agreements"); return Promise.resolve(); },
+    loadContracts: () => { calls.push("contracts"); return Promise.resolve(); },
+  });
+  assert.deepEqual(calls, ["contracts", "agreements"]);
 });

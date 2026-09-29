@@ -15,7 +15,7 @@ dialog.addEventListener("cancel", event => {
 window.addEventListener("beforeunload", event => { if (dirty) {event.preventDefault(); event.returnValue = "";} });
 
 const templateList = $("#agreement-template-list");
-templateList.innerHTML = agreementTemplates.map(template => `<button class="agreement-template" type="button" data-template="${template.id}"><strong>${escape(template.title)}</strong><span>Prepare client form →</span></button>`).join("");
+templateList.innerHTML = agreementTemplates.map(template => `<button class="agreement-template" type="button" data-template="${template.id}"><strong>${escape(template.title)}</strong><span>Prepare agreement →</span></button>`).join("");
 templateList.addEventListener("click", event => {
   const button = event.target.closest("[data-template]");
   if (!button) return;
@@ -29,7 +29,7 @@ export async function loadAgreementForms() {
   try {
     const {agreements} = await agreementRequest(endpoint);
     message.classList.add("neutral");
-    message.textContent = agreements.length ? "" : "No client forms yet. Choose a template above to get started.";
+    message.textContent = agreements.length ? "" : "No agreement records yet. Choose a template above to get started.";
     $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}"><span><strong>${escape(row.client_name)}</strong><small>${escape(agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");
   } catch (error) { message.classList.remove("neutral"); message.textContent = error.message; }
 }

@@ -14,6 +14,12 @@
 .agreement-template strong, .agreement-template span { display:block; }
 .agreement-template span { margin-top:12px; font-size:14px; }
 .agreement-template:hover { background:#eddfd8; }
+.client-form-card { min-width:0; padding:20px; border:1px solid #d9c7c0; border-radius:16px; background:#fff8f1; color:#4c3335; }
+.client-form-card h3 { line-height:1.4; }
+.client-form-link { box-sizing:border-box; width:100%; min-width:0; padding:10px; border:1px solid #bba6a2; border-radius:8px; background:#fffdf9; color:#4c3335; font-size:16px; }
+.client-form-card .agreement-status { margin-bottom:0; font-size:14px; }
+.client-form-card :focus-visible { outline:3px solid #9b6635; outline-offset:3px; }
+.client-form-card .sr-only { position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0; }
 .agreement-button { display:inline-block; border:1px solid #5f3f41; border-radius:28px; padding:12px 20px; background:#5f3f41; color:#fff8f1; font:inherit; cursor:pointer; text-decoration:none; }
 .agreement-button.secondary { background:#fff8f1; color:#5f3f41; }
 .agreement-button:disabled { opacity:.5; cursor:wait; }

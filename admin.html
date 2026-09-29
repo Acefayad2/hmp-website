@@ -20,7 +20,7 @@
     <link rel="stylesheet" href="admin.css?v=20260925-receipts" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
-    <link rel="stylesheet" href="agreement.css?v=20260923-1" />
+    <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
   </head>
   <body>
     <main id="admin-root" aria-live="polite">
@@ -257,17 +257,54 @@
               <button class="agreement-button" id="create-receipt" type="button">Create payment receipt</button>
             </section>
             <section class="agreement-templates" aria-labelledby="client-forms-heading">
-              <p class="kicker">Complete & sign online</p>
+              <p class="kicker">Google Forms</p>
               <h2 id="client-forms-heading">Client forms</h2>
-              <p>Choose an agreement, prepare the service details, and send a private link. Completed forms and signatures return here automatically.</p>
-              <div class="agreement-grid" id="agreement-template-list"></div>
-              <h3>Client form records</h3>
-              <p id="agreement-list-message" class="agreement-status" role="status"></p>
-              <div id="agreement-list" class="agreement-list"></div>
+              <p>Open a form or copy its link to share with your client. Responses are collected in Google Forms, not in this portal.</p>
+              <div class="agreement-grid" id="client-google-forms">
+                <article class="client-form-card">
+                  <h3>Money Table Service — Event Information</h3>
+                  <div class="agreement-actions">
+                    <a class="agreement-button" href="https://forms.gle/97eLqmLSMDEJLdGbA" target="_blank" rel="noopener noreferrer">Open form <span class="sr-only">(opens in a new tab)</span>↗</a>
+                    <button class="agreement-button secondary" type="button" data-copy-form>Copy link</button>
+                  </div>
+                  <input class="client-form-link" aria-label="Money Table form link" readonly value="https://forms.gle/97eLqmLSMDEJLdGbA">
+                  <p class="agreement-status neutral" role="status"></p>
+                </article>
+                <article class="client-form-card">
+                  <h3>Money Table Service — Collection Contacts</h3>
+                  <p>Point-of-contact details and instructions for releasing collected funds.</p>
+                  <div class="agreement-actions">
+                    <a class="agreement-button" href="https://forms.gle/SAA8R6KxTfwtijct5" target="_blank" rel="noopener noreferrer">Open form <span class="sr-only">(opens in a new tab)</span>↗</a>
+                    <button class="agreement-button secondary" type="button" data-copy-form>Copy link</button>
+                  </div>
+                  <input class="client-form-link" aria-label="Collection contacts form link" readonly value="https://forms.gle/SAA8R6KxTfwtijct5">
+                  <p class="agreement-status neutral" role="status"></p>
+                </article>
+                <article class="client-form-card">
+                  <h3>Money Table Service — Bank &amp; Payment Details</h3>
+                  <p>Change-bank amount, delivery contact, digital payments, and fund-release details.</p>
+                  <div class="agreement-actions">
+                    <a class="agreement-button" href="https://forms.gle/zcJ5KvacooVQPRBi9" target="_blank" rel="noopener noreferrer">Open form <span class="sr-only">(opens in a new tab)</span>↗</a>
+                    <button class="agreement-button secondary" type="button" data-copy-form>Copy link</button>
+                  </div>
+                  <input class="client-form-link" aria-label="Bank and payment details form link" readonly value="https://forms.gle/zcJ5KvacooVQPRBi9">
+                  <p class="agreement-status neutral" role="status"></p>
+                </article>
+              </div>
+              <p>Service agreements and signed records are available under Invoices &amp; Contracts → Contracts.</p>
             </section>
           </section>
 
           <section class="invoice-workspace" id="contract-workspace" role="tabpanel" aria-labelledby="contracts-tab" tabindex="0" hidden>
+            <section class="agreement-templates" aria-labelledby="agreement-templates-heading">
+              <p class="kicker">Complete &amp; sign online</p>
+              <h2 id="agreement-templates-heading">Service agreement templates</h2>
+              <p>Prepare the service details and send a private signing link. Completed agreements and signatures return here automatically.</p>
+              <div class="agreement-grid" id="agreement-template-list"></div>
+              <h3>Agreement records</h3>
+              <p id="agreement-list-message" class="agreement-status" role="status"></p>
+              <div id="agreement-list" class="agreement-list"></div>
+            </section>
             <div class="workspace-section-header">
               <div>
                 <p class="kicker">Agreement workspace</p>
@@ -691,6 +728,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260928-pin"></script>
+    <script type="module" src="assets/admin.js?v=20260929-forms"></script>
   </body>
 </html>
