@@ -27,7 +27,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
     $, document: { querySelectorAll: (selector) => selector === "[data-document-view]" ? tabs : links },
     setMessage: (node, text) => { node.textContent = text; },
     history: { pushState: (_, __, path) => paths.push(path) },
-    ...Object.fromEntries(["Invoices", "Contracts", "Messages", "Reviews", "AgreementForms"].map((name) => [
+    ...Object.fromEntries(["Invoices", "Contracts", "Messages", "Reviews", "AgreementForms", "InformationForms"].map((name) => [
       `load${name}`, () => { calls.push(name); return Promise.resolve(); },
     ])),
   };
@@ -62,7 +62,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
     assert.equal(links[2].attributes["aria-current"], "page");
     assert.equal(links[0].attributes["aria-current"], undefined);
     assert.equal(paths.at(-1), "/admin?view=forms");
-    assert.equal(calls.at(-1), "Messages", "Google Forms navigation must not fetch agreement records");
+    assert.equal(calls.at(-1), "InformationForms", "Forms navigation loads saved native responses");
   }
   navigate("invoices");
   assert.equal($("#forms-workspace").hidden, true);
@@ -98,13 +98,13 @@ test("sidebar has one document entry and both accessible tab panels remain avail
   assert.match(html.slice(html.indexOf('id="contract-workspace"')), /id="agreement-list"/);
 });
 
-test("Google Forms needs no records fetch and Contracts refreshes both agreement collections", async () => {
+test("Forms refreshes native responses and Contracts refreshes both agreement collections", async () => {
   const loader = source.slice(source.indexOf("const loadActiveWorkspace ="), source.indexOf("const syncActiveWorkspace ="));
   let loaded = false;
   runInNewContext(`const activeWorkspaceView = "forms"; ${loader}; loadActiveWorkspace();`, {
-    loadAgreementForms: () => { loaded = true; },
+    loadInformationForms: () => { loaded = true; },
   });
-  assert.equal(loaded, false);
+  assert.equal(loaded, true);
   const calls = [];
   await runInNewContext(`const activeWorkspaceView = "contracts"; ${loader}; loadActiveWorkspace();`, {
     loadAgreementForms: () => { calls.push("agreements"); return Promise.resolve(); },

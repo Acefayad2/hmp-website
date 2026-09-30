@@ -1,3 +1,4 @@
+import { informationTemplates } from "./information-form-schema.mjs";
 // Shared field definitions for Admin and the private client form. Terms are versioned separately.
 const field = (id, label, type = "text", required = true, options) => ({ id, label, type, required, ...(options ? { options } : {}) });
 const eventFields = [
@@ -57,7 +58,7 @@ export const agreementTemplates = [
     ],
   },
 ];
-export const getAgreementTemplate = (id) => agreementTemplates.find((item) => item.id === id);
+export const getAgreementTemplate = (id) => [...agreementTemplates, ...informationTemplates].find((item) => item.id === id);
 
 export function validateAnswers(fields, values, requireAll = true) {
   const answers = {};

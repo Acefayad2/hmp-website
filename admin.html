@@ -259,40 +259,14 @@
               <button class="agreement-button" id="create-receipt" type="button">Create payment receipt</button>
             </section>
             <section class="agreement-templates" aria-labelledby="client-forms-heading">
-              <p class="kicker">Google Forms</p>
+              <p class="kicker">Complete online · Saved in HMP</p>
               <h2 id="client-forms-heading">Client forms</h2>
-              <p>Open a form or copy its link to share with your client. Responses are collected in Google Forms, not in this portal.</p>
-              <div class="agreement-grid" id="client-google-forms">
-                <article class="client-form-card">
-                  <h3>Money Table Service — Event Information</h3>
-                  <div class="agreement-actions">
-                    <a class="agreement-button" href="https://forms.gle/97eLqmLSMDEJLdGbA" target="_blank" rel="noopener noreferrer">Open form <span class="sr-only">(opens in a new tab)</span>↗</a>
-                    <button class="agreement-button secondary" type="button" data-copy-form>Copy link</button>
-                  </div>
-                  <input class="client-form-link" aria-label="Money Table form link" readonly value="https://forms.gle/97eLqmLSMDEJLdGbA">
-                  <p class="agreement-status neutral" role="status"></p>
-                </article>
-                <article class="client-form-card">
-                  <h3>Money Table Service — Collection Contacts</h3>
-                  <p>Point-of-contact details and instructions for releasing collected funds.</p>
-                  <div class="agreement-actions">
-                    <a class="agreement-button" href="https://forms.gle/SAA8R6KxTfwtijct5" target="_blank" rel="noopener noreferrer">Open form <span class="sr-only">(opens in a new tab)</span>↗</a>
-                    <button class="agreement-button secondary" type="button" data-copy-form>Copy link</button>
-                  </div>
-                  <input class="client-form-link" aria-label="Collection contacts form link" readonly value="https://forms.gle/SAA8R6KxTfwtijct5">
-                  <p class="agreement-status neutral" role="status"></p>
-                </article>
-                <article class="client-form-card">
-                  <h3>Money Table Service — Bank &amp; Payment Details</h3>
-                  <p>Change-bank amount, delivery contact, digital payments, and fund-release details.</p>
-                  <div class="agreement-actions">
-                    <a class="agreement-button" href="https://forms.gle/zcJ5KvacooVQPRBi9" target="_blank" rel="noopener noreferrer">Open form <span class="sr-only">(opens in a new tab)</span>↗</a>
-                    <button class="agreement-button secondary" type="button" data-copy-form>Copy link</button>
-                  </div>
-                  <input class="client-form-link" aria-label="Bank and payment details form link" readonly value="https://forms.gle/zcJ5KvacooVQPRBi9">
-                  <p class="agreement-status neutral" role="status"></p>
-                </article>
-              </div>
+              <p>Prepare a private form for your client. They complete it on the HMP website, and their responses are stored here. Existing Google Forms responses remain in Google.</p>
+              <div class="agreement-grid" id="client-google-forms"></div>
+              <h3>Client forms &amp; responses</h3>
+              <button class="agreement-button secondary" id="refresh-information-forms" type="button">Refresh responses</button>
+              <p id="information-list-message" class="agreement-status" role="status"></p>
+              <div id="information-list" class="agreement-list"></div>
               <p>Service agreements and signed records are available under Invoices &amp; Contracts → Contracts.</p>
             </section>
           </section>
@@ -737,6 +711,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260929-archive"></script>
+    <script type="module" src="assets/admin.js?v=20260930-native-forms"></script>
   </body>
 </html>

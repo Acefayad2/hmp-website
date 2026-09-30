@@ -13,6 +13,7 @@ export const agreementToken = (id: string, seed: string) => {
 export const privateLink = (row: any) => `https://hmpeds.com/agreement#token=${agreementToken(row.id, row.token_nonce)}`;
 export const snapshotFor = (id: string) => {
   const template = getAgreementTemplate(id);
+  if (template?.kind === "information") return {...template};
   const source = (terms as Record<string, any>)[id];
   if (!template || !source) throw new Error("Choose an agreement template.");
   return { ...template, ...source, signingConsent };
@@ -27,6 +28,10 @@ export const cleanContact = (body: any) => {
 export const signingConsent = "I have reviewed this agreement and the completed details, agree to its terms, and consent to using electronic records and my typed name as my electronic signature. I can print or save a copy. To use a paper form instead, I can contact info@hmpeds.com before signing.";
 export function completionPayload(row: any, body: any, userAgent = "", now = new Date().toISOString()) {
   if (row.status !== "Sent" || !row.expires_at || Date.parse(row.expires_at) <= Date.parse(now)) throw new Error("This agreement is not open for completion.");
+  if (row.snapshot.kind === "information") {
+    const answers = validateAnswers(row.snapshot.clientFields, body.answers);
+    return {client_answers:answers, signature:null, record_hash:hash(JSON.stringify({id:row.id, snapshot:row.snapshot, answers, completedAt:now})), completed_at:now, updated_at:now, status:"Completed"};
+  }
   if (body.consent !== true) throw new Error("Please consent to electronic signing and accept the agreement.");
   const name = typeof body.signatureName === "string" ? body.signatureName.trim() : "";
   if (name.length < 2 || name.length > 200) throw new Error("Type your full name to sign.");

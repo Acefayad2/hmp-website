@@ -4,6 +4,7 @@ import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
 import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
+import { informationTemplates } from "../information-form-schema.mjs";
 
 globalThis.Netlify = {env:{get:name => ({SUPABASE_URL:"https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY:"test-only-secret", HMP_ADMIN_EMAILS:"admin@example.test", RESEND_API_KEY:"test-only-resend", HMP_CONTRACT_FROM_EMAIL:"forms@example.test"})[name]}};
 const id = "11111111-1111-4111-8111-111111111111";
@@ -134,4 +135,73 @@ test("voided or expired links cannot read or sign and stale drafts cannot overwr
   row.status="Draft";
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"save",clientName:"Changed",clientEmail:"client@example.test",answers:{},updatedAt:"old"}))).status,409);
   assert.equal(row.client_name,"Test Client");
+});
+
+for (const template of informationTemplates) {
+  test(`${template.id}: create, share, validate, submit, reopen and view saved answers in Admin`, async () => {
+    const rows = [], mail = [];
+    const admin = handlerFor(rows, true, async (...args) => {mail.push(args); return new Response("{}");});
+    const client = handlerFor(rows, false);
+    const create = await admin(request("hmp-agreement-forms", "POST", {templateId:template.id, clientName:"Test Client", clientEmail:"client@example.test", answers:{eventName:"Test event"}, snapshot:{kind:"contract"}, status:"Completed"}));
+    assert.equal(create.status, 201);
+    const row = rows[0];
+    assert.equal(row.status, "Draft"); assert.equal(row.snapshot.kind, "information");
+    const token = agreementToken(row.id, row.token_nonce);
+    assert.equal((await client(request("hmp-agreement", "GET", null, token))).status, 410);
+    const share = await admin(request("hmp-agreement-forms", "PATCH", {id:row.id, action:"share", updatedAt:row.updated_at}));
+    assert.equal(share.status, 200);
+    assert.match((await share.json()).link, /https:\/\/hmpeds.com\/agreement#token=/);
+    assert.equal(mail.length, 0, "Creating a private link must not email a client");
+    assert.equal(row.admin_answers.hmpSignedAt, undefined);
+    assert.equal((await client(request("hmp-agreement", "GET", null, token))).status, 200);
+    assert.equal((await client(request("hmp-agreement", "POST", {answers:{}}, token))).status, 400);
+    assert.equal(row.status, "Sent", "Validation failure must leave form open");
+    const answers = {...inputFor(row.snapshot.clientFields), responsibleContact:"First line\nSecond line", injectedField:"ignore me"};
+    const submit = await client(request("hmp-agreement", "POST", {answers}, token));
+    assert.equal(submit.status, 200); assert.equal(row.status, "Completed");
+    assert.equal(row.signature, null); assert.equal(row.client_answers.injectedField, undefined);
+    assert.equal(row.client_answers.responsibleContact, answers.responsibleContact);
+    const fingerprint = row.record_hash;
+    const retry = await client(request("hmp-agreement", "POST", {answers:{responsibleContact:"overwritten"}}, token));
+    assert.equal(retry.status, 200); assert.equal(row.record_hash, fingerprint);
+    for (const response of [await client(request("hmp-agreement", "GET", null, token)), await admin(request(`hmp-agreement-forms?id=${row.id}`))]) {
+      assert.equal(response.status, 200);
+      const data = await response.json();
+      assert.equal(data.agreement.clientAnswers.responsibleContact, answers.responsibleContact);
+      assert.equal(data.agreement.token_nonce, undefined); assert.equal(data.agreement.token_hash, undefined);
+    }
+    assert.equal((await admin(request("hmp-agreement-forms", "PATCH", {id:row.id, action:"save"}))).status, 409);
+  });
+}
+
+test("information email uses native form wording without signing and only sends once", async () => {
+  const row = {...rowFor(informationTemplates[0].id), status:"Draft"}, mail = [];
+  const handler = handlerFor([row], true, async (_,options) => {mail.push(JSON.parse(options.body)); return new Response("{}");});
+  const sent = await handler(request("hmp-agreement-forms", "PATCH", {id,action:"send",updatedAt:row.updated_at}));
+  assert.equal(sent.status, 200);
+  assert.match(mail[0].html, /Complete your form/);
+  assert.doesNotMatch(mail[0].html, /complete, and sign|Complete and sign/);
+  await handler(request("hmp-agreement-forms", "PATCH", {id,action:"send"}));
+  assert.equal(mail.length, 1);
+});
+
+test("link-only activation is restricted to information forms, never bypassing contract consent", async () => {
+  const row = {...rowFor(), status:"Draft"};
+  assert.equal((await handlerFor([row])(request("hmp-agreement-forms", "PATCH", {id,action:"share",updatedAt:row.updated_at}))).status, 400);
+  assert.equal(row.status, "Draft");
+});
+
+test("information storage failure does not claim completion", async () => {
+  const row = rowFor(informationTemplates[0].id);
+  const db = fakeDatabase([row]);
+  const original = db.from;
+  db.from = () => {
+    const query = original();
+    query.update = () => ({eq(){return this;}, gt(){return this;}, select(){return this;}, maybeSingle:async()=>({error:{message:"unavailable"},data:null})});
+    return query;
+  };
+  const handler = createAgreementHandler({getUserFn:async()=>null,databaseFactory:()=>db});
+  const result = await handler(request("hmp-agreement", "POST", {answers:inputFor(row.snapshot.clientFields)}, agreementToken(id,"seed")));
+  assert.equal(result.status, 502); assert.equal(row.status, "Sent");
+  assert.match((await result.json()).error, /could not be saved/);
 });

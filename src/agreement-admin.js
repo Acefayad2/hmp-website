@@ -28,7 +28,8 @@ templateList.addEventListener("click", event => {
 export async function loadAgreementForms() {
   const message = $("#agreement-list-message");
   try {
-    const {agreements} = await agreementRequest(endpoint);
+    const data = await agreementRequest(endpoint);
+    const agreements = data.agreements.filter(row => agreementTemplates.some(t => t.id === row.template_id));
     message.classList.add("neutral");
     message.textContent = agreements.length ? "" : "No agreement records yet. Choose a template above to get started.";
     $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");

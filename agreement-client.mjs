@@ -1,5 +1,6 @@
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "./agreement-ui.mjs";
 import { validateAnswers } from "./agreement-schema.mjs";
+import { renderInformationForm } from "./information-client.mjs";
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const message = document.querySelector("#agreement-message"), content = document.querySelector("#agreement-content");
 let agreement, consentText, dirty = false, busy = false;
@@ -41,6 +42,7 @@ async function load() {
     if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error("Please open the private form link sent by HMP.");
     const data = await agreementRequest("/api/hmp-agreement", {headers});
     agreement = data.agreement; consentText = data.signingConsent;
+    if (agreement.snapshot.kind === "information") {renderInformationForm(agreement, headers); return;}
     render(); message.textContent = agreement.status === "Completed" ? "This form has already been completed. Your signed copy is below." : "";
   } catch (error) { message.textContent = error.message; }
 }
