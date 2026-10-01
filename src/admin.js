@@ -831,6 +831,7 @@ const sendAdminMessage = async (event) => {
   const requestId = globalThis.crypto.randomUUID();
   const button = event.currentTarget.querySelector("button[type=submit]");
   button.disabled = true;
+  input.readOnly = true;
   setAttachmentBusy(attachmentInput, $("#admin-message-attachment-previews"), true);
   setMessage($("#admin-message-status"), files.length ? "Uploading attachments…" : "Sending reply…");
   try {
@@ -868,6 +869,7 @@ const sendAdminMessage = async (event) => {
     setMessage($("#admin-message-status"), error.message || "Reply could not be sent.");
   } finally {
     button.disabled = false;
+    input.readOnly = false;
     setAttachmentBusy(attachmentInput, $("#admin-message-attachment-previews"), false);
   }
 };

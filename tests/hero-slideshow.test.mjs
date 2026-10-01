@@ -129,3 +129,15 @@ test("services uses the baby-shower check-in image and ships it in the build", (
   assert.ok(build.includes(`"${asset}"`))
   assert.ok(existsSync(new URL(`../${asset}`, import.meta.url)))
 })
+
+test("mobile hero emphasis uses the readable gold token on its ivory background", () => {
+  const css = readFileSync(new URL('../hero-slideshow.css', import.meta.url), 'utf8')
+  const brand = readFileSync(new URL('../brand.css', import.meta.url), 'utf8')
+  assert.match(css, /@media \(max-width: 800px\)\s*\{[\s\S]*?\.hero\[data-hero-slideshow\] h1 em \{ color: var\(--gold-text\); \}/)
+  const color = token => brand.match(new RegExp(`--${token}: (#[a-f0-9]{6});`))[1]
+  const luminance = hex => hex.slice(1).match(/../g).map(c => {
+    const value = parseInt(c, 16) / 255
+    return value <= .04045 ? value / 12.92 : ((value + .055) / 1.055) ** 2.4
+  }).reduce((sum, value, i) => sum + value * [.2126, .7152, .0722][i], 0)
+  assert.ok((luminance(color('paper')) + .05) / (luminance(color('gold-text')) + .05) >= 4.5)
+})

@@ -214,6 +214,7 @@ $("#message-form").addEventListener("submit", async (event) => {
   if (!message && !files.length) return;
   const requestId = globalThis.crypto.randomUUID();
   button.disabled = true;
+  input.readOnly = true;
   setAttachmentBusy(attachmentInput, $("#message-attachment-previews"), true);
   $("#message-status").textContent = files.length ? "Uploading attachments…" : "Sending…";
   try {
@@ -257,6 +258,7 @@ $("#message-form").addEventListener("submit", async (event) => {
     $("#message-status").textContent = error.message || "Message could not be sent.";
   } finally {
     button.disabled = false;
+    input.readOnly = false;
     setAttachmentBusy(attachmentInput, $("#message-attachment-previews"), false);
   }
 });

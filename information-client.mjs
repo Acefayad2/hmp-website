@@ -24,13 +24,13 @@ export function renderInformationForm(record, headers) {
       const status = document.querySelector("#information-save-status");
       try {
         const answers = validateAnswers(record.snapshot.clientFields, Object.fromEntries(new FormData(form)));
-        busy = true; form.querySelectorAll("input,textarea,button").forEach(el => el.disabled = true);
+        busy = true; form.querySelectorAll("input,textarea,select,button").forEach(el => el.disabled = true);
         status.textContent = "Saving your information…";
         const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({answers})});
         record = data.agreement; dirty = false; render();
         message.scrollIntoView({block:"center", behavior:"smooth"});
       } catch (error) {status.textContent = `${error.message} Your entries are still here; please try again.`;}
-      finally {busy = false; form.querySelectorAll("input,textarea,button").forEach(el => el.disabled = false);}
+      finally {busy = false; form.querySelectorAll("input,textarea,select,button").forEach(el => el.disabled = false);}
     });
   }
   render();

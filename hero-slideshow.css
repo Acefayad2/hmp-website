@@ -51,6 +51,8 @@
 }
 @media (max-width: 800px) {
   .hero-frame img { object-position: 90% center; }
+  /* Mobile places the headline on ivory, not over the dark photograph. */
+  .hero[data-hero-slideshow] h1 em { color: var(--gold-text); }
 }
 @media (prefers-reduced-motion: reduce) {
   .hero-frame { transition: none; }
