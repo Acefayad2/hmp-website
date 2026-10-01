@@ -1,7 +1,10 @@
 {
   "name": "hmp-luxury-event-services",
   "private": true,
+  "type": "module",
   "scripts": {
+    "test": "node --test tests/*.test.mjs",
+    "check": "npm test && npm run build && npm run build:functions",
     "build": "node scripts/build-admin.mjs",
     "build:functions": "node scripts/build-functions.mjs",
     "backfill:conversations": "node scripts/backfill-conversations.mjs"

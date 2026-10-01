@@ -1,4 +1,5 @@
 import { loadAgreementForms } from "./agreement-admin.js";
+import { loadAdminWorkspace } from "./admin-startup.mjs";
 import "./receipt-admin.js";
 import { loadInformationForms } from "./client-forms.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
@@ -1523,11 +1524,10 @@ const enterDashboard = async (user) => {
     month: "long",
     day: "numeric",
   }).format(new Date());
+  setWorkspaceView(new URLSearchParams(location.search).get("view") || "inquiries");
   try {
-    await syncSharedSession();
-    await Promise.all([loadDashboard(), loadMessages()]);
-    setWorkspaceView(new URLSearchParams(location.search).get("view") || "inquiries");
-    $("#sync-state").textContent = "Live updates on";
+    const { sharedSessionReady } = await loadAdminWorkspace({ syncSharedSession, loadDashboard, loadMessages });
+    $("#sync-state").textContent = sharedSessionReady ? "Live updates on" : "Live updates on · Seating sign-in unavailable";
     startDashboardSync();
   } catch (error) {
     $("#result-count").textContent = error.message;
