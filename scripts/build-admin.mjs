@@ -1,5 +1,5 @@
 import { build } from "esbuild";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, rm } from "node:fs/promises";
 
 const outputDirectory = process.env.HMP_BUILD_DIR || "dist";
 await rm(outputDirectory, { recursive: true, force: true });
@@ -92,21 +92,6 @@ await Promise.all(
     // The repository is the source of truth for deploys. Fetching these files
     // from production can silently roll a new deploy back to an older version.
     await copyFile(file, destination);
-  }),
-);
-
-const publicPages = productionFiles.filter((file) => file.endsWith(".html"));
-await Promise.all(
-  publicPages.map(async (file) => {
-    const path = `${outputDirectory}/${file}`;
-    const html = await readFile(path, "utf8");
-    const withAdminAccess = html.includes('href="/admin"')
-      ? html
-      : html.replace(
-          /(<a href="\/privacy">Privacy<\/a>)/,
-          '$1\n        <a href="/admin">Admin login</a>',
-        );
-    await writeFile(path, withAdminAccess);
   }),
 );
 
