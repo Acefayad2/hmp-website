@@ -305,7 +305,6 @@ const inquiryServiceOptions = {
       "Celebration Kit",
       "Club Sign + Strobes",
       "Lux-Framed Premium LED Welcome Sign",
-      "Money Guns",
     ],
   },
   "Guest Seating Experience": {

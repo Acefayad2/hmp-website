@@ -52,6 +52,11 @@
     Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
 
 [[redirects]]
+  from = "/services/celebration-accessories/money-guns"
+  to = "/celebration-accessories"
+  status = 301
+
+[[redirects]]
   from = "/services/:category/:offering"
   to = "/service-option.html"
   status = 200
