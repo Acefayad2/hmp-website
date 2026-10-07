@@ -16,23 +16,6 @@ const offeringDetails = {
     image: "/assets/gallery-details-v2.webp",
     imageAlt: "Burgundy and ivory event accessories arranged with candles and mirrored details",
   },
-  "money-guns": {
-    category: "Event Accessories",
-    parentUrl: "/celebration-accessories",
-    title: "Money Guns",
-    summary: "Add movement and excitement to money-spraying traditions during the event.",
-    heading: "Make the moment feel alive.",
-    description:
-      "Money guns create an energetic focal point for guests who want to participate in a money-spraying tradition. HMP helps coordinate the accessory with the event flow so the moment stays celebratory and organized.",
-    price: "$10",
-    features: [
-      "Lightweight event accessory",
-      "Easy to incorporate into planned event moments",
-      "Pairs naturally with Money Table Services",
-    ],
-    image: "/assets/gallery-reception-v2.webp",
-    imageAlt: "Luxury event accessories with floral styling and reflective party details",
-  },
   "celebration-kit": {
     category: "Event Accessories",
     parentUrl: "/celebration-accessories",
