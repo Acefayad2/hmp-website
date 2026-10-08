@@ -2224,7 +2224,7 @@ a.price-card:focus-visible strong {
 
 .brand-intro__line {
   position: absolute;
-  bottom: 12%;
+  bottom: 4%;
   left: 50%;
   width: min(190px, 42vw);
   height: 1px;
@@ -2259,7 +2259,7 @@ a.price-card:focus-visible strong {
   }
 
   .brand-intro__line {
-    bottom: 18%;
+    bottom: 10%;
   }
 }
 
