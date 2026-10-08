@@ -423,16 +423,35 @@ if (serviceSelect) {
 
 const form = document.querySelector("#inquiry-form");
 if (form) {
+  const status = document.querySelector("#form-status");
+  let statusTimer;
+  const clearInquiryStatus = () => {
+    clearTimeout(statusTimer);
+    statusTimer = undefined;
+    if (!status) return;
+    status.classList.remove("error", "show");
+    status.textContent = "";
+  };
+  const showInquiryStatus = (message, isError = false) => {
+    clearInquiryStatus();
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle("error", isError);
+    status.classList.add("show");
+    statusTimer = setTimeout(clearInquiryStatus, 7000);
+  };
+
+  window.addEventListener("pagehide", clearInquiryStatus);
   form.addEventListener("submit", async (event) => {
-    if (showServiceNotice()) {
-      event.preventDefault();
-      return;
-    }
     event.preventDefault();
     const submit = form.querySelector("[type=submit]");
+    if (submit.disabled) return;
+    clearInquiryStatus();
+    if (showServiceNotice()) {
+      return;
+    }
     submit.disabled = true;
     submit.textContent = "Sending…";
-    const status = document.querySelector("#form-status");
     try {
       const submissionId = form.querySelector('[name="submission-id"]');
       if (submissionId && !submissionId.value) {
@@ -457,22 +476,17 @@ if (form) {
       form.reset();
       Object.values(serviceNotices).forEach((notice) => { notice.acknowledged = false; });
       syncInquiryFields();
-      if (status) {
-        status.textContent =
-          "Thank you. Your inquiry has been received, and a copy has been emailed to you. We’ll be in touch within 48 hours.";
-        status.classList.remove("error");
-        status.classList.add("show");
-      }
+      showInquiryStatus(
+        "Thank you. Your inquiry has been received, and a copy has been emailed to you. We’ll be in touch within 48 hours.",
+      );
     } catch (error) {
-      if (status) {
-        status.textContent =
-          "We could not send your inquiry. Your information is still here. Please try again or email info@hmpeds.com.";
-        status.classList.add("error", "show");
-      }
+      showInquiryStatus(
+        "We could not send your inquiry. Your information is still here. Please try again or email info@hmpeds.com.",
+        true,
+      );
     } finally {
       submit.disabled = false;
       submit.innerHTML = "Request my personalized quote <span>↗</span>";
-      setTimeout(() => status?.classList.remove("show"), 7000);
     }
   });
 }
