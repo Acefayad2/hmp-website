@@ -13,7 +13,13 @@ test("the intro uses the existing plum background with a cream accent", () => {
   assert.match(shell, /background:\s*var\(--plum\);/)
   assert.doesNotMatch(shell, /var\(--paper\)|radial-gradient/)
   assert.match(line, /background:\s*var\(--cream\);/)
-  assert.match(read("index.html"), /brand\.css\?v=20261006-plum-intro/)
+  assert.match(read("index.html"), /brand\.css\?v=20261008-intro-line/)
+})
+
+test("the intro accent stays below the logo wording on desktop and mobile", () => {
+  const css = read("brand.css")
+  assert.match(css, /\.brand-intro__line\s*\{[^}]*bottom:\s*4%;/)
+  assert.match(css, /@media \(max-width: 800px\)\s*\{[\s\S]*?\.brand-intro__line\s*\{\s*bottom:\s*10%;/)
 })
 
 test("the intro retains its full-screen placement and responsive logo sizing", () => {
