@@ -4,12 +4,14 @@ import { readFileSync } from "node:fs";
 
 const read = (name) => readFileSync(new URL(`../${name}`, import.meta.url), "utf8");
 
-test("Money Guns are no longer offered or advertised", () => {
+test("Money Guns appear only in the Club Sign bundle, not as a separate accessory", () => {
   const accessories = read("celebration-accessories.html");
   assert.equal((accessories.match(/class="price-card"/g) || []).length, 3);
-  for (const file of ["celebration-accessories.html", "service-option.js", "script.js", "seo-schema.js", "sitemap.xml"]) {
-    assert.doesNotMatch(read(file), /money[ -]?guns?/i, file);
-  }
+  assert.match(accessories, /<h3>Club Sign \+ Money Guns \+ Strobes<\/h3>[\s\S]*?<strong>Starting rental price \$170<\/strong>/);
+  assert.match(accessories, /service-option=Club%20Sign%20%2B%20Money%20Guns%20%2B%20Strobes/);
+  assert.match(read("service-option.js"), /title: "Club Sign \+ Money Guns \+ Strobes"[\s\S]*?price: "\$170"/);
+  assert.match(read("script.js"), /"Club Sign \+ Money Guns \+ Strobes"/);
+  assert.doesNotMatch(accessories, /<h3>Money Guns<\/h3>/);
 });
 
 test("old Money Guns links lead back to Event Accessories", () => {
@@ -24,7 +26,7 @@ test("Event Accessories summaries use the lowest current catalog price", () => {
     .map(([, price]) => Number(price.replaceAll(",", "")));
   const startingPrice = Math.min(...prices);
 
-  assert.deepEqual(prices.sort((a, b) => a - b), [100, 130, 250]);
+  assert.deepEqual(prices.sort((a, b) => a - b), [100, 170, 250]);
   assert.match(read("index.html"), new RegExp(`01 · Event Accessories[\\s\\S]*?Starting at <strong>\\$${startingPrice}<\\/strong>`));
   assert.match(read("services.html"), new RegExp(`<h2>Event Accessories<\\/h2>[\\s\\S]*?<span>Starting at \\$${startingPrice}<\\/span>`));
 });

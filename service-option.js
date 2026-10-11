@@ -2,12 +2,12 @@ const offeringDetails = {
   "club-sign-strobes": {
     category: "Event Accessories",
     parentUrl: "/celebration-accessories",
-    title: "Club Sign + Strobes",
-    summary: "Create a high-impact arrival or dance-floor moment with coordinated lighting and signage.",
+    title: "Club Sign + Money Guns + Strobes",
+    summary: "Create a high-impact arrival or dance-floor moment with a club sign, money guns, and strobes.",
     heading: "Set the room in motion.",
     description:
-      "A club sign and focused strobe lighting can transform a key moment without overwhelming the event design. HMP coordinates the presentation so it feels intentional from the first entrance through the final song.",
-    price: "$130",
+      "A club sign, money guns, and focused strobe lighting can transform a key moment without overwhelming the event design. HMP coordinates the presentation so it feels intentional from the first entrance through the final song.",
+    price: "$170",
     features: [
       "High-impact entrance or dance-floor presentation",
       "Coordinated setup for a polished visual moment",

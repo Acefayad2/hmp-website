@@ -303,7 +303,7 @@ const inquiryServiceOptions = {
     placeholder: "Choose an accessory",
     options: [
       "Celebration Kit",
-      "Club Sign + Strobes",
+      "Club Sign + Money Guns + Strobes",
       "Lux-Framed Premium LED Welcome Sign",
     ],
   },
