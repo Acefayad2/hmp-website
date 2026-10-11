@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-11
+
+- Run the existing aggregate checks in GitHub Actions for pull requests and pushes to `main`.
+
 ## 2026-10-08
 
 - Keep the inquiry status live region empty until a submission succeeds or fails, and clear stale announcements after dismissal or navigation.
