@@ -214,7 +214,7 @@
               <div>
                 <p class="kicker">Client pricing</p>
                 <h2 id="proposals-heading">Proposals</h2>
-                <p>Create a proposal for an existing or new client. Sent proposals also stay in the client conversation.</p>
+                <p>Save proposals as private drafts, then send them to the client when ready.</p>
               </div>
               <div class="conversation-heading-actions">
                 <button class="secondary-button" id="proposal-workspace-new-client" type="button">New client &amp; proposal</button>
@@ -226,12 +226,12 @@
               <button class="primary-button" id="proposal-workspace-create" type="button" disabled>Create proposal</button>
             </div>
             <p class="form-message" id="proposal-workspace-status" role="status"></p>
-            <p id="proposal-workspace-count">0 sent proposals</p>
+            <p id="proposal-workspace-count">0 drafts · 0 sent</p>
             <div class="invoice-list-panel proposal-list-panel">
-              <div class="proposal-list-heading"><span>Proposal</span><span>Client</span><span>Sent</span><span>Amount</span></div>
+              <div class="proposal-list-heading"><span>Proposal</span><span>Client</span><span>Status / date</span><span>Amount</span></div>
               <div id="proposal-workspace-list"></div>
               <div class="invoice-empty" id="proposal-workspace-empty">
-                <h3>No proposals sent yet</h3>
+                <h3>No proposals yet</h3>
                 <p>Choose a client above or use New client &amp; proposal to get started.</p>
               </div>
             </div>
@@ -486,7 +486,7 @@
           <div>
             <p class="kicker">Client portal proposal</p>
             <h2>Service proposal</h2>
-            <p>Start with the Money Changing sample, adjust the details, then send it securely to this client.</p>
+            <p>Start with the Money Changing sample, save a private draft, then send it securely when ready.</p>
           </div>
           <button id="close-proposal-editor" type="button">Close</button>
         </div>
@@ -512,6 +512,7 @@
             <p class="form-message" id="proposal-editor-message" role="status"></p>
             <div>
               <button class="secondary-button" id="print-proposal" type="button">Preview / PDF</button>
+              <button class="secondary-button" id="save-proposal-draft" type="button">Save draft</button>
               <button class="primary-button" type="submit">Send to client portal</button>
             </div>
           </div>

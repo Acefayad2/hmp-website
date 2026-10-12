@@ -66,6 +66,8 @@ let reviews = [];
 let activeReviewId = "";
 let messageThreads = [];
 let activeThreadId = "";
+let proposalDrafts = [];
+let activeProposalDraftId = "";
 let activeConversationUrl = "";
 let messageSignature = "";
 let messageSignatureLoaded = false;
@@ -182,7 +184,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   if (isMessages) loadMessageSignature().catch((error) => setMessage($("#message-signature-status"), error.message));
   if (isProposals) {
     setMessage($("#proposal-workspace-status"), "Loading proposals…");
-    loadMessages().then(() => setMessage($("#proposal-workspace-status"), "")).catch((error) => {
+    Promise.all([loadMessages(), loadProposalDrafts()]).then(() => setMessage($("#proposal-workspace-status"), "")).catch((error) => {
       setMessage($("#proposal-workspace-status"), `Proposals unavailable: ${error.message}`);
     });
   }
@@ -511,9 +513,10 @@ const proposalPayload = () => Object.fromEntries(
   Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
 );
 
-const openProposalEditor = () => {
+const openProposalEditor = (draft = null) => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (!thread) return;
+  activeProposalDraftId = draft?.id || crypto.randomUUID();
   const inquiry = inquiries.find((candidate) => candidate.id === thread.inquiryId) || {};
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 14);
@@ -546,10 +549,36 @@ const openProposalEditor = () => {
     paymentTerms: "Booking is secured after the approved payment method and payment schedule are confirmed by HMP Luxury Event Services.",
   };
   Object.entries(proposalFormFields).forEach(([key, selector]) => {
-    $(selector).value = values[key] ?? "";
+    $(selector).value = (draft?.content || values)[key] ?? "";
   });
   setMessage($("#proposal-editor-message"), "");
   $("#proposal-editor-dialog").showModal();
+};
+
+const openSavedProposalDraft = (draft) => {
+  activeThreadId = draft.conversationId;
+  openProposalEditor(draft);
+};
+
+const saveProposalDraft = async ({ quiet = false } = {}) => {
+  if (!activeThreadId) return null;
+  if (!quiet) setMessage($("#proposal-editor-message"), "Saving private draft…");
+  try {
+    const response = await fetch("/api/hmp-proposal-drafts", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", id: activeProposalDraftId, conversationId: activeThreadId, content: proposalPayload() }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Proposal draft could not be saved.");
+    proposalDrafts = [data.draft, ...proposalDrafts.filter((draft) => draft.id !== data.draft.id)];
+    renderProposalList();
+    if (!quiet) setMessage($("#proposal-editor-message"), "Draft saved privately. It has not been sent to the client.", true);
+    return data.draft;
+  } catch (error) {
+    setMessage($("#proposal-editor-message"), error.message || "Proposal draft could not be saved.");
+    return null;
+  }
 };
 
 const createProposalFromWorkspace = () => {
@@ -629,6 +658,8 @@ const sendProposal = async (event) => {
   buttons.forEach((button) => { button.disabled = true; });
   setMessage($("#proposal-editor-message"), "Sending proposal securely…");
   try {
+    const draft = await saveProposalDraft({ quiet: true });
+    if (!draft) return;
     const response = await fetch("/api/hmp-messages", {
       method: "POST",
       credentials: "same-origin",
@@ -637,13 +668,32 @@ const sendProposal = async (event) => {
         action: "send",
         conversationId: activeThreadId,
         message,
-        requestId: crypto.randomUUID(),
+        requestId: draft.id,
         attachments: [],
       }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Proposal could not be sent.");
-    await loadMessages();
+    const markResponse = await fetch("/api/hmp-proposal-drafts", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "mark-sent", id: draft.id, conversationId: activeThreadId }),
+    });
+    if (!markResponse.ok) {
+      setMessage($("#proposal-editor-message"), "Proposal sent, but its draft status could not be updated. Please retry or contact support; retrying will not send a duplicate.");
+      loadMessages().catch(() => {});
+      return;
+    }
+    proposalDrafts = proposalDrafts.filter((item) => item.id !== draft.id);
+    activeProposalDraftId = "";
+    renderProposalList();
+    try {
+      await loadMessages();
+    } catch {
+      setMessage($("#proposal-workspace-status"), "Proposal was sent, but the list could not refresh. Reload Admin to see it.");
+      $("#proposal-editor-dialog").close();
+      return;
+    }
     showMessageNotificationStatus(data,"Proposal");
     $("#proposal-editor-dialog").close();
   } catch (error) {
@@ -712,16 +762,26 @@ const renderMessageThreads = () => {
   });
 };
 
+const renderProposalList = () => renderProposalsWorkspace(messageThreads, proposalDrafts, (threadId) => {
+  openMessageThread(threadId);
+  if (activeThreadId === threadId) setWorkspaceView("messages", true);
+}, openSavedProposalDraft);
+
+const loadProposalDrafts = async () => {
+  const response = await fetch("/api/hmp-proposal-drafts", { credentials: "same-origin", cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Proposal drafts are unavailable.");
+  proposalDrafts = data.drafts || [];
+  renderProposalList();
+};
+
 const loadMessages = async () => {
   const response = await fetch("/api/hmp-messages", { credentials: "same-origin", cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Messages are unavailable.");
   messageThreads = data.threads || [];
   renderMessageThreads();
-  renderProposalsWorkspace(messageThreads, (threadId) => {
-    openMessageThread(threadId);
-    if (activeThreadId === threadId) setWorkspaceView("messages", true);
-  });
+  renderProposalList();
   if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
     openMessageThread(activeThreadId);
   }
@@ -1607,7 +1667,7 @@ const loadActiveWorkspace = () => {
   if (activeWorkspaceView === "contracts") return Promise.all([loadContracts(), loadAgreementForms()]);
   if (activeWorkspaceView === "forms") return loadInformationForms();
   if (activeWorkspaceView === "messages") return loadMessages();
-  if (activeWorkspaceView === "proposals") return loadMessages();
+  if (activeWorkspaceView === "proposals") return Promise.all([loadMessages(), loadProposalDrafts()]);
   return loadDashboard();
 };
 
@@ -1849,6 +1909,7 @@ $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-di
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
 $("#proposal-form").addEventListener("submit", sendProposal);
+$("#save-proposal-draft").addEventListener("click", () => saveProposalDraft());
 $("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
 $("#proposal-editor-dialog").addEventListener("click", (event) => {
   if (event.target === $("#proposal-editor-dialog")) $("#proposal-editor-dialog").close();

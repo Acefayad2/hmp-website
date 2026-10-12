@@ -27,7 +27,10 @@ test("proposal workspace lists only admin proposals newest first without modifyi
 test("proposals refreshes using the existing authenticated conversations loader", () => {
   const source = readFileSync(new URL("../src/admin.js", import.meta.url), "utf8");
   const loader = source.slice(source.indexOf("const loadActiveWorkspace ="), source.indexOf("const syncActiveWorkspace ="));
-  let calls = 0;
-  runInNewContext(`const activeWorkspaceView = "proposals"; ${loader}; loadActiveWorkspace();`, { loadMessages: () => { calls++; } });
-  assert.equal(calls, 1);
+  const calls = [];
+  runInNewContext(`const activeWorkspaceView = "proposals"; ${loader}; loadActiveWorkspace();`, {
+    loadMessages: () => { calls.push("messages"); },
+    loadProposalDrafts: () => { calls.push("drafts"); },
+  });
+  assert.deepEqual(calls, ["messages", "drafts"]);
 });

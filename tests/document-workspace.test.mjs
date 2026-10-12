@@ -28,7 +28,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
     setMessage: (node, text) => { node.textContent = text; },
     loadMessageSignature: () => Promise.resolve(),
     history: { pushState: (_, __, path) => paths.push(path) },
-    ...Object.fromEntries(["Invoices", "Contracts", "Messages", "Reviews", "AgreementForms", "InformationForms"].map((name) => [
+    ...Object.fromEntries(["Invoices", "Contracts", "Messages", "ProposalDrafts", "Reviews", "AgreementForms", "InformationForms"].map((name) => [
       `load${name}`, () => { calls.push(name); return Promise.resolve(); },
     ])),
   };
@@ -77,7 +77,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
   assert.equal(links[3].attributes["aria-current"], "page");
   assert.equal(links[0].attributes["aria-current"], undefined);
   assert.equal(paths.at(-1), "/admin?view=proposals");
-  assert.equal(calls.at(-1), "Messages");
+  assert.deepEqual(calls.slice(-2), ["Messages", "ProposalDrafts"]);
   navigate("invoices");
   assert.equal($("#proposals-workspace").hidden, true);
 });
