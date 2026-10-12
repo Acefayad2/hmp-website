@@ -4,7 +4,7 @@ import { informationSummary, printInformation } from "../information-form-ui.mjs
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
-let active, busy = false, dirty = false, link = "", listSignature = "";
+let active, busy = false, dirty = false, link = "", listSignature = "", folder = "active";
 const dialog = document.createElement("dialog");
 dialog.className = "agreement-dialog"; dialog.id = "information-editor";
 dialog.setAttribute("aria-labelledby", "information-editor-title");
@@ -24,17 +24,24 @@ export async function loadInformationForms() {
   const message = $("#information-list-message");
   try {
     const data = await agreementRequest(endpoint);
-    const rows = data.agreements.filter(row => informationTemplates.some(t => t.id === row.template_id));
-    const signature = JSON.stringify(rows);
+    const rows = data.agreements.filter(row => informationTemplates.some(t => t.id === row.template_id) && (folder === "deleted" ? !!row.deleted_at : folder === "archived" ? !!row.archived_at && !row.deleted_at : !row.archived_at && !row.deleted_at));
+    const signature = JSON.stringify([folder, rows]);
     if (signature !== listSignature) {
       $("#information-list").innerHTML = rows.map(row => `<button type="button" class="agreement-row" data-information-id="${escape(row.id)}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.client_email)}</small></span><span>${escape(informationTemplates.find(t => t.id === row.template_id).title)}</span><span>${escape(row.status === "Sent" ? "Awaiting client" : row.status)}${row.completed_at ? `<small>${escape(new Date(row.completed_at).toLocaleString())}</small>` : ""}</span></button>`).join("");
       listSignature = signature;
     }
-    message.textContent = rows.length ? "Select a record to view responses or share its private link." : "No client forms yet. Choose a form above to get started.";
+    message.textContent = rows.length ? "Select a record to view responses or manage it." : folder === "deleted" ? "No deleted forms. Deleted forms can be restored for 30 days." : folder === "archived" ? "No archived forms." : "No client forms yet. Choose a form above to get started.";
     message.classList.add("neutral");
   } catch (error) {message.classList.remove("neutral"); message.textContent = error.message;}
 }
 $("#refresh-information-forms").addEventListener("click", loadInformationForms);
+$("#information-folders").addEventListener("click", event => {
+  const button = event.target.closest("[data-information-folder]");
+  if (!button) return;
+  folder = button.dataset.informationFolder;
+  $("#information-folders").querySelectorAll("[data-information-folder]").forEach(item => item.setAttribute("aria-pressed", String(item === button)));
+  loadInformationForms();
+});
 $("#information-list").addEventListener("click", async event => {
   const button = event.target.closest("[data-information-id]");
   if (!button || busy) return;
@@ -46,18 +53,18 @@ $("#information-list").addEventListener("click", async event => {
   finally {busy = false;}
 });
 function render() {
-  const draft = active.status === "Draft";
+  const draft = active.status === "Draft" && !active.archivedAt && !active.deletedAt;
   dialog.innerHTML = `<header><div><p>CLIENT INFORMATION · ${escape(active.status)}</p><h2 id="information-editor-title">${escape(active.snapshot.title)}</h2></div><button class="agreement-button secondary" id="information-close" type="button">Close</button></header>
     <form id="information-admin-form">${draft ? "<p>Prepare this form for a client. Create a private link to share in Messages, or email it directly. Responses are stored in HMP—not Google Forms.</p>" : ""}
     ${draft ? `<div class="agreement-grid"><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label>${fieldsHTML(active.snapshot.adminFields, active.adminAnswers)}</div>` : informationSummary(active, false)}
     ${draft ? `<details class="agreement-panel"><summary>Preview client questions</summary><ul>${active.snapshot.clientFields.map(f => `<li><strong>${escape(f.label)}</strong><p>${escape(f.help || "")}</p></li>`).join("")}</ul></details>` : ""}
     ${link ? `<label class="agreement-field">Private client link<input id="information-private-link" readonly value="${escape(link)}"></label><p>Share only with this client. The link expires after 90 days.</p>` : ""}
-    <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<button type="button" class="agreement-button secondary" id="information-copy">Copy link</button><a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
+    <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${!active.archivedAt && !active.deletedAt && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link && !active.deletedAt ? `<button type="button" class="agreement-button secondary" id="information-copy">Copy link</button><a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && !active.archivedAt && !active.deletedAt && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}${active.id ? active.deletedAt ? `<button type="button" class="agreement-button secondary" data-information-action="restore">Restore form</button><p>Deleted forms are permanently erased 30 days after deletion.</p>` : active.archivedAt ? `<button type="button" class="agreement-button secondary" data-information-action="unarchive">Move to Active</button><button type="button" class="agreement-button secondary" data-information-action="delete">Delete form</button>` : `<button type="button" class="agreement-button secondary" data-information-action="archive">Archive form</button><button type="button" class="agreement-button secondary" data-information-action="delete">Delete form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
   form.oninput = () => {if (draft) dirty = true;};
   form.onsubmit = event => {event.preventDefault(); if (form.reportValidity()) perform("save");};
-  dialog.querySelectorAll("[data-information-action]").forEach(button => button.onclick = () => {if (button.dataset.informationAction === "void" || form.reportValidity()) perform(button.dataset.informationAction);});
+  dialog.querySelectorAll("[data-information-action]").forEach(button => button.onclick = () => {if (!["void", "archive", "unarchive", "delete", "restore"].includes(button.dataset.informationAction) && !form.reportValidity()) return; perform(button.dataset.informationAction);});
   $("#information-copy")?.addEventListener("click", async () => {
     try {await navigator.clipboard.writeText(link); $("#information-status").textContent = "Private link copied.";}
     catch {$("#information-private-link").select(); $("#information-status").textContent = "Link selected. Copy it manually.";}
@@ -66,13 +73,15 @@ function render() {
 }
 async function perform(action) {
   if (busy) return;
+  if (dirty && ["archive", "delete"].includes(action) && !confirm("Discard unsaved changes before moving this form?")) return;
   if (action === "send" && !confirm("Email this private form to the client shown above?")) return;
   if (action === "void" && !confirm("Void this form and disable its private link?")) return;
+  if (action === "delete" && !confirm("Move this form to Deleted? Its client link will stop working. You can restore it for 30 days.")) return;
   const values = Object.fromEntries(new FormData($("#information-admin-form")));
   busy = true; dialog.querySelectorAll("button,input").forEach(el => el.disabled = true);
   $("#information-status").textContent = "Saving…";
   try {
-    if (active.status === "Draft" && action !== "void") {
+    if (active.status === "Draft" && !["void", "archive", "unarchive", "delete", "restore"].includes(action)) {
       const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, clientName:values.clientName, clientEmail:values.clientEmail, answers:{eventName:values.eventName}})});
       active = data.agreement; dirty = false;
     }
@@ -82,7 +91,7 @@ async function perform(action) {
       active = data.agreement; link = data.link || ""; warning = data.warning || ""; dirty = false;
     }
     render();
-    $("#information-status").textContent = warning || ({save:"Draft saved.",share:"Private link ready. No email has been sent.",send:"Client form emailed.",void:"Form voided. Its link is disabled."}[action]);
+    $("#information-status").textContent = warning || ({save:"Draft saved.",share:"Private link ready. No email has been sent.",send:"Client form emailed.",void:"Form voided. Its link is disabled.",archive:"Form archived.",unarchive:"Form moved to Active.",delete:"Form moved to Deleted for 30 days. Its link is disabled.",restore:"Form restored."}[action]);
     await loadInformationForms();
   } catch (error) {
     if (error.data?.agreement) {active = error.data.agreement; link = error.data.link || ""; dirty = false; render(); await loadInformationForms();}

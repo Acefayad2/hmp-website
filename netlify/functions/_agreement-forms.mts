@@ -45,4 +45,5 @@ export const publicAgreement = (row: any) => ({
   adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
   sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
   recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,
+  archivedAt: row.archived_at, deletedAt: row.deleted_at,
 });

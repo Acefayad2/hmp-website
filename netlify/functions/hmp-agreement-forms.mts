@@ -41,10 +41,10 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       if (clientRoute) {
         const {data: row, error} = await db.from(table).select("*").eq("token_hash", hash(token)).maybeSingle();
         if (error) return json({error:"Client form could not be loaded."}, 502);
-        if (!row || !["Sent", "Completed"].includes(row.status) || !row.expires_at || Date.parse(row.expires_at) <= Date.now()) return json({error:"This link has expired or is no longer available. Please contact HMP for help."}, 410);
+        if (!row || row.deleted_at || !["Sent", "Completed"].includes(row.status) || !row.expires_at || Date.parse(row.expires_at) <= Date.now()) return json({error:"This link has expired or is no longer available. Please contact HMP for help."}, 410);
         if (request.method === "GET" || row.status === "Completed") return json({agreement:publicAgreement(row), signingConsent:row.snapshot.signingConsent});
         const payload = completionPayload(row, body, request.headers.get("user-agent") || "");
-        const {data: saved, error: saveError} = await db.from(table).update(payload).eq("id", row.id).eq("status", "Sent").gt("expires_at", new Date().toISOString()).select("*").maybeSingle();
+        const {data: saved, error: saveError} = await db.from(table).update(payload).eq("id", row.id).eq("status", "Sent").is("deleted_at", null).gt("expires_at", new Date().toISOString()).select("*").maybeSingle();
         if (saveError) return json({error:"Your form could not be saved. Please try again."}, 502);
         if (!saved) return json({error:"This form changed or was already completed. Reload to review its current status."}, 409);
         return json({agreement:publicAgreement(saved), signingConsent:row.snapshot.signingConsent});
@@ -57,9 +57,9 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
           const {data, error} = await db.from(table).select("*").eq("id", id).maybeSingle();
           if (error) return json({error:"Agreement could not be loaded."}, 502);
           if (!data) return json({error:"Agreement not found."}, 404);
-          return json({agreement:publicAgreement(data), link:["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
+          return json({agreement:publicAgreement(data), link:!data.deleted_at && ["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
         }
-        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at").order("created_at", {ascending:false}).limit(500);
+        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,archived_at,deleted_at").order("created_at", {ascending:false}).limit(500);
         if (error) return json({error:"Client forms are unavailable. The agreement database migration may still be pending."}, 502);
         return json({agreements:data || []});
       }
@@ -77,6 +77,22 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       const {data: row, error: readError} = await db.from(table).select("*").eq("id", body.id).maybeSingle();
       if (readError) return json({error:"Agreement could not be loaded."}, 502);
       if (!row) return json({error:"Agreement not found."}, 404);
+      if (["archive", "unarchive", "delete", "restore"].includes(body.action)) {
+        if (row.snapshot.kind !== "information") return json({error:"This action is only available for client forms."}, 400);
+        if (body.updatedAt !== row.updated_at) return json({error:"The form changed elsewhere. Reload it before continuing."}, 409);
+        const now = new Date().toISOString();
+        const changes: Record<string, string | null> = {updated_at:now};
+        if (body.action === "archive" && !row.archived_at && !row.deleted_at) changes.archived_at = now;
+        else if (body.action === "unarchive" && row.archived_at && !row.deleted_at) changes.archived_at = null;
+        else if (body.action === "delete" && !row.deleted_at) {changes.deleted_at = now; changes.archived_at = null;}
+        else if (body.action === "restore" && row.deleted_at && Date.parse(row.deleted_at) > Date.now() - 30 * 86400000) changes.deleted_at = null;
+        else return json({error:"This form is no longer in the expected folder. Reload it."}, 409);
+        const {data, error} = await db.from(table).update(changes).eq("id", row.id).eq("updated_at", row.updated_at).select("*").maybeSingle();
+        if (error || !data) return json({error:"The form changed elsewhere. Reload it before continuing."}, 409);
+        return json({agreement:publicAgreement(data)});
+      }
+      if (row.deleted_at) return json({error:"Restore this form before changing it."}, 409);
+      if (row.archived_at) return json({error:"Move this form to Active before changing it."}, 409);
       if (row.status === "Completed" || row.status === "Void") return json({error:"This agreement is locked. Create a new form for any changes."}, 409);
       if (body.action === "void") {
         const {data, error} = await db.from(table).update({status:"Void", updated_at:new Date().toISOString()}).eq("id", row.id).in("status", ["Draft", "Sent"]).select("*").maybeSingle();

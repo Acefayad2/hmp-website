@@ -19,6 +19,7 @@ function fakeDatabase(rows) {
     const query = {
       select(){return this;}, order(){return this;}, limit(){return this;},
       eq(key,value){filters.push(r => r[key] === value); return this;},
+      is(key,value){filters.push(r => (r[key] ?? null) === value); return this;},
       in(key,values){filters.push(r => values.includes(r[key])); return this;},
       gt(key,value){filters.push(r => r[key] > value); return this;},
       insert(value){operation="insert";payload=value;return this;}, update(value){operation="update";payload=value;return this;},
@@ -174,6 +175,31 @@ for (const template of informationTemplates) {
   });
 }
 
+test("information forms archive, delete, restore and protect deleted client links", async () => {
+  const row = {...rowFor(informationTemplates[0].id), status:"Completed"};
+  const handler = handlerFor([row]);
+  const action = async name => handler(request("hmp-agreement-forms", "PATCH", {id, action:name, updatedAt:row.updated_at}));
+  assert.equal((await action("archive")).status, 200);
+  assert.ok(row.archived_at);
+  assert.equal((await handler(request("hmp-agreement", "GET", null, agreementToken(id, "seed")))).status, 200);
+  assert.equal((await action("delete")).status, 200);
+  assert.ok(row.deleted_at);
+  assert.equal(row.archived_at, null);
+  assert.equal((await handler(request("hmp-agreement", "GET", null, agreementToken(id, "seed")))).status, 410);
+  assert.equal((await action("send")).status, 409);
+  assert.equal((await action("restore")).status, 200);
+  assert.equal(row.deleted_at, null);
+  assert.equal((await action("archive")).status, 200);
+  assert.equal((await action("unarchive")).status, 200);
+  assert.equal(row.archived_at, null);
+  assert.equal((await action("unarchive")).status, 409);
+});
+
+test("contract records cannot use information-form lifecycle actions", async () => {
+  const row = rowFor("guest-seating"), handler = handlerFor([row]);
+  assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"delete", updatedAt:row.updated_at}))).status, 400);
+});
+
 test("information email uses native form wording without signing and only sends once", async () => {
   const row = {...rowFor(informationTemplates[0].id), status:"Draft"}, mail = [];
   const handler = handlerFor([row], true, async (_,options) => {mail.push(JSON.parse(options.body)); return new Response("{}");});
@@ -204,7 +230,7 @@ test("information storage failure does not claim completion", async () => {
   const original = db.from;
   db.from = () => {
     const query = original();
-    query.update = () => ({eq(){return this;}, gt(){return this;}, select(){return this;}, maybeSingle:async()=>({error:{message:"unavailable"},data:null})});
+    query.update = () => ({eq(){return this;}, is(){return this;}, gt(){return this;}, select(){return this;}, maybeSingle:async()=>({error:{message:"unavailable"},data:null})});
     return query;
   };
   const handler = createAgreementHandler({getUserFn:async()=>null,databaseFactory:()=>db});
