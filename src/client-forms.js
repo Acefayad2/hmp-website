@@ -35,15 +35,18 @@ export async function loadInformationForms() {
   } catch (error) {message.classList.remove("neutral"); message.textContent = error.message;}
 }
 $("#refresh-information-forms").addEventListener("click", loadInformationForms);
-$("#information-list").addEventListener("click", async event => {
-  const button = event.target.closest("[data-information-id]");
-  if (!button || busy) return;
+export async function openInformationDraft(id) {
+  if (!id || busy) return;
   busy = true;
   try {
-    const data = await agreementRequest(`${endpoint}?id=${encodeURIComponent(button.dataset.informationId)}`);
+    const data = await agreementRequest(`${endpoint}?id=${encodeURIComponent(id)}`);
     active = data.agreement; link = data.link || ""; dirty = false; render(); dialog.showModal();
   } catch(error) {$("#information-list-message").textContent = error.message;}
   finally {busy = false;}
+}
+$("#information-list").addEventListener("click", event => {
+  const button = event.target.closest("[data-information-id]");
+  if (button) openInformationDraft(button.dataset.informationId);
 });
 function render() {
   const draft = active.status === "Draft";
@@ -84,6 +87,7 @@ async function perform(action) {
     render();
     $("#information-status").textContent = warning || ({save:"Draft saved.",share:"Private link ready. No email has been sent.",send:"Client form emailed.",void:"Form voided. Its link is disabled."}[action]);
     await loadInformationForms();
+    window.dispatchEvent(new Event("hmp-drafts-changed"));
   } catch (error) {
     if (error.data?.agreement) {active = error.data.agreement; link = error.data.link || ""; dirty = false; render(); await loadInformationForms();}
     $("#information-status").textContent = error.message;

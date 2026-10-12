@@ -242,6 +242,18 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .conversation-delete-button:hover { color:#fff; background:#8b2d3d; }
 .conversation-delete-button:disabled { opacity:.55; cursor:wait; }
 .admin-message-list { display: flex; flex-direction: column; gap: 13px; height: 395px; overflow-y: auto; padding: 25px 28px; }
+.drafts-groups { display:grid; gap:22px; }
+.draft-category { border:1px solid #e1d4cd; border-radius:16px; background:#fffaf5; overflow:hidden; }
+.draft-category h3 { margin:0; padding:18px 22px; color:var(--plum); border-bottom:1px solid #e9ddd6; font-size:20px; }
+.draft-category-empty { margin:0; padding:20px 22px; color:var(--muted); }
+.draft-row { display:flex; align-items:center; justify-content:space-between; gap:18px; width:100%; padding:17px 22px; border:0; border-bottom:1px solid #eee3dc; background:transparent; color:inherit; text-align:left; cursor:pointer; font:inherit; }
+.draft-row:last-child { border-bottom:0; }
+.draft-row:hover { background:#f4eae4; }
+.draft-row:focus-visible { outline:2px solid var(--plum); outline-offset:-3px; }
+.draft-row span { display:grid; gap:5px; min-width:0; }
+.draft-row strong { overflow-wrap:anywhere; }
+.draft-row small,.draft-row time { color:var(--muted); font-size:13px; }
+@media (max-width: 640px) { .draft-row { align-items:flex-start; flex-direction:column; gap:8px; } }
 .admin-message { max-width: 78%; padding: 14px 16px; border-radius: 15px 15px 15px 4px; background: #f0e3df; }
 .admin-message.admin { align-self: flex-end; border-radius: 15px 15px 4px 15px; color: #fff; background: var(--plum); }
 .admin-message > div { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 7px; }

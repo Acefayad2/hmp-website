@@ -1,7 +1,8 @@
-import { loadAgreementForms } from "./agreement-admin.js";
+import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
 import { loadAdminWorkspace } from "./admin-startup.mjs";
 import "./receipt-admin.js";
-import { loadInformationForms } from "./client-forms.js";
+import { loadInformationForms, openInformationDraft } from "./client-forms.js";
+import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
@@ -68,6 +69,9 @@ let activeInquiryId = "";
 let reviews = [];
 let activeReviewId = "";
 let messageThreads = [];
+let proposalDrafts = [];
+let activeProposalDraftId = "";
+let savedFormDrafts = [];
 let activeThreadId = "";
 let activeConversationUrl = "";
 let messageSignature = "";
@@ -96,6 +100,9 @@ const workspaceViews = {
   },
   messages: {
     title: "Client messages",
+  },
+  drafts: {
+    title: "Drafts",
   },
   proposals: {
     title: "Proposals",
@@ -145,6 +152,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const config = workspaceViews[view];
   const isInquiries = view === "inquiries";
   const isMessages = view === "messages";
+  const isDrafts = view === "drafts";
   const isProposals = view === "proposals";
   const isInvoices = view === "invoices";
   const isContracts = view === "contracts";
@@ -157,6 +165,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $(".metrics").hidden = !isInquiries;
   $(".dashboard-grid").hidden = !isInquiries;
   $("#messages-workspace").hidden = !isMessages;
+  $("#drafts-workspace").hidden = !isDrafts;
   $("#proposals-workspace").hidden = !isProposals;
   $("#document-tabs").hidden = !isDocuments;
   document.querySelectorAll("[data-document-view]").forEach((tab) => {
@@ -168,8 +177,8 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $("#contract-workspace").hidden = !isContracts;
   $("#forms-workspace").hidden = !isForms;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isProposals || isInvoices || isContracts || isForms || isReviews;
-  if (!isInquiries && !isMessages && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
+  $("#workspace-empty").hidden = isInquiries || isMessages || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews;
+  if (!isInquiries && !isMessages && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
@@ -177,6 +186,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   if (isContracts) loadAgreementForms();
   if (isForms) loadInformationForms();
   if (isMessages) loadMessageSignature().catch((error) => setMessage($("#message-signature-status"), error.message));
+  if (isDrafts) loadDrafts().catch((error) => setMessage($("#drafts-status"), error.message));
   if (isProposals) {
     setMessage($("#proposal-workspace-status"), "Loading proposals…");
     loadMessages().then(() => setMessage($("#proposal-workspace-status"), "")).catch((error) => {
@@ -586,6 +596,7 @@ const proposalPayload = () => Object.fromEntries(
 const openProposalEditor = () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (!thread) return;
+  activeProposalDraftId = "";
   const inquiry = inquiries.find((candidate) => candidate.id === thread.inquiryId) || {};
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 14);
@@ -623,6 +634,43 @@ const openProposalEditor = () => {
   });
   setMessage($("#proposal-editor-message"), "");
   $("#proposal-editor-dialog").showModal();
+};
+
+const openProposalDraft = (draft) => {
+  if (!draft) return;
+  if (!messageThreads.some((thread) => thread.id === draft.conversationId)) {
+    setMessage($("#drafts-status"), "This proposal's client conversation is unavailable. Open or create a client conversation first.");
+    return;
+  }
+  activeThreadId = draft.conversationId;
+  openProposalEditor();
+  activeProposalDraftId = draft.id;
+  Object.entries(proposalFormFields).forEach(([key, selector]) => { $(selector).value = draft.payload?.[key] ?? ""; });
+};
+
+const saveProposalDraft = async () => {
+  if (!activeThreadId) return;
+  const payload = proposalPayload();
+  if (payload.calendarUrl && !normalizeCalendarUrl(payload.calendarUrl)) {
+    setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");
+    return;
+  }
+  const button = $("#save-proposal-draft");
+  button.disabled = true;
+  setMessage($("#proposal-editor-message"), "Saving draft…");
+  try {
+    const response = await fetch("/api/hmp-proposal-drafts", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "save", id: activeProposalDraftId || undefined, conversationId: activeThreadId, payload }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Proposal draft could not be saved.");
+    activeProposalDraftId = data.draft.id;
+    proposalDrafts = [data.draft, ...proposalDrafts.filter((draft) => draft.id !== data.draft.id)];
+    if (activeWorkspaceView === "drafts") renderCurrentDrafts();
+    setMessage($("#proposal-editor-message"), "Proposal draft saved privately. Find it under Drafts → Proposals.", true);
+  } catch (error) { setMessage($("#proposal-editor-message"), error.message || "Proposal draft could not be saved."); }
+  finally { button.disabled = false; }
 };
 
 const createProposalFromWorkspace = () => {
@@ -720,9 +768,21 @@ const sendProposal = async (event) => {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Proposal could not be sent.");
+    let draftWarning = "";
+    if (activeProposalDraftId) {
+      const draftResponse = await fetch("/api/hmp-proposal-drafts", {
+        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "mark-sent", id: activeProposalDraftId, conversationId: activeThreadId, messageId: data.message.id }),
+      });
+      if (draftResponse.ok) proposalDrafts = proposalDrafts.filter((draft) => draft.id !== activeProposalDraftId);
+      else draftWarning = "Proposal sent, but the saved draft could not be cleared. Please refresh before sending it again.";
+    }
     await loadMessages();
     showMessageNotificationStatus(data,"Proposal");
+    if (draftWarning) setMessage($("#proposal-workspace-status"), draftWarning);
+    if (activeWorkspaceView === "drafts") renderCurrentDrafts();
     $("#proposal-editor-dialog").close();
+    activeProposalDraftId = "";
   } catch (error) {
     setMessage($("#proposal-editor-message"), error.message || "Proposal could not be sent.");
   } finally {
@@ -1210,6 +1270,7 @@ const changeInvoiceFolder = async (invoice, action) => {
     if (!response.ok) throw new Error(data.error || "Invoice could not be updated.");
     invoices = invoices.map((item) => item.id === invoice.id ? data.invoice : item);
     renderInvoices();
+    if (activeWorkspaceView === "drafts") renderCurrentDrafts();
     setMessage(message, `Invoice ${action === "delete" ? "moved to Deleted" : action === "archive" ? "archived" : "restored to Active"}.`, true);
   } catch (error) {
     setMessage(message, error.message || "Invoice could not be updated.");
@@ -1304,6 +1365,36 @@ const loadContracts = async () => {
   renderContracts();
 };
 
+const renderCurrentDrafts = () => renderDraftGroups(
+  $("#drafts-groups"),
+  collectDraftGroups({ proposals: proposalDrafts, invoices, contracts, forms: savedFormDrafts }),
+  (kind, row) => {
+    if (kind === "proposal") return openProposalDraft(proposalDrafts.find((draft) => draft.id === row.id));
+    if (kind === "invoice") return openInvoiceEditor(invoices.find((invoice) => invoice.id === row.id));
+    if (kind === "contract") return openContractEditor(contracts.find((contract) => contract.id === row.id));
+    if (kind === "form") return row.informationForm
+      ? openInformationDraft(row.id)
+      : openAgreementDraft(row.id);
+  },
+);
+
+const loadDrafts = async () => {
+  setMessage($("#drafts-status"), "Loading saved drafts…");
+  const [proposalResponse, formResponse] = await Promise.all([
+    fetch("/api/hmp-proposal-drafts", { credentials: "same-origin", cache: "no-store" }),
+    fetch("/api/hmp-agreement-forms", { credentials: "same-origin", cache: "no-store" }),
+    loadInvoices(), loadContracts(), loadMessages(),
+  ]);
+  const [proposalData, formData] = await Promise.all([
+    proposalResponse.json().catch(() => ({})), formResponse.json().catch(() => ({})),
+  ]);
+  if (!proposalResponse.ok || !formResponse.ok) throw new Error(proposalData.error || formData.error || "Drafts could not be loaded.");
+  proposalDrafts = proposalData.drafts || [];
+  savedFormDrafts = formData.agreements || [];
+  renderCurrentDrafts();
+  setMessage($("#drafts-status"), "Drafts are private until sent or shared.", true);
+};
+
 const saveContract = async ({ quiet = false } = {}) => {
   const form = $("#contract-form");
   if (!form.reportValidity()) return null;
@@ -1324,6 +1415,7 @@ const saveContract = async ({ quiet = false } = {}) => {
     $("#editor-contract-number").textContent = data.contract.contractNumber;
     $("#contract-number-display").textContent = data.contract.contractNumber;
     renderContracts();
+    if (activeWorkspaceView === "drafts") renderCurrentDrafts();
     if (!quiet) setMessage($("#contract-editor-message"), "Contract saved.", true);
     return data.contract;
   } catch (error) {
@@ -1391,6 +1483,7 @@ const sendContract = async () => {
     if (!response.ok) throw new Error(data.error || "Contract email could not be sent.");
     documentSendRequests.delete(sendRequest.key);
     await loadContracts();
+    if (activeWorkspaceView === "drafts") renderCurrentDrafts();
     $("#contract-status").value = "Sent";
     $("#send-contract").textContent = "Send again";
     setMessage($("#contract-editor-message"), `Contract sent to ${recipient} and added to the client's Messages.`, true);
@@ -1611,6 +1704,7 @@ const saveInvoice = async ({ quiet = false } = {}) => {
     $("#editor-invoice-number").textContent = data.invoice.invoiceNumber;
     $("#invoice-number-display").textContent = data.invoice.invoiceNumber;
     renderInvoices();
+    if (activeWorkspaceView === "drafts") renderCurrentDrafts();
     if (!quiet) setMessage($("#invoice-editor-message"), "Invoice saved.", true);
     return data.invoice;
   } catch (error) {
@@ -1649,6 +1743,7 @@ const sendInvoice = async () => {
     if (!response.ok) throw new Error(data.error || "Invoice email could not be sent.");
     documentSendRequests.delete(sendRequest.key);
     await loadInvoices();
+    if (activeWorkspaceView === "drafts") renderCurrentDrafts();
     $("#invoice-status").value = "Sent";
     $("#send-invoice").textContent = "Send again";
     setMessage($("#invoice-editor-message"), `Invoice sent to ${recipient} and added to the client's Messages.`, true);
@@ -1679,6 +1774,7 @@ const loadDashboard = async () => {
 };
 
 const loadActiveWorkspace = () => {
+  if (activeWorkspaceView === "drafts") return loadDrafts();
   if (activeWorkspaceView === "reviews") return loadReviews();
   if (activeWorkspaceView === "invoices") return loadInvoices();
   if (activeWorkspaceView === "contracts") return Promise.all([loadContracts(), loadAgreementForms()]);
@@ -1926,6 +2022,10 @@ $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-di
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
 $("#proposal-form").addEventListener("submit", sendProposal);
+$("#save-proposal-draft").addEventListener("click", saveProposalDraft);
+window.addEventListener("hmp-drafts-changed", () => {
+  if (activeWorkspaceView === "drafts") loadDrafts().catch((error) => setMessage($("#drafts-status"), error.message));
+});
 $("#insert-calendar-link").addEventListener("click", () => {
   const calendarInput = $("#admin-calendar-url");
   const url = normalizeCalendarUrl(calendarInput.value);

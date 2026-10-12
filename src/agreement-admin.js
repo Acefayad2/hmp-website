@@ -35,14 +35,17 @@ export async function loadAgreementForms() {
     $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");
   } catch (error) { message.classList.remove("neutral"); message.textContent = error.message; }
 }
-$("#agreement-list").addEventListener("click", async event => {
-  const button = event.target.closest("[data-agreement-id]");
-  if (!button || busy) return;
+export async function openAgreementDraft(id) {
+  if (!id || busy) return;
   try {
-    const data = await agreementRequest(`${endpoint}?id=${encodeURIComponent(button.dataset.agreementId)}`);
+    const data = await agreementRequest(`${endpoint}?id=${encodeURIComponent(id)}`);
     active = data.agreement; link = data.link || ""; dirty = false;
     renderEditor(); dialog.showModal();
   } catch(error) { $("#agreement-list-message").textContent = error.message; }
+}
+$("#agreement-list").addEventListener("click", event => {
+  const button = event.target.closest("[data-agreement-id]");
+  if (button) openAgreementDraft(button.dataset.agreementId);
 });
 function renderEditor() {
   const draft = active.status === "Draft";
@@ -101,6 +104,7 @@ async function perform(action) {
     $("#agreement-editor-status").textContent = warning || (action === "send" ? "Client form sent. The client can complete and sign it using the private link." : action === "share" ? "Private link ready to copy and text to this client. No email was sent." : action === "void" ? "Form voided. The private link is disabled." : "Draft saved.");
     $("#agreement-editor-status").classList.add("success");
     await loadAgreementForms();
+    window.dispatchEvent(new Event("hmp-drafts-changed"));
   } catch(error) {
     if (error.data?.agreement) { active = error.data.agreement; link = error.data.link || ""; dirty = false; renderEditor(); await loadAgreementForms(); }
     $("#agreement-editor-status").textContent = error.message;
