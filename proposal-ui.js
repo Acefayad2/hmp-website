@@ -1,3 +1,5 @@
+import { normalizeCalendarUrl } from "./calendar-link.js";
+
 export const PROPOSAL_PREFIX = "HMP_PROPOSAL_V1:";
 
 const text = (value, max = 2000) => typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -22,6 +24,7 @@ export const normalizeProposal = (value = {}) => ({
   serviceFee: number(value.serviceFee),
   validUntil: text(value.validUntil, 10),
   paymentTerms: text(value.paymentTerms, 600),
+  calendarUrl: normalizeCalendarUrl(value.calendarUrl),
 });
 
 export const serializeProposal = (proposal) =>
@@ -156,6 +159,17 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
     validity.className = "proposal-validity";
     validity.textContent = `Pricing valid through ${displayDate(value.validUntil)}.`;
     article.append(validity);
+  }
+  if (value.calendarUrl) {
+    const calendar = document.createElement("p");
+    calendar.className = "proposal-calendar-link";
+    const link = document.createElement("a");
+    link.href = value.calendarUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Open calendar link";
+    calendar.append(link);
+    article.append(calendar);
   }
   if (showActions) {
     const actions = document.createElement("div");

@@ -9,8 +9,9 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-2";
-import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20260915-1";
+import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20261012-calendar";
 import { renderDocumentCard } from "./document-message-ui.js?v=20260923-1";
+import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 
 const $ = (selector) => document.querySelector(selector);
 const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration Accessories\b/g, "Event Accessories").replace(/\bEvent Kit\b/g, "Celebration Kit");
@@ -102,7 +103,8 @@ const renderMessages = (messages) => {
     name.textContent = message.sender === "client" ? "You" : "HMP representative";
     const proposal = parseProposal(message.body);
     const copy = document.createElement("p");
-    copy.textContent = message.body;
+    if (message.sender === "admin") appendLinkedText(copy, message.body);
+    else copy.textContent = message.body;
     const time = document.createElement("time");
     time.dateTime = message.createdAt;
     time.textContent = formatDate(message.createdAt, true);

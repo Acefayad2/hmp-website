@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261011-message-signature" />
+    <link rel="stylesheet" href="admin.css?v=20261012-calendar" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
@@ -195,6 +195,11 @@
                     <label for="admin-message-input">Reply as HMP · client notified by email</label>
                     <textarea id="admin-message-input" maxlength="4000" rows="4" placeholder="Type your reply…"></textarea>
                     <button class="message-insert-signature" id="insert-message-signature" type="button" disabled>Insert signature</button>
+                    <div class="admin-calendar-share">
+                      <label for="admin-calendar-url">Share a calendar link separately</label>
+                      <input id="admin-calendar-url" type="url" inputmode="url" maxlength="2000" placeholder="https://…" />
+                      <button class="message-insert-signature" id="insert-calendar-link" type="button">Add to reply</button>
+                    </div>
                     <div class="attachment-picker">
                       <label class="attachment-button" for="admin-message-attachments">＋ Add photos or files</label>
                       <input id="admin-message-attachments" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
@@ -507,6 +512,7 @@
             <label><span>HMP service fee</span><span class="proposal-money-input"><b>$</b><input id="proposal-service-fee" type="number" min="0" max="1000000" step="0.01" required /></span></label>
             <label><span>Pricing valid through</span><input id="proposal-valid-until" type="date" /></label>
             <label class="proposal-wide"><span>Payment terms</span><textarea id="proposal-payment-terms" rows="3" maxlength="600"></textarea></label>
+            <label class="proposal-wide"><span>Calendar link <small>optional · shown in the proposal</small></span><input id="proposal-calendar-url" type="url" inputmode="url" maxlength="2000" placeholder="https://…" /></label>
           </div>
           <div class="proposal-form-actions">
             <p class="form-message" id="proposal-editor-message" role="status"></p>
@@ -748,6 +754,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261011-message-signature"></script>
+    <script type="module" src="assets/admin.js?v=20261012-calendar"></script>
   </body>
 </html>

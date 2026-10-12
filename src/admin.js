@@ -9,6 +9,8 @@ import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import "./admin-search.js";
 import { matchesSearch, searchText } from "../page-search.js";
 import { insertMessageSignature } from "./message-signature.mjs";
+import { appendLinkedText, normalizeCalendarUrl } from "../calendar-link.js";
+import { proposalEventType } from "./proposal-event-type.js";
 import {
   acceptInvite,
   getUser,
@@ -460,7 +462,8 @@ const renderAdminMessages = (thread) => {
     meta.append(name, time);
     const proposal = parseProposal(message.body);
     const copy = document.createElement("p");
-    copy.textContent = message.body;
+    if (message.sender === "admin") appendLinkedText(copy, message.body);
+    else copy.textContent = message.body;
     article.append(meta);
     const documentCard=message.sender === "admin" ? renderDocumentCard(message.document) : null;
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
@@ -505,6 +508,7 @@ const proposalFormFields = {
   serviceFee: "#proposal-service-fee",
   validUntil: "#proposal-valid-until",
   paymentTerms: "#proposal-payment-terms",
+  calendarUrl: "#proposal-calendar-url",
 };
 
 const proposalPayload = () => Object.fromEntries(
@@ -520,7 +524,7 @@ const openProposalEditor = () => {
   const values = {
     title: "Money Changing Service Only",
     clientName: thread.clientName,
-    celebrationType: inquiry.celebrationType || eventServiceLabel(thread.service) || "",
+    celebrationType: proposalEventType(inquiry.celebrationType || eventServiceLabel(thread.service)),
     eventDate: inquiry.celebrationDate || thread.celebrationDate || "",
     eventTime: [inquiry.startTime, inquiry.endTime].filter(Boolean).join(" – "),
     eventLocation: inquiry.location || "",
@@ -544,6 +548,7 @@ const openProposalEditor = () => {
     serviceFee: 900,
     validUntil: localDateValue(validUntil),
     paymentTerms: "Booking is secured after the approved payment method and payment schedule are confirmed by HMP Luxury Event Services.",
+    calendarUrl: "",
   };
   Object.entries(proposalFormFields).forEach(([key, selector]) => {
     $(selector).value = values[key] ?? "";
@@ -620,6 +625,10 @@ const sendProposal = async (event) => {
   event.preventDefault();
   if (!activeThreadId || !event.currentTarget.reportValidity()) return;
   const proposal = proposalPayload();
+  if (proposal.calendarUrl && !normalizeCalendarUrl(proposal.calendarUrl)) {
+    setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");
+    return;
+  }
   const message = serializeProposal(proposal);
   if (message.length > 4000) {
     setMessage($("#proposal-editor-message"), "Shorten the service details or notes before sending.");
@@ -1849,6 +1858,26 @@ $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-di
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
 $("#proposal-form").addEventListener("submit", sendProposal);
+$("#insert-calendar-link").addEventListener("click", () => {
+  const calendarInput = $("#admin-calendar-url");
+  const url = normalizeCalendarUrl(calendarInput.value);
+  if (!url) {
+    setMessage($("#admin-message-status"), "Enter a valid https:// calendar link first.");
+    calendarInput.focus();
+    return;
+  }
+  const messageInput = $("#admin-message-input");
+  const prefix = messageInput.value.trim() ? "\n\n" : "";
+  const addition = `${prefix}Calendar link: ${url}`;
+  if (messageInput.value.length + addition.length > messageInput.maxLength) {
+    setMessage($("#admin-message-status"), "Shorten your reply before adding the calendar link.");
+    return;
+  }
+  messageInput.value += addition;
+  calendarInput.value = "";
+  messageInput.focus();
+  setMessage($("#admin-message-status"), "Calendar link added to the reply. Click Send reply to share it.");
+});
 $("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
 $("#proposal-editor-dialog").addEventListener("click", (event) => {
   if (event.target === $("#proposal-editor-dialog")) $("#proposal-editor-dialog").close();
