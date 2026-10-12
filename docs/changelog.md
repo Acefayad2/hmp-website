@@ -2,6 +2,7 @@
 
 ## 2026-10-12
 
+- Warn before discarding unsaved proposal edits during close, workspace navigation, or page departure.
 - Package only built Netlify Function entrypoints so shared underscore-prefixed modules are not deployed as standalone functions.
 
 ## 2026-10-11
