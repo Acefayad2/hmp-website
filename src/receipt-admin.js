@@ -37,7 +37,7 @@ document.querySelector("#create-receipt").addEventListener("click", async () => 
   dialog.showModal();
   try {
     const result = await agreementRequest("/api/hmp-invoices");
-    invoices = result.invoices.filter(invoice => invoice.status === "Paid");
+    invoices = result.invoices.filter(invoice => invoice.status === "Paid" && !invoice.deletedAt);
     $("#receipt-invoice").innerHTML = `<option value="">Choose a paid invoice</option>${invoices.map(invoice => `<option value="${escape(invoice.id)}">${escape(invoice.invoiceNumber)} · ${escape(invoice.clientName)}</option>`).join("")}`;
     $("#receipt-invoice").disabled = !invoices.length;
     message(invoices.length ? "" : "No paid invoices yet. In Invoices & Contracts, open the invoice, set its status to Paid after payment is received, and save it. Then return here.");
@@ -63,7 +63,7 @@ async function prepare(print) {
     // Re-read the protected invoice endpoint so an outdated or voided invoice cannot be receipted.
     const { invoices: latest } = await agreementRequest("/api/hmp-invoices");
     const invoice = latest.find(item => item.id === selected.id);
-    if (!invoice || invoice.updatedAt !== selected.updatedAt) throw new Error("This invoice has changed. Close and reopen the receipt to review the latest details.");
+    if (!invoice || invoice.deletedAt || invoice.updatedAt !== selected.updatedAt) throw new Error("This invoice has changed. Close and reopen the receipt to review the latest details.");
     const receipt = createReceipt(invoice, { ...values, confirmed: values.confirmed === "on" });
     $("#receipt-preview").innerHTML = receiptHTML(receipt);
     $("#receipt-preview").hidden = false;

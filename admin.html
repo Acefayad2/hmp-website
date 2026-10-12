@@ -212,10 +212,13 @@
             </div>
             <p class="form-message" id="proposal-workspace-status" role="status"></p>
             <p id="proposal-workspace-count">0 sent proposals</p>
-            <div id="proposal-workspace-list"></div>
-            <div class="invoice-empty" id="proposal-workspace-empty">
-              <h3>No proposals sent yet</h3>
-              <p>Choose a client above or use New client &amp; proposal to get started.</p>
+            <div class="invoice-list-panel proposal-list-panel">
+              <div class="proposal-list-heading"><span>Proposal</span><span>Client</span><span>Sent</span><span>Amount</span></div>
+              <div id="proposal-workspace-list"></div>
+              <div class="invoice-empty" id="proposal-workspace-empty">
+                <h3>No proposals sent yet</h3>
+                <p>Choose a client above or use New client &amp; proposal to get started.</p>
+              </div>
             </div>
           </section>
 
@@ -237,6 +240,12 @@
               <strong>Email setup needed</strong>
               <span>Invoices can be saved and printed now. Connect a verified HMP sender to deliver them by email.</span>
             </div>
+            <div class="invoice-view-switch" role="group" aria-label="Invoice folders">
+              <button type="button" data-invoice-view="active" aria-pressed="true">Active</button>
+              <button type="button" data-invoice-view="archived" aria-pressed="false">Archived</button>
+              <button type="button" data-invoice-view="deleted" aria-pressed="false">Deleted</button>
+            </div>
+            <p class="form-message" id="invoice-list-message" role="status"></p>
             <div class="invoice-list-panel">
               <div class="invoice-list-heading">
                 <span>Invoice</span><span>Client</span><span>Due date</span><span>Total</span><span>Status</span>
@@ -266,7 +275,10 @@
               <h3>Client forms &amp; responses</h3>
               <button class="agreement-button secondary" id="refresh-information-forms" type="button">Refresh responses</button>
               <p id="information-list-message" class="agreement-status" role="status"></p>
-              <div id="information-list" class="agreement-list"></div>
+              <div class="invoice-list-panel form-list-panel">
+                <div class="form-list-heading"><span>Client</span><span>Form</span><span>Status</span></div>
+                <div id="information-list" class="agreement-list"></div>
+              </div>
               <p>Service agreements and signed records are available under Invoices &amp; Contracts → Contracts.</p>
             </section>
           </section>

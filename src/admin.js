@@ -52,6 +52,7 @@ const dialog = $("#inquiry-dialog");
 let inquiries = [];
 let activeInquiryFilter = "all";
 let invoices = [];
+let invoiceView = "active";
 let invoiceItems = [];
 let activeInvoiceId = "";
 let invoiceEmailConfigured = false;
@@ -1012,6 +1013,11 @@ const openInvoiceEditor = (invoice = null) => {
   $("#send-invoice").textContent = invoice?.status === "Sent" ? "Send again" : "Send invoice";
   setMessage($("#invoice-editor-message"), "");
   renderInvoiceItems();
+  const inactive = Boolean(invoice?.archivedAt || invoice?.deletedAt);
+  $("#invoice-form").querySelectorAll("input, textarea, select, button").forEach((control) => {
+    if (control.id !== "close-invoice-editor" && control.id !== "print-invoice") control.disabled = inactive;
+  });
+  if (inactive) setMessage($("#invoice-editor-message"), "Restore this invoice before editing or sending it.");
   $("#invoice-editor-dialog").showModal();
   resizeInvoiceTextareas();
 };
@@ -1027,20 +1033,53 @@ const invoicePayload = () => ({
 const renderInvoices = () => {
   const list = $("#invoice-list");
   const empty = $("#invoice-empty");
-  empty.hidden = invoices.length > 0;
-  list.hidden = invoices.length === 0;
-  list.innerHTML = invoices
+  const visible = invoices.filter((invoice) => invoiceView === "deleted" ? invoice.deletedAt : invoiceView === "archived" ? invoice.archivedAt : !invoice.archivedAt && !invoice.deletedAt);
+  document.querySelectorAll("[data-invoice-view]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.invoiceView === invoiceView));
+  });
+  empty.hidden = visible.length > 0;
+  list.hidden = visible.length === 0;
+  $("#invoice-empty h3").textContent = invoiceView === "active" ? "No invoices yet" : invoiceView === "archived" ? "No archived invoices" : "No deleted invoices";
+  $("#invoice-empty p").textContent = invoiceView === "active" ? "Create the first branded invoice for an HMP client." : invoiceView === "archived" ? "Archived invoices can be restored here." : "Deleted invoices are kept here and can be restored.";
+  $("#empty-create-invoice").hidden = invoiceView !== "active";
+  list.innerHTML = visible
     .map(
       (invoice) => `
-        <button class="invoice-list-row" type="button" data-invoice-id="${escapeHTML(invoice.id)}" data-search-text="${escapeHTML(searchText(invoice.eventName, invoice.eventAddress, invoice.eventDate, invoice.clientPhone, invoice.notes, invoice.paymentTerms, invoice.total, (invoice.items || []).map(item => item.description)))}">
+      <div class="invoice-list-entry" data-search-text="${escapeHTML(searchText(invoice.eventName, invoice.eventAddress, invoice.eventDate, invoice.clientPhone, invoice.notes, invoice.paymentTerms, invoice.total, (invoice.items || []).map(item => item.description)))}">
+        <button class="invoice-list-row" type="button" data-invoice-id="${escapeHTML(invoice.id)}">
           <span><strong>${escapeHTML(invoice.invoiceNumber)}</strong><small>${escapeHTML(formatDate(invoice.issueDate))}</small></span>
           <span><strong>${escapeHTML(invoice.clientName)}</strong><small>${escapeHTML(invoice.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(invoice.dueDate))}</span>
           <span class="invoice-list-total">${formatMoney(invoice.total)}</span>
           <span class="status-pill">${escapeHTML(invoice.status)}</span>
-        </button>`,
+        </button>
+        <div class="invoice-row-actions">
+          ${invoiceView === "active" ? `<button type="button" data-invoice-action="archive" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Archive invoice ${escapeHTML(invoice.invoiceNumber)}">Archive</button><button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : `<button type="button" data-invoice-action="restore" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Restore invoice ${escapeHTML(invoice.invoiceNumber)}">Restore</button>${invoiceView === "archived" ? `<button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : ""}`}
+        </div>
+      </div>`,
     )
     .join("");
+};
+
+const changeInvoiceFolder = async (invoice, action) => {
+  if (action === "delete" && !window.confirm(`Move ${invoice.invoiceNumber} to Deleted? It will be hidden from active invoices but can be restored later.`)) return;
+  const message = $("#invoice-list-message");
+  setMessage(message, `${action === "restore" ? "Restoring" : action === "archive" ? "Archiving" : "Deleting"} invoice…`);
+  try {
+    const response = await fetch("/api/hmp-invoices", {
+      method: "PATCH",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: invoice.id, action }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Invoice could not be updated.");
+    invoices = invoices.map((item) => item.id === invoice.id ? data.invoice : item);
+    renderInvoices();
+    setMessage(message, `Invoice ${action === "delete" ? "moved to Deleted" : action === "archive" ? "archived" : "restored to Active"}.`, true);
+  } catch (error) {
+    setMessage(message, error.message || "Invoice could not be updated.");
+  }
 };
 
 const loadInvoices = async () => {
@@ -1775,11 +1814,21 @@ $("#invoice-items").addEventListener("click", (event) => {
 });
 $("#invoice-discount").addEventListener("input", calculateInvoiceTotals);
 $("#invoice-tax-rate").addEventListener("input", calculateInvoiceTotals);
+$(".invoice-view-switch").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-invoice-view]");
+  if (!button) return;
+  invoiceView = button.dataset.invoiceView;
+  setMessage($("#invoice-list-message"), "");
+  renderInvoices();
+});
 $("#invoice-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-invoice-id]");
   if (!row) return;
   const invoice = invoices.find((candidate) => candidate.id === row.dataset.invoiceId);
-  if (invoice) openInvoiceEditor(invoice);
+  if (!invoice) return;
+  const action = row.dataset.invoiceAction;
+  if (action) changeInvoiceFolder(invoice, action);
+  else openInvoiceEditor(invoice);
 });
 $("#invoice-editor-dialog").addEventListener("click", (event) => {
   if (event.target === $("#invoice-editor-dialog")) $("#invoice-editor-dialog").close();
