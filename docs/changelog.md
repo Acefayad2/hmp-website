@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-12
+
+- Package only built Netlify Function entrypoints so shared underscore-prefixed modules are not deployed as standalone functions.
+
 ## 2026-10-11
 
 - Run the existing aggregate checks in GitHub Actions for pull requests and pushes to `main`.
