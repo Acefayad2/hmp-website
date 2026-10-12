@@ -8,6 +8,7 @@ import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import "./admin-search.js";
 import { matchesSearch, searchText } from "../page-search.js";
+import { insertMessageSignature } from "./message-signature.mjs";
 import {
   acceptInvite,
   getUser,
@@ -66,6 +67,9 @@ let activeReviewId = "";
 let messageThreads = [];
 let activeThreadId = "";
 let activeConversationUrl = "";
+let messageSignature = "";
+let messageSignatureLoaded = false;
+let messageSignatureLoadPromise = null;
 let renderedAdminThreadId = "";
 let renderedAdminMessageSignature = "";
 let activeWorkspaceView = "inquiries";
@@ -175,6 +179,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   }
   if (isContracts) loadAgreementForms();
   if (isForms) loadInformationForms();
+  if (isMessages) loadMessageSignature().catch((error) => setMessage($("#message-signature-status"), error.message));
   if (isProposals) {
     setMessage($("#proposal-workspace-status"), "Loading proposals…");
     loadMessages().then(() => setMessage($("#proposal-workspace-status"), "")).catch((error) => {
@@ -720,6 +725,58 @@ const loadMessages = async () => {
   if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
     openMessageThread(activeThreadId);
   }
+};
+
+const loadMessageSignature = () => {
+  if (messageSignatureLoaded) return Promise.resolve();
+  if (messageSignatureLoadPromise) return messageSignatureLoadPromise;
+  messageSignatureLoadPromise = (async () => {
+    const response = await fetch("/api/hmp-message-signature", { credentials: "same-origin", cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Message signature could not be loaded.");
+    messageSignature = data.signature || "";
+    messageSignatureLoaded = true;
+    $("#message-signature-input").value = messageSignature;
+    $("#message-signature-input").disabled = false;
+    $("#message-signature-form button[type=submit]").disabled = false;
+    $("#insert-message-signature").disabled = !messageSignature;
+    setMessage($("#message-signature-status"), "");
+  })().finally(() => { messageSignatureLoadPromise = null; });
+  return messageSignatureLoadPromise;
+};
+
+const selectMessageTab = (tab) => {
+  const signatureTab = tab === "signature";
+  const input = $("#message-signature-input");
+  if (!signatureTab && input.value !== messageSignature && !window.confirm("Discard your unsaved signature changes?")) return;
+  if (!signatureTab) input.value = messageSignature;
+  $("#message-signature-tab").setAttribute("aria-selected", String(signatureTab));
+  $("#message-conversations-tab").setAttribute("aria-selected", String(!signatureTab));
+  $("#message-signature-panel").hidden = !signatureTab;
+  $("#message-conversations-panel").hidden = signatureTab;
+  if (signatureTab) loadMessageSignature().catch((error) => setMessage($("#message-signature-status"), error.message));
+};
+
+const saveMessageSignature = async (event) => {
+  event.preventDefault();
+  const input = $("#message-signature-input");
+  const button = event.currentTarget.querySelector("button[type=submit]");
+  button.disabled = true;
+  setMessage($("#message-signature-status"), "Saving signature…");
+  try {
+    const response = await fetch("/api/hmp-message-signature", {
+      method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ signature: input.value }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Message signature could not be saved.");
+    messageSignature = data.signature;
+    input.value = messageSignature;
+    $("#insert-message-signature").disabled = !messageSignature;
+    setMessage($("#message-signature-status"), messageSignature ? "Signature saved for the HMP team. Insert it into any reply when needed." : "Signature cleared.", true);
+  } catch (error) {
+    setMessage($("#message-signature-status"), error.message || "Message signature could not be saved.");
+  } finally { button.disabled = false; }
 };
 
 const createConversationLink = async () => {
@@ -1728,6 +1785,18 @@ dialog.addEventListener("click", (event) => {
 $("#thread-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-thread-id]");
   if (row) openMessageThread(row.dataset.threadId);
+});
+$("#message-conversations-tab").addEventListener("click", () => selectMessageTab("conversations"));
+$("#message-signature-tab").addEventListener("click", () => selectMessageTab("signature"));
+$("#message-signature-form").addEventListener("submit", saveMessageSignature);
+$("#insert-message-signature").addEventListener("click", () => {
+  const input = $("#admin-message-input");
+  const result = insertMessageSignature(input.value, messageSignature, input.maxLength);
+  if (result.error) return setMessage($("#admin-message-status"), result.error);
+  input.value = result.message;
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+  setMessage($("#admin-message-status"), "Signature added to the draft. Review it before sending.", true);
 });
 $("#admin-message-form").addEventListener("submit", sendAdminMessage);
 $("#admin-message-attachments").addEventListener("change", () => {

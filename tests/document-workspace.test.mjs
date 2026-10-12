@@ -26,6 +26,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
   const context = {
     $, document: { querySelectorAll: (selector) => selector === "[data-document-view]" ? tabs : links },
     setMessage: (node, text) => { node.textContent = text; },
+    loadMessageSignature: () => Promise.resolve(),
     history: { pushState: (_, __, path) => paths.push(path) },
     ...Object.fromEntries(["Invoices", "Contracts", "Messages", "Reviews", "AgreementForms", "InformationForms"].map((name) => [
       `load${name}`, () => { calls.push(name); return Promise.resolve(); },
