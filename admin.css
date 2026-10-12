@@ -315,6 +315,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .proposal-record .portal-proposal > header { flex-wrap:wrap; }
 .proposal-record .portal-proposal > header div { flex:1 1 170px; text-align:left; overflow-wrap:anywhere; }
 .proposal-record-content > .text-button { margin-top:18px; }
+.proposal-record-content > .proposal-withdraw-button { color:#8b4040; }
+.proposal-record.is-withdrawn { background:#faf7f4; }
+.proposal-record.is-withdrawn summary > :nth-child(3) { color:#8b4040; font-weight:700; }
 .proposal-record summary:focus-visible, .proposal-client-picker select:focus-visible { outline:3px solid var(--gold); outline-offset:-3px; }
 .form-list-heading,.form-list-panel .agreement-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) minmax(130px,.7fr); gap:18px; align-items:center; }
 .form-list-heading { padding:13px 24px; color:var(--muted); background:rgba(232,217,213,.35); font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }

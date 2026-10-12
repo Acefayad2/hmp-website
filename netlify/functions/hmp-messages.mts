@@ -139,6 +139,7 @@ export const sendReplyNotification = async (
 };
 
 export const notifyStoredMessage = async (client: any, inquiry: any, conversation: any, message: any, fetchFn = fetch) => {
+  if (message.proposal_withdrawn_at) return {notified:false, notificationError:"Restore this proposal before sending another notification."};
   if (message.email_notified_at) return {notified:true, notificationError:""};
   let notified=false, notificationError="";
   try {
@@ -214,7 +215,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       inquiryIds.length
         ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,service,celebration_date,status").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [], error: null }),
-      readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,email_notified_at,email_notification_error"),
+      readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,email_notified_at,email_notification_error,proposal_withdrawn_at"),
     ]);
     // A database/schema failure is not an empty conversation. Keep the UI's
     // existing data and surface a retryable error instead of hiding messages.
@@ -251,6 +252,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
             createdAt: message.created_at,
             emailNotifiedAt: message.email_notified_at || null,
             emailNotificationError: message.email_notification_error || "",
+            proposalWithdrawnAt: message.proposal_withdrawn_at || null,
           })),
       };
     });
@@ -268,6 +270,25 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
   }
   const action = cleanText(body.action, 32);
 
+  if (action === "withdraw-proposal" || action === "restore-proposal") {
+    const conversationId = cleanText(body.conversationId, 36);
+    const messageId = cleanText(body.messageId, 36);
+    if (!uuidPattern.test(conversationId) || !uuidPattern.test(messageId)) return json({ error: "Invalid proposal" }, 400);
+    const { data: message, error: readError } = await client.from("hmp_client_messages")
+      .select("id,body,proposal_withdrawn_at")
+      .eq("id", messageId).eq("conversation_id", conversationId).eq("sender", "admin").maybeSingle();
+    if (readError) return json({ error: "Proposal is temporarily unavailable" }, 502);
+    if (!message?.body?.startsWith(proposalPrefix)) return json({ error: "Proposal not found" }, 404);
+    const proposalWithdrawnAt = action === "withdraw-proposal" ? (message.proposal_withdrawn_at || new Date().toISOString()) : null;
+    if (proposalWithdrawnAt !== message.proposal_withdrawn_at) {
+      const { error: updateError } = await client.from("hmp_client_messages")
+        .update({ proposal_withdrawn_at: proposalWithdrawnAt })
+        .eq("id", messageId).eq("conversation_id", conversationId).eq("sender", "admin");
+      if (updateError) return json({ error: "Proposal could not be updated" }, 502);
+    }
+    return json({ ok: true, proposalWithdrawnAt });
+  }
+
   if (action === "retry-notification") {
     const conversationId=cleanText(body.conversationId,36), messageId=cleanText(body.messageId,36);
     if(!uuidPattern.test(conversationId) || !uuidPattern.test(messageId)) return json({error:"Invalid message"},400);
@@ -275,6 +296,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     if(!conversation) return json({error:"Conversation not found"},404);
     const {data:message}=await client.from("hmp_client_messages").select("*").eq("id",messageId).eq("conversation_id",conversationId).eq("sender","admin").maybeSingle();
     if(!message) return json({error:"Admin message not found"},404);
+    if(message.proposal_withdrawn_at) return json({error:"Restore this proposal before sending another notification"},409);
     const {data:inquiry}=await client.from("hmp_admin_inquiries").select("client_name,email,service").eq("submission_id",conversation.inquiry_id).maybeSingle();
     return json({ok:true,...await notifyStoredMessage(client,inquiry,conversation,message,fetchFn)});
   }
@@ -416,7 +438,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     if (error?.code === "23505") {
       const { data: existing } = await client
         .from("hmp_client_messages")
-        .select("id,sender,sender_name,body,attachments,created_at,email_notified_at,email_notification_error")
+        .select("id,sender,sender_name,body,attachments,created_at,email_notified_at,email_notification_error,proposal_withdrawn_at")
         .eq("id", requestId)
         .eq("conversation_id", conversationId)
         .eq("sender", "admin")

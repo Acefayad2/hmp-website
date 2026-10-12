@@ -89,9 +89,9 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   if (!inquiry) return json({ error: "Conversation is unavailable." }, 404);
 
   if (request.method === "GET") {
-    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at");
+    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at,proposal_withdrawn_at");
     if (error) return json({ error: "Conversation is temporarily unavailable." }, 502);
-    const signedMessages = await Promise.all((messages || []).map(async (message) => ({
+    const signedMessages = await Promise.all((messages || []).filter((message) => !message.proposal_withdrawn_at).map(async (message) => ({
       ...message,
       signedAttachments: await signAttachments(client, message.attachments),
     })));

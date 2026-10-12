@@ -431,6 +431,7 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.createdAt,
   message.emailNotifiedAt,
   message.emailNotificationError,
+  message.proposalWithdrawnAt,
   message.document,
   (message.attachments || []).map((attachment) => [
     attachment.id,
@@ -467,9 +468,15 @@ const renderAdminMessages = (thread) => {
     else if (proposal) {
       article.classList.add("proposal-message");
       article.append(renderProposalCard(proposal));
+      if (message.proposalWithdrawnAt) {
+        const withdrawn = document.createElement("p");
+        withdrawn.className = "message-email-status";
+        withdrawn.textContent = "Withdrawn from the client portal";
+        article.append(withdrawn);
+      }
     } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
-    if (message.sender === "admin" && (message.emailNotifiedAt || message.emailNotificationError)) {
+    if (message.sender === "admin" && !message.proposalWithdrawnAt && (message.emailNotifiedAt || message.emailNotificationError)) {
       const status=document.createElement("p");
       status.className="message-email-status";
       status.textContent=message.emailNotifiedAt ? "Email notification sent" : `Email not confirmed: ${message.emailNotificationError}`;
@@ -712,6 +719,32 @@ const renderMessageThreads = () => {
   });
 };
 
+const setProposalWithdrawal = async (thread, message, button, status) => {
+  const withdrawing = !message.proposalWithdrawnAt;
+  if (withdrawing && !window.confirm(`Withdraw this proposal for ${thread.clientName}? It will disappear from the client portal, but remain recoverable in Admin.`)) return;
+  button.disabled = true;
+  status.textContent = withdrawing ? "Withdrawing…" : "Restoring…";
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        action: withdrawing ? "withdraw-proposal" : "restore-proposal",
+        conversationId: thread.id,
+        messageId: message.id,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Proposal could not be updated.");
+    await loadMessages();
+    setMessage($("#proposal-workspace-status"), withdrawing ? "Proposal withdrawn from the client portal. You can restore it here." : "Proposal restored to the client portal.", true);
+  } catch (error) {
+    status.textContent = error.message || "Proposal could not be updated.";
+    button.disabled = false;
+  }
+};
+
 const loadMessages = async () => {
   const response = await fetch("/api/hmp-messages", { credentials: "same-origin", cache: "no-store" });
   const data = await response.json().catch(() => ({}));
@@ -721,7 +754,7 @@ const loadMessages = async () => {
   renderProposalsWorkspace(messageThreads, (threadId) => {
     openMessageThread(threadId);
     if (activeThreadId === threadId) setWorkspaceView("messages", true);
-  });
+  }, setProposalWithdrawal);
   if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
     openMessageThread(activeThreadId);
   }

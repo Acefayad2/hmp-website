@@ -11,7 +11,7 @@ export const collectProposals = (threads = []) => threads.flatMap((thread) =>
 
 let renderedSignature = "";
 
-export const renderProposalsWorkspace = (threads, openConversation) => {
+export const renderProposalsWorkspace = (threads, openConversation, setWithdrawal) => {
   const select = document.querySelector("#proposal-client-select");
   const selected = select.value;
   const optionsSignature = JSON.stringify(threads.map(({ id, clientName, clientEmail }) => [id, clientName, clientEmail]));
@@ -24,8 +24,9 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
   document.querySelector("#proposal-workspace-create").disabled = !select.value;
   const records = collectProposals(threads);
   document.querySelector("#proposal-workspace-empty").hidden = records.length > 0;
-  document.querySelector("#proposal-workspace-count").textContent = `${records.length} sent proposal${records.length === 1 ? "" : "s"}`;
-  const signature = JSON.stringify(records.map(({ thread, message }) => [thread.id, thread.clientName, thread.clientEmail, message.id, message.body, message.createdAt]));
+  const withdrawnCount = records.filter(({ message }) => message.proposalWithdrawnAt).length;
+  document.querySelector("#proposal-workspace-count").textContent = `${records.length - withdrawnCount} sent · ${withdrawnCount} withdrawn`;
+  const signature = JSON.stringify(records.map(({ thread, message }) => [thread.id, thread.clientName, thread.clientEmail, message.id, message.body, message.createdAt, message.proposalWithdrawnAt]));
   if (signature === renderedSignature) return;
   renderedSignature = signature;
   const list = document.querySelector("#proposal-workspace-list");
@@ -35,7 +36,7 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
     const record = document.createElement("details");
     record.className = "proposal-record";
     record.dataset.proposalId = message.id;
-    record.dataset.searchText = searchText(thread.clientEmail, thread.service, proposal.serviceFee, message.createdAt);
+    record.dataset.searchText = searchText(thread.clientEmail, thread.service, proposal.serviceFee, message.createdAt, message.proposalWithdrawnAt ? "withdrawn" : "sent");
     record.open = expanded.has(message.id);
     const summary = document.createElement("summary");
     const title = document.createElement("strong");
@@ -47,6 +48,10 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
     const sentDate = Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
     const amount = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(proposal.serviceFee);
     sent.textContent = sentDate || "—";
+    if (message.proposalWithdrawnAt) {
+      record.classList.add("is-withdrawn");
+      sent.textContent = "Withdrawn";
+    }
     const price = document.createElement("span");
     price.textContent = amount;
     summary.append(title, client, sent, price);
@@ -61,7 +66,7 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
     copy.type = "button";
     copy.className = "text-button";
     copy.textContent = thread.active ? "Copy client link" : "Client link expired";
-    copy.disabled = !thread.active;
+    copy.disabled = !thread.active || Boolean(message.proposalWithdrawnAt);
     const status = document.createElement("span");
     status.setAttribute("role", "status");
     copy.addEventListener("click", async () => {
@@ -70,7 +75,12 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
         status.textContent = "Private portal link copied. Text it only to this client.";
       } catch { status.textContent = "Copying was blocked. Open the conversation to copy its link."; }
     });
-    content.append(renderProposalCard(proposal), conversation, copy, status);
+    const change = document.createElement("button");
+    change.type = "button";
+    change.className = "text-button proposal-withdraw-button";
+    change.textContent = message.proposalWithdrawnAt ? "Restore proposal" : "Withdraw proposal";
+    change.addEventListener("click", () => setWithdrawal(thread, message, change, status));
+    content.append(renderProposalCard(proposal), conversation, copy, change, status);
     record.append(summary, content);
     list.append(record);
   });

@@ -7,6 +7,7 @@ import {createConversationHandler} from "../netlify/functions/hmp-conversation.m
 import {createMessagesHandler} from "../netlify/functions/hmp-messages.mts";
 import {documentSnapshot,prepareDocumentConversation} from "../netlify/functions/_document-messages.mts";
 import {tokenHash} from "../netlify/functions/_conversation-security.mts";
+import {serializeProposal} from "../proposal-ui.js";
 const settings={RESEND_API_KEY:"test",HMP_INVOICE_FROM_EMAIL:"sender@example.test",SUPABASE_SERVICE_ROLE_KEY:"test-secret",HMP_ADMIN_EMAILS:"admin@example.test"};
 globalThis.Netlify={env:{get:key=>settings[key]}};
 const id="11111111-1111-4111-8111-111111111111",inquiryId="22222222-2222-4222-8222-222222222222",conversationId="33333333-3333-4333-8333-333333333333",requestId="44444444-4444-4444-8444-444444444444";
@@ -122,4 +123,29 @@ test("only an authorized same-origin admin can reset a PIN; old sessions stop an
   const locked=await client(clientRequest(newToken,cookie));
   assert.equal(locked.status,401);assert.equal((await locked.json()).code,"CLIENT_PIN_SETUP");
   assert.equal(db.rows.hmp_client_messages[0].body,"Keep this message");
+});
+
+test("withdrawing a sent proposal hides it from the client but preserves an Admin record and can be restored",async()=>{
+  const db=database(),proposalId="55555555-5555-4555-8555-555555555555";
+  const proposal=serializeProposal({title:"Event services",serviceFee:1250});
+  db.rows.hmp_client_messages.push({id:proposalId,conversation_id:conversationId,sender:"admin",body:proposal,attachments:[],created_at:"2026-10-01T12:00:00Z",proposal_withdrawn_at:null});
+  db.rows.hmp_client_messages.push({id,conversation_id:conversationId,sender:"admin",body:"Ordinary reply",attachments:[],created_at:"2026-10-01T13:00:00Z",proposal_withdrawn_at:null});
+  const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+  const client=createConversationHandler({databaseFactory:()=>db});
+  const setup=await client(new Request("https://hmpeds.com/api/hmp-conversation?pin=setup",{method:"POST",headers:{Authorization:`Bearer ${token}`,Origin:"https://hmpeds.com"},body:JSON.stringify({pin:"065432",confirmPin:"065432"})}));
+  const clientRequest=()=>new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${token}`,Cookie:setup.headers.get("set-cookie").split(";")[0]}});
+  const change=(action,mid=proposalId,origin="https://hmpeds.com")=>new Request("https://hmpeds.com/api/hmp-messages",{method:"POST",headers:{Origin:origin},body:JSON.stringify({action,conversationId,messageId:mid})});
+  assert.equal((await (await client(clientRequest())).json()).messages.length,2);
+  assert.equal((await admin(change("withdraw-proposal",proposalId,"https://evil.test"))).status,403);
+  assert.equal((await createMessagesHandler({getUserFn:async()=>null,databaseFactory:()=>db})(change("withdraw-proposal"))).status,401);
+  assert.equal((await admin(change("withdraw-proposal",id))).status,404);
+  assert.equal((await admin(new Request("https://hmpeds.com/api/hmp-messages",{method:"POST",headers:{Origin:"https://hmpeds.com"},body:JSON.stringify({action:"withdraw-proposal",conversationId:requestId,messageId:proposalId})}))).status,404);
+  assert.equal((await admin(change("withdraw-proposal"))).status,200);
+  assert.deepEqual((await (await client(clientRequest())).json()).messages.map(message=>message.body),["Ordinary reply"]);
+  const adminData=await (await admin(new Request("https://hmpeds.com/api/hmp-messages"))).json();
+  assert.equal(adminData.threads[0].messages[0].body,proposal);
+  assert.ok(adminData.threads[0].messages[0].proposalWithdrawnAt);
+  assert.equal((await admin(change("retry-notification"))).status,409);
+  assert.equal((await admin(change("restore-proposal"))).status,200);
+  assert.deepEqual((await (await client(clientRequest())).json()).messages.map(message=>message.body),[proposal,"Ordinary reply"]);
 });
