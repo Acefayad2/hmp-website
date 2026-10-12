@@ -35,7 +35,7 @@ function setup(rows = [original()], user = { email: "admin@example.test" }, fail
     };
     return query;
   } };
-  return { rows, handler: createReviewHandler({ getUserFn: async () => user, databaseFactory: () => database }) };
+  return { rows, handler: createReviewHandler({ getUserFn: async () => user, databaseFactory: () => database, verifySecondFactorFn: () => true }) };
 }
 
 test("DELETE archives without losing content or the original client request; public hides it and admin retains it", async () => {

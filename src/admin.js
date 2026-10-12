@@ -44,8 +44,10 @@ const authShell = $("#auth-shell");
 const dashboard = $("#dashboard");
 const loginForm = $("#login-form");
 const passwordForm = $("#password-form");
+const adminCodeForm = $("#admin-code-form");
 const authMessage = $("#auth-message");
 const passwordMessage = $("#password-message");
+const adminCodeMessage = $("#admin-code-message");
 const inquiryList = $("#inquiry-list");
 const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
@@ -75,6 +77,7 @@ let renderedAdminMessageSignature = "";
 let activeWorkspaceView = "inquiries";
 let dashboardSyncInProgress = false;
 let dashboardSyncTimer = 0;
+let pendingAdminUser = null;
 
 const DASHBOARD_SYNC_INTERVAL = 10_000;
 
@@ -230,6 +233,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
 
 const showPasswordForm = (message) => {
   loginForm.hidden = true;
+  adminCodeForm.hidden = true;
   passwordForm.hidden = false;
   if (message) setMessage(passwordMessage, message, true);
 };
@@ -1585,6 +1589,16 @@ const sendInvoice = async () => {
 const loadDashboard = async () => {
   const response = await fetch("/api/hmp-dashboard", { credentials: "same-origin", cache: "no-store" });
   if (response.status === 401) {
+    const data = await response.json().catch(() => ({}));
+    if (data.code === "MFA_REQUIRED") {
+      const user = await getUser();
+      if (user) {
+        pendingAdminUser = user;
+        showAdminCodeForm(user);
+        setMessage(adminCodeMessage, "Enter your emailed code to continue.");
+        return;
+      }
+    }
     await logout().catch(() => {});
     authShell.hidden = false;
     dashboard.hidden = true;
@@ -1633,6 +1647,7 @@ const startDashboardSync = () => {
 };
 
 const enterDashboard = async (user) => {
+  pendingAdminUser = null;
   authShell.hidden = true;
   dashboard.hidden = false;
   $("#viewer-email").textContent = user.email || "HMP Admin";
@@ -1652,6 +1667,58 @@ const enterDashboard = async (user) => {
   }
 };
 
+const showAdminCodeForm = (user) => {
+  authShell.hidden = false;
+  dashboard.hidden = true;
+  loginForm.hidden = true;
+  passwordForm.hidden = true;
+  adminCodeForm.hidden = false;
+  $("#admin-code-email").textContent = user.email || "your admin email";
+  $("#admin-code").focus();
+};
+
+const adminCodeRequest = async (action, code) => {
+  const response = await fetch("/api/hmp-admin-email-code", {
+    method: "POST",
+    credentials: "same-origin",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, ...(code ? { code } : {}) }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Admin verification is unavailable. Please try again.");
+  return data;
+};
+
+const sendAdminCode = async () => {
+  const button = $("#admin-code-resend");
+  button.disabled = true;
+  setMessage(adminCodeMessage, "Sending a new code…");
+  try {
+    await adminCodeRequest("send");
+    setMessage(adminCodeMessage, "A code was sent. Check your inbox and spam folder.", true);
+  } catch (error) {
+    setMessage(adminCodeMessage, error.message);
+  } finally {
+    button.disabled = false;
+  }
+};
+
+const continueAdminSignIn = async (user, sendCode = false) => {
+  const response = await fetch("/api/hmp-admin-email-code", { credentials: "same-origin", cache: "no-store" });
+  const data = await response.json().catch(() => ({}));
+  if (response.status === 401) {
+    await logout().catch(() => {});
+    throw new Error("This account does not have HMP admin access.");
+  }
+  if (!response.ok) throw new Error(data.error || "Admin verification is unavailable.");
+  if (data.verified) return enterDashboard(user);
+  pendingAdminUser = user;
+  showAdminCodeForm(user);
+  if (sendCode) await sendAdminCode();
+  else setMessage(adminCodeMessage, "Enter your code, or request a new one.");
+};
+
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = loginForm.querySelector("button[type=submit]");
@@ -1659,9 +1726,9 @@ loginForm.addEventListener("submit", async (event) => {
   setMessage(authMessage, "Signing in…");
   try {
     const user = await login($("#login-email").value.trim(), $("#login-password").value);
-    await enterDashboard(user);
+    await continueAdminSignIn(user, true);
   } catch (error) {
-    setMessage(authMessage, error?.status === 401 ? "The email or password is incorrect." : "We could not sign you in. Please try again.");
+    setMessage(authMessage, error?.status === 401 ? "The email or password is incorrect." : error.message || "We could not sign you in. Please try again.");
   } finally {
     button.disabled = false;
   }
@@ -1694,7 +1761,7 @@ passwordForm.addEventListener("submit", async (event) => {
       ? await acceptInvite(inviteToken, password)
       : await updateUser({ password });
     inviteToken = "";
-    await enterDashboard(user);
+    await continueAdminSignIn(user, true);
   } catch {
     setMessage(passwordMessage, "We could not save that password. Request a new link and try again.");
   }
@@ -1702,8 +1769,29 @@ passwordForm.addEventListener("submit", async (event) => {
 
 $("#logout-button").addEventListener("click", async () => {
   window.clearInterval(dashboardSyncTimer);
+  await fetch("/api/hmp-admin-email-code", { method: "DELETE", credentials: "same-origin" }).catch(() => {});
   await fetch("/api/hmp-sso", { method: "DELETE", credentials: "same-origin" }).catch(() => {});
   await logout();
+  location.reload();
+});
+adminCodeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = adminCodeForm.querySelector('button[type="submit"]');
+  button.disabled = true;
+  setMessage(adminCodeMessage, "Verifying…");
+  try {
+    await adminCodeRequest("verify", $("#admin-code").value.trim());
+    await enterDashboard(pendingAdminUser);
+  } catch (error) {
+    setMessage(adminCodeMessage, error.message);
+  } finally {
+    button.disabled = false;
+  }
+});
+$("#admin-code-resend").addEventListener("click", sendAdminCode);
+$("#admin-code-sign-out").addEventListener("click", async () => {
+  await fetch("/api/hmp-admin-email-code", { method: "DELETE", credentials: "same-origin" }).catch(() => {});
+  await logout().catch(() => {});
   location.reload();
 });
 document.addEventListener("visibilitychange", () => {
@@ -1999,7 +2087,7 @@ const initialize = async () => {
       return;
     }
     const user = callback?.user || (await getUser());
-    if (user) await enterDashboard(user);
+    if (user) await continueAdminSignIn(user);
   } catch {
     setMessage(authMessage, "Admin sign-in is temporarily unavailable.");
   }

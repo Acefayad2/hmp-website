@@ -36,7 +36,7 @@ function database(){
 }
 test("admins can copy an unsent invoice link without emailing or marking it sent",async()=>{
   const db=database();
-  const handler=createShareDocumentHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+  const handler=createShareDocumentHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,verifySecondFactorFn:()=>true});
   const share=()=>new Request("https://hmpeds.com/api/hmp-documents/share",{method:"POST",headers:{Origin:"https://hmpeds.com"},body:JSON.stringify({kind:"invoice",id})});
   const response=await handler(share());
   assert.equal(response.status,200);
@@ -53,7 +53,7 @@ const req=(body={id,requestId},origin="https://hmpeds.com")=>new Request("https:
 for(const [kind,factory] of [["invoice",createSendInvoiceHandler],["contract",createSendContractHandler]]) {
   test(`${kind} sends a private link and immutable copy visible to both participants; retry adds no duplicate`,async()=>{
     const db=database(),emails=[];
-    const h=factory({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,fetchFn:async(_,o)=>{emails.push(o);return Response.json({id:"mail-id"});}});
+    const h=factory({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,fetchFn:async(_,o)=>{emails.push(o);return Response.json({id:"mail-id"});},verifySecondFactorFn:()=>true});
     assert.equal((await h(req())).status,200);assert.equal((await h(req())).status,200);
     assert.equal(db.rows.hmp_client_messages.length,1);
     const copy=db.rows.hmp_client_messages[0].document;assert.equal(copy.kind,kind);assert.ok(!("billing_address" in copy));assert.ok(!("created_by" in copy));
@@ -67,12 +67,12 @@ for(const [kind,factory] of [["invoice",createSendInvoiceHandler],["contract",cr
     const clientData=await (await client(new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${token}`,Cookie:setup.headers.get("set-cookie").split(";")[0]}}))).json();
     assert.deepEqual(clientData.messages[0].document,copy);
     assert.equal((await client(new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${"b".repeat(43)}`}}))).status,401);
-    const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+    const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,verifySecondFactorFn:()=>true});
     const adminData=await (await admin(new Request("https://hmpeds.com/api/hmp-messages"))).json();assert.deepEqual(adminData.threads[0].messages[0].document,copy);
   });
   test(`${kind} failures and recipient mismatches cannot expose a document or falsely mark it sent`,async()=>{
     const db=database();let calls=0,failEmail=true;
-    const h=factory({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,fetchFn:async()=>{calls++;return Response.json({}, {status:failEmail ? 503 : 200});}});
+    const h=factory({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,fetchFn:async()=>{calls++;return Response.json({}, {status:failEmail ? 503 : 200});},verifySecondFactorFn:()=>true});
     assert.equal((await h(req())).status,502);assert.equal(db.rows.hmp_client_messages.length,0);
     assert.equal((await h(req({id,requestId,recipient:"other@example.test"}))).status,409);
     db.rows.hmp_admin_inquiries[0].email="other@example.test";assert.equal((await h(req())).status,409);assert.equal(calls,1);
@@ -108,10 +108,10 @@ test("only an authorized same-origin admin can reset a PIN; old sessions stop an
   const cookie=setup.headers.get("set-cookie").split(";")[0];
   const request=origin=>req({action:"reset-pin",inquiryId},origin);
   for(const user of [null,{email:"not-admin@example.test"}]){
-    const denied=createMessagesHandler({getUserFn:async()=>user,databaseFactory:()=>db});
+    const denied=createMessagesHandler({getUserFn:async()=>user,databaseFactory:()=>db,verifySecondFactorFn:()=>true});
     assert.equal((await denied(request())).status,401);
   }
-  const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,fetchFn:async(_,options)=>{mail.push(JSON.parse(options.body));return Response.json({id:"test-mail"});}});
+  const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db,fetchFn:async(_,options)=>{mail.push(JSON.parse(options.body));return Response.json({id:"test-mail"});},verifySecondFactorFn:()=>true});
   assert.equal((await admin(request("https://evil.test"))).status,403);
   assert.equal(db.rows.hmp_client_conversations[0].access_token_hash,tokenHash(token));
   const result=await (await admin(request())).json();

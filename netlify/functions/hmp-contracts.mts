@@ -1,6 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -115,6 +116,7 @@ export default async (request: Request, _context: Context) => {
   const user = await getUser();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
+  if (!isAdminSecondFactorVerified(request, user)) return adminSecondFactorRequired();
   const client = getDatabase();
   if (!client) return json({ error: "Contract data is unavailable" }, 503);
 

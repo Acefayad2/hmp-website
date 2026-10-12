@@ -30,7 +30,7 @@ function fakeDatabase(messages=[]) {
 }
 const request=(body,origin="https://hmpeds.com")=>new Request("https://hmpeds.com/api/hmp-messages",{method:"POST",headers:{Origin:origin},body:JSON.stringify(body)});
 const sendBody={action:"send",conversationId,requestId:messageId,message:"Hello client",attachments:[]};
-const handler=(db,fetchFn,user={email:"admin@example.test"})=>createMessagesHandler({getUserFn:async()=>user,databaseFactory:()=>db,fetchFn});
+const handler=(db,fetchFn,user={email:"admin@example.test"})=>createMessagesHandler({getUserFn:async()=>user,databaseFactory:()=>db,fetchFn,verifySecondFactorFn:()=>true});
 
 test("every saved admin reply emails the server-selected client using a private link and a stable message key",async()=>{
   const messages=[],emails=[],h=handler(fakeDatabase(messages),async(_,options)=>{emails.push(options);return new Response("{}");});

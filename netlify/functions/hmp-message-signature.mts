@@ -2,18 +2,20 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
   headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },
 });
 
-export const createMessageSignatureHandler = ({ getUserFn = getUser, databaseFactory = createClient } = {}) => async (request: Request) => {
+export const createMessageSignatureHandler = ({ getUserFn = getUser, databaseFactory = createClient, verifySecondFactorFn = isAdminSecondFactorVerified } = {}) => async (request: Request) => {
   if (request.method !== "GET" && request.method !== "PUT") return json({ error: "Method not allowed" }, 405);
   const user = await getUserFn();
   const email = user?.email?.trim().toLowerCase();
   const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(value => value.trim().toLowerCase());
   if (!email || !allowed.includes(email)) return json({ error: "Unauthorized" }, 401);
+  if (!verifySecondFactorFn(request, user)) return adminSecondFactorRequired();
   if (request.method === "PUT" && !isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
 
   const url = Netlify.env.get("SUPABASE_URL");

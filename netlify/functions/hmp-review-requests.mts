@@ -3,6 +3,7 @@ import { getUser } from "@netlify/identity";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, createHmac } from "node:crypto";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 import { reviewContact, reviewSubmission, reviewConsent } from "../../review-request-schema.mjs";
 
 const table = "hmp_review_requests";
@@ -11,7 +12,7 @@ const json = (body: unknown, status = 200) => Response.json(body, {status, heade
 export const reviewToken = (id: string, secret: string) => createHmac("sha256",secret).update(`hmp-review:v1:${id}`).digest("base64url");
 export const reviewHash = (token: string) => createHash("sha256").update(token).digest("hex");
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]!);
-export function createReviewRequestHandler({getUserFn=getUser, databaseFactory=createClient, fetchFn=fetch}={}) {
+export function createReviewRequestHandler({getUserFn=getUser, databaseFactory=createClient, fetchFn=fetch, verifySecondFactorFn=isAdminSecondFactorVerified}={}) {
   return async (request: Request) => {
     if (!["GET","POST"].includes(request.method)) return json({error:"Method not allowed"},405);
     if (request.method !== "GET" && !isSameOriginMutation(request)) return json({error:"Invalid request origin"},403);
@@ -25,6 +26,7 @@ export function createReviewRequestHandler({getUserFn=getUser, databaseFactory=c
       adminEmail=user?.email?.toLowerCase() || "";
       const allowed=(Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(v=>v.trim().toLowerCase());
       if (!adminEmail || !allowed.includes(adminEmail)) return json({error:"Unauthorized"},401);
+      if (!verifySecondFactorFn(request, user)) return adminSecondFactorRequired();
     }
     const url=Netlify.env.get("SUPABASE_URL"), key=Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) return json({error:"Review requests are unavailable."},503);

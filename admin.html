@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261011-message-signature" />
+    <link rel="stylesheet" href="admin.css?v=20261012-admin-mfa" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
@@ -59,6 +59,17 @@
             <input id="confirm-password" type="password" autocomplete="new-password" minlength="8" required />
             <button class="primary-button" type="submit">Save and continue</button>
             <p class="form-message" id="password-message" role="status"></p>
+          </form>
+          <form id="admin-code-form" hidden>
+            <p class="kicker">Admin access · step 2 of 2</p>
+            <h2>Check your email</h2>
+            <p>Enter the six-digit code sent to <strong id="admin-code-email"></strong>. It expires in 10 minutes.</p>
+            <label for="admin-code">Verification code</label>
+            <input id="admin-code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+            <button class="primary-button" type="submit">Verify and open dashboard</button>
+            <button class="text-button" id="admin-code-resend" type="button">Send a new code</button>
+            <button class="text-button" id="admin-code-sign-out" type="button">Use another account</button>
+            <p class="form-message" id="admin-code-message" role="status"></p>
           </form>
         </div>
       </section>
@@ -748,6 +759,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261011-message-signature"></script>
+    <script type="module" src="assets/admin.js?v=20261012-admin-mfa"></script>
   </body>
 </html>

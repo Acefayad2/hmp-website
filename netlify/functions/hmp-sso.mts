@@ -1,5 +1,6 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
+import { isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 
 const SSO_COOKIE = "hmp_admin_sso";
 
@@ -55,6 +56,9 @@ export default async (request: Request, _context: Context) => {
   const identityToken = cookieValue(request, "nf_jwt") || bearerToken;
   if (!identityToken || !email || !allowedEmails().includes(email)) {
     return response({ error: "Unauthorized" }, 401, clearCookie);
+  }
+  if (!isAdminSecondFactorVerified(request, user)) {
+    return response({ error: "Enter the code sent to your admin email to continue.", code: "MFA_REQUIRED" }, 401, clearCookie);
   }
 
   const cookie = `${SSO_COOKIE}=${encodeURIComponent(identityToken)}; Domain=hmpeds.com; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${tokenLifetime(identityToken)}`;

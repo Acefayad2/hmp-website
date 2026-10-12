@@ -4,13 +4,14 @@ import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
 import { agreementToken, cleanContact, completionPayload, hash, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]!);
 const table = "hmp_client_agreements";
 
 // Dependency injection keeps authorization and persistence paths testable without real emails/data.
-export function createAgreementHandler({getUserFn = getUser, databaseFactory = createClient, fetchFn = fetch} = {}) {
+export function createAgreementHandler({getUserFn = getUser, databaseFactory = createClient, fetchFn = fetch, verifySecondFactorFn = isAdminSecondFactorVerified} = {}) {
   return async (request: Request) => {
     const clientRoute = new URL(request.url).pathname === "/api/hmp-agreement";
     if (!["GET", "POST", "PATCH"].includes(request.method)) return json({error:"Method not allowed"}, 405);
@@ -26,6 +27,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       adminEmail = user?.email?.toLowerCase() || "";
       const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean);
       if (!adminEmail || !allowed.includes(adminEmail)) return json({error:"Unauthorized"}, 401);
+      if (!verifySecondFactorFn(request, user)) return adminSecondFactorRequired();
     }
     const url = Netlify.env.get("SUPABASE_URL"), key = Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if (!url || !key) return json({error:"Client forms are unavailable."}, 503);

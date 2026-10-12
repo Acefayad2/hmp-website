@@ -30,6 +30,7 @@ const database = () => {
 const makeHandler = (db, user = { email: "ADMIN@example.test" }) => createMessageSignatureHandler({
   getUserFn: async () => user,
   databaseFactory: () => db,
+  verifySecondFactorFn: () => true,
 });
 const request = (method, body, origin = "https://hmpeds.com") => new Request("https://hmpeds.com/api/hmp-message-signature", {
   method,

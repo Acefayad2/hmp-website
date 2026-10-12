@@ -1,6 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 import { readMessageHistory } from "./_message-history.mts";
 import {
   clientConversationUrl,
@@ -190,12 +191,13 @@ const sendAccessLink = async (
   return response.ok;
 };
 
-export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = getDatabase, fetchFn = fetch} = {}) => async (request: Request) => {
+export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = getDatabase, fetchFn = fetch, verifySecondFactorFn = isAdminSecondFactorVerified} = {}) => async (request: Request) => {
   const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);
   }
+  if (!verifySecondFactorFn(request, user)) return adminSecondFactorRequired();
 
   const client = databaseFactory();
   if (!client) return json({ error: "Messages are unavailable" }, 503);

@@ -2,6 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 
 const json = (
   body: unknown,
@@ -90,7 +91,7 @@ const requireAdmin = async (getUserFn = getUser) => {
   return email && allowedEmails().includes(email) ? user : null;
 };
 
-export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getDatabase} = {}) => async (request: Request) => {
+export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getDatabase, verifySecondFactorFn = isAdminSecondFactorVerified} = {}) => async (request: Request) => {
   if (request.method !== "GET" && !isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
   const client = databaseFactory();
   if (!client) return json({ error: "Review data is unavailable" }, 503);
@@ -101,6 +102,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
   if (request.method === "GET") {
     const user = adminRequest ? await requireAdmin(getUserFn) : null;
     if (adminRequest && !user) return json({ error: "Unauthorized" }, 401);
+    if (adminRequest && !verifySecondFactorFn(request, user)) return adminSecondFactorRequired();
 
     const records: Record<string, unknown>[] = [];
     for (let offset = 0; ; offset += 100) {
@@ -136,6 +138,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
 
   const user = await requireAdmin(getUserFn);
   if (!user) return json({ error: "Unauthorized" }, 401);
+  if (!verifySecondFactorFn(request, user)) return adminSecondFactorRequired();
 
   // Keep DELETE compatible with older open Admin tabs, but never remove a row.
   if (request.method === "DELETE" || request.method === "PATCH") {

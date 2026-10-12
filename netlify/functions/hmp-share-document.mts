@@ -3,6 +3,7 @@ import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { prepareDocumentConversation, recordSharedDocument } from "./_document-messages.mts";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" },
@@ -17,13 +18,14 @@ const getDatabase = () => {
   return database;
 };
 
-export const createShareDocumentHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request) => {
+export const createShareDocumentHandler = ({ getUserFn = getUser, databaseFactory = getDatabase, verifySecondFactorFn = isAdminSecondFactorVerified } = {}) => async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
   const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map((value) => value.trim().toLowerCase());
   if (!email || !allowed.includes(email)) return json({ error: "Unauthorized" }, 401);
+  if (!verifySecondFactorFn(request, user)) return adminSecondFactorRequired();
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "Invalid request" }, 400); }
   const kind = body.kind;

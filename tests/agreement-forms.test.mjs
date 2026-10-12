@@ -35,7 +35,7 @@ function fakeDatabase(rows) {
 }
 const request = (route, method="GET", body, token) => new Request(`https://hmpeds.com/api/${route}`, {method, headers:{Origin:"https://hmpeds.com", "Content-Type":"application/json", ...(token ? {Authorization:`Bearer ${token}`} : {})}, ...(body ? {body:JSON.stringify(body)} : {})});
 function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:200})) {
-  return createAgreementHandler({getUserFn:async()=>admin ? {email:"admin@example.test"} : null, databaseFactory:()=>fakeDatabase(rows), fetchFn:send});
+  return createAgreementHandler({getUserFn:async()=>admin ? {email:"admin@example.test"} : null, databaseFactory:()=>fakeDatabase(rows), fetchFn:send, verifySecondFactorFn:()=>true});
 }
 
 test("four templates retain complete terms and approved four-revision limit", () => {

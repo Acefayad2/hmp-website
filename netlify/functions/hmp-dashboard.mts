@@ -3,6 +3,7 @@ import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { manualInquiryRecord } from "./_manual-inquiry.mts";
+import { adminSecondFactorRequired, isAdminSecondFactorVerified } from "./_admin-second-factor.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -73,6 +74,7 @@ export default async (request: Request, _context: Context) => {
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);
   }
+  if (!isAdminSecondFactorVerified(request, user)) return adminSecondFactorRequired();
 
   const client = getDatabase();
   if (!client) return json({ error: "Dashboard data is unavailable" }, 503);

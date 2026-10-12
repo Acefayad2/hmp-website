@@ -71,7 +71,7 @@ test("client submission stays unpublished even when spoofing approval; retry ins
 });
 test("landing-page API excludes pending reviews, admin approval publishes, and unpublishing hides them again",async()=>{
   const reviews=[{id,...reviewSubmission(submission),published:false,is_placeholder:false,source_request_id:id}];
-  const db=database([],reviews),h=createReviewHandler({getUserFn:user,databaseFactory:()=>db});
+  const db=database([],reviews),h=createReviewHandler({getUserFn:user,databaseFactory:()=>db,verifySecondFactorFn:()=>true});
   assert.equal((await (await h(request("hmp-reviews"))).json()).reviews.length,0);
   assert.equal((await (await h(request("hmp-reviews?admin=1"))).json()).reviews[0].clientSubmitted,true);
   const body={id,reviewerName:submission.reviewerName,reviewText:submission.reviewText,service:submission.services.join(", "),rating:5,published:true};
@@ -84,7 +84,7 @@ test("landing-page API excludes pending reviews, admin approval publishes, and u
 });
 test("request retries keep one invitation and stable email key; successful delivery is not sent twice",async()=>{
   const rows=[],db=database(rows),emails=[];let fail=true;
-  const h=createReviewRequestHandler({getUserFn:user,databaseFactory:()=>db,fetchFn:async(_,options)=>{emails.push(options);return new Response("{}",{status:fail ? 500 : 200});}});
+  const h=createReviewRequestHandler({getUserFn:user,databaseFactory:()=>db,fetchFn:async(_,options)=>{emails.push(options);return new Response("{}",{status:fail ? 500 : 200});},verifySecondFactorFn:()=>true});
   const body={id,clientName:"<Example>",clientEmail:"client@example.test"};
   assert.equal((await h(request("hmp-review-requests","POST",body))).status,502);
   fail=false;
@@ -98,7 +98,7 @@ test("request retries keep one invitation and stable email key; successful deliv
 });
 test("admin can create and copy a review link without sending email",async()=>{
   const rows=[],db=database(rows);let emails=0;
-  const h=createReviewRequestHandler({getUserFn:user,databaseFactory:()=>db,fetchFn:async()=>{emails++;return Response.json({});}});
+  const h=createReviewRequestHandler({getUserFn:user,databaseFactory:()=>db,fetchFn:async()=>{emails++;return Response.json({});},verifySecondFactorFn:()=>true});
   const body={id,clientName:"Example Client",clientEmail:"client@example.test",action:"share"};
   const result=await h(request("hmp-review-requests","POST",body));
   assert.equal(result.status,200);
