@@ -13,6 +13,7 @@ function fakeDatabase(messages=[]) {
     const q={select(){return this;},order(){return this;},limit(){return this;},range(){return this;},
       eq(k,v){filters.push(row=>row[k]===v);return this;},
       is(k,v){filters.push(row=>(row[k] ?? null)===v);return this;},
+      not(k,operator,v){if(operator==="is")filters.push(row=>(row[k] ?? null)!==v);return this;},
       in(k,v){filters.push(row=>v.includes(row[k]));return this;},
       insert(v){op="insert";payload=v;return this;},update(v){op="update";payload=v;return this;},
       execute(single=false){
@@ -41,6 +42,32 @@ test("every saved admin reply emails the server-selected client using a private 
   assert.deepEqual(mail.to,["client@example.test"]);assert.match(mail.html,/Test &lt;Client&gt;/);
   assert.match(mail.html,/conversation#token=/);assert.match(mail.html,/Connect with an Event Specialist/);
   await h(request(sendBody));assert.equal(emails.length,1);assert.equal(messages.length,1);
+});
+
+test("admins can archive and restore a conversation without removing messages or the client link", async () => {
+  const messages = [{ id: messageId, conversation_id: conversationId, sender: "client", body: "Hello" }];
+  const db = fakeDatabase(messages);
+  const h = handler(db, async () => { throw new Error("No email expected"); });
+  conversation.archived_at = null;
+  try {
+    assert.equal((await h(request({ action: "archive", conversationId }, "https://evil.test"))).status, 403);
+    assert.equal((await h(request({ action: "archive", conversationId: "invalid" }))).status, 400);
+    const archived = await h(request({ action: "archive", conversationId }));
+    assert.equal(archived.status, 200);
+    assert.ok((await archived.json()).archivedAt);
+    assert.equal(messages.length, 1);
+    assert.equal(conversation.revoked_at, null);
+    assert.equal((await h(request({ action: "archive", conversationId }))).status, 404);
+    const listed = await (await h(new Request("https://hmpeds.com/api/hmp-messages"))).json();
+    assert.ok(listed.threads[0].archivedAt);
+    assert.equal(listed.threads[0].messages[0].body, "Hello");
+    const restored = await h(request({ action: "restore", conversationId }));
+    assert.equal(restored.status, 200);
+    assert.equal((await restored.json()).archivedAt, null);
+    assert.equal((await h(request({ action: "restore", conversationId }))).status, 404);
+  } finally {
+    delete conversation.archived_at;
+  }
 });
 test("email failure keeps the message and persistent warning; retry sends only email and clears the warning",async()=>{
   const messages=[],emails=[];let fail=true;

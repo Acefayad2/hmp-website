@@ -65,6 +65,7 @@ let activeInquiryId = "";
 let reviews = [];
 let activeReviewId = "";
 let messageThreads = [];
+let activeMessageFolder = "active";
 let activeThreadId = "";
 let activeConversationUrl = "";
 let messageSignature = "";
@@ -672,6 +673,7 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = thread.clientEmail;
   $("#admin-conversation-service").textContent = eventServiceLabel(thread.service);
+  $("#archive-active-conversation").textContent = thread.archivedAt ? "Restore conversation" : "Archive conversation";
   $("#copy-active-link").textContent = thread.active ? "Copy client link" : "Link expired";
   $("#copy-active-link").disabled = !thread.active;
   setMessage($("#admin-message-status"), "");
@@ -684,10 +686,17 @@ const openMessageThread = (threadId) => {
 const renderMessageThreads = () => {
   const list = $("#thread-list");
   list.replaceChildren();
-  $("#thread-count").textContent = messageThreads.length;
-  $("#thread-empty").hidden = messageThreads.length > 0;
-  list.hidden = messageThreads.length === 0;
-  messageThreads.forEach((thread) => {
+  const visibleThreads = messageThreads.filter((thread) => Boolean(thread.archivedAt) === (activeMessageFolder === "archived"));
+  $("#thread-count").textContent = visibleThreads.length;
+  $("#thread-empty").hidden = visibleThreads.length > 0;
+  $("#thread-empty-copy").textContent = activeMessageFolder === "archived"
+    ? "Archived conversations will appear here. Restore one to return it to Active."
+    : "Create a private link from an inquiry to begin.";
+  list.hidden = visibleThreads.length === 0;
+  document.querySelectorAll("[data-message-folder]").forEach((button) => {
+    button.setAttribute("aria-pressed", String(button.dataset.messageFolder === activeMessageFolder));
+  });
+  visibleThreads.forEach((thread) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "thread-row";
@@ -719,11 +728,18 @@ const loadMessages = async () => {
   messageThreads = data.threads || [];
   renderMessageThreads();
   renderProposalsWorkspace(messageThreads, (threadId) => {
+    activeMessageFolder = messageThreads.find((thread) => thread.id === threadId)?.archivedAt ? "archived" : "active";
+    renderMessageThreads();
     openMessageThread(threadId);
     if (activeThreadId === threadId) setWorkspaceView("messages", true);
   });
-  if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
+  if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId && Boolean(thread.archivedAt) === (activeMessageFolder === "archived"))) {
     openMessageThread(activeThreadId);
+  } else if (activeThreadId) {
+    activeThreadId = "";
+    activeConversationUrl = "";
+    $("#admin-conversation").hidden = true;
+    $("#admin-conversation-placeholder").hidden = false;
   }
 };
 
@@ -957,6 +973,36 @@ const deleteActiveConversation = async () => {
     await loadMessages();
   } catch (error) {
     setMessage($("#admin-message-status"), error.message || "Conversation could not be deleted.");
+  } finally {
+    button.disabled = false;
+  }
+};
+
+const changeConversationFolder = async () => {
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  if (!thread) return;
+  const action = thread.archivedAt ? "restore" : "archive";
+  const button = $("#archive-active-conversation");
+  button.disabled = true;
+  setMessage($("#admin-message-status"), `${action === "archive" ? "Archiving" : "Restoring"} conversation…`);
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action, conversationId: thread.id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Conversation could not be updated.");
+    thread.archivedAt = data.archivedAt;
+    activeMessageFolder = thread.archivedAt ? "archived" : "active";
+    renderMessageThreads();
+    openMessageThread(thread.id);
+    setMessage($("#admin-message-status"), thread.archivedAt
+      ? "Conversation archived. The client's private link and messages remain available."
+      : "Conversation restored to Active.", true);
+  } catch (error) {
+    setMessage($("#admin-message-status"), error.message || "Conversation could not be updated.");
   } finally {
     button.disabled = false;
   }
@@ -1786,6 +1832,14 @@ $("#thread-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-thread-id]");
   if (row) openMessageThread(row.dataset.threadId);
 });
+document.querySelectorAll("[data-message-folder]").forEach((button) => button.addEventListener("click", () => {
+  activeMessageFolder = button.dataset.messageFolder;
+  activeThreadId = "";
+  activeConversationUrl = "";
+  $("#admin-conversation").hidden = true;
+  $("#admin-conversation-placeholder").hidden = false;
+  renderMessageThreads();
+}));
 $("#message-conversations-tab").addEventListener("click", () => selectMessageTab("conversations"));
 $("#message-signature-tab").addEventListener("click", () => selectMessageTab("signature"));
 $("#message-signature-form").addEventListener("submit", saveMessageSignature);
@@ -1831,6 +1885,7 @@ $("#reset-client-pin").addEventListener("click", () => {
   if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"), true);
 });
 $("#delete-active-conversation").addEventListener("click", deleteActiveConversation);
+$("#archive-active-conversation").addEventListener("click", changeConversationFolder);
 $("#open-proposal-editor").addEventListener("click", openProposalEditor);
 $("#create-proposal-button").addEventListener("click", createProposalFromWorkspace);
 $("#add-inquiry-button").addEventListener("click", openManualInquiry);

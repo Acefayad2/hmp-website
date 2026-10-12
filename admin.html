@@ -169,9 +169,13 @@
             <div class="messages-layout" id="message-conversations-panel" role="tabpanel" aria-labelledby="message-conversations-tab">
               <aside class="thread-panel">
                 <div class="thread-panel-heading"><strong>Conversations</strong><span id="thread-count">0</span></div>
+                <div class="conversation-folders" role="group" aria-label="Conversation folders">
+                  <button type="button" data-message-folder="active" aria-pressed="true">Active</button>
+                  <button type="button" data-message-folder="archived" aria-pressed="false">Archived</button>
+                </div>
                 <div id="thread-list"></div>
                 <div class="thread-empty" id="thread-empty">
-                  <span>☾</span><h3>No conversations yet</h3><p>Create a private link from an inquiry to begin.</p>
+                  <span>☾</span><h3>No conversations here</h3><p id="thread-empty-copy">Create a private link from an inquiry to begin.</p>
                 </div>
               </aside>
               <section class="admin-conversation-panel" id="admin-conversation-panel">
@@ -186,6 +190,7 @@
                       <button class="secondary-button conversation-copy-link" id="copy-active-link" type="button">Copy client link</button>
                       <button class="primary-button" id="send-new-active-link" type="button">Send new link</button>
                       <button class="secondary-button" id="reset-client-pin" type="button">Reset client PIN</button>
+                      <button class="secondary-button" id="archive-active-conversation" type="button">Archive conversation</button>
                       <button class="conversation-delete-button" id="delete-active-conversation" type="button">Delete conversation</button>
                     </div>
                   </header>

@@ -187,7 +187,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   }
   if (error || !inserted) return json({ error: "Message could not be sent." }, 502);
   await completeAttachmentUploads(client, attachments);
-  await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "client", updated_at: now }).eq("id", conversation.id);
+  await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "client", archived_at: null, updated_at: now }).eq("id", conversation.id);
   await sendAdminNotification(inquiry, inserted.id).catch(() => false);
   return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at } });
 };

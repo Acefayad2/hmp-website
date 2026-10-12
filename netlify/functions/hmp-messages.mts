@@ -238,6 +238,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         expiresAt: row.token_expires_at,
         lastMessageAt: row.last_message_at,
         lastSender: row.last_sender,
+        archivedAt: row.archived_at || null,
         clientUrl: clientConversationUrl(row.id, row.token_nonce),
         messages: signedMessageRows
           .filter((message) => message.conversation_id === row.id)
@@ -267,6 +268,19 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (action === "archive" || action === "restore") {
+    const conversationId = cleanText(body.conversationId, 36);
+    if (!uuidPattern.test(conversationId)) return json({ error: "Invalid conversation" }, 400);
+    let query = client.from("hmp_client_conversations")
+      .update({ archived_at: action === "archive" ? new Date().toISOString() : null })
+      .eq("id", conversationId);
+    query = action === "archive" ? query.is("archived_at", null) : query.not("archived_at", "is", null);
+    const { data, error } = await query.select("id,archived_at").maybeSingle();
+    if (error) return json({ error: "Conversation could not be updated" }, 502);
+    if (!data) return json({ error: "Conversation not found in that folder" }, 404);
+    return json({ ok: true, archivedAt: data.archived_at || null });
+  }
 
   if (action === "retry-notification") {
     const conversationId=cleanText(body.conversationId,36), messageId=cleanText(body.messageId,36);
@@ -425,7 +439,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     }
     if (error || !inserted) return json({ error: "Message could not be sent" }, 502);
     await completeAttachmentUploads(client, attachments);
-    await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
+    await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", archived_at: null, updated_at: now }).eq("id", conversationId);
     const notification = await notifyStoredMessage(client,inquiry,conversation,inserted,fetchFn);
     return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, ...notification });
   }
