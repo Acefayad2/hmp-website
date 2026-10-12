@@ -247,6 +247,13 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-message > div { display: flex; justify-content: space-between; gap: 16px; margin-bottom: 7px; }
 .admin-message strong,.admin-message time { font-size: 8px; letter-spacing: .06em; text-transform: uppercase; }
 .admin-message time { opacity: .65; }
+.admin-message-actions { display:flex; justify-content:flex-end; gap:8px; margin-top:10px; }
+.admin-message-actions button,.admin-message-editor button { border:1px solid currentColor; border-radius:16px; padding:7px 12px; background:transparent; color:inherit; cursor:pointer; font:inherit; font-size:12px; }
+.admin-message-actions button:hover,.admin-message-editor button:hover { background:rgba(255,255,255,.14); }
+.admin-message-actions button:focus-visible,.admin-message-editor button:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+.admin-message-editor { display:grid; gap:9px; margin-top:12px; }
+.admin-message-editor textarea { width:100%; min-height:90px; padding:10px; border-radius:9px; resize:vertical; font:inherit; }
+.admin-message-editor > div { display:flex; flex-wrap:wrap; gap:8px; }
 .admin-message p { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .admin-message .message-email-status { margin-top:12px; font-size:12px; }
 .message-email-retry { margin-top:8px; border:1px solid currentColor; border-radius:18px; padding:10px 14px; color:inherit; background:transparent; font:inherit; font-size:12px; cursor:pointer; }

@@ -108,3 +108,32 @@ test("database read failures cannot look like empty conversations or missing pro
     assert.match((await response.json()).error, /temporarily unavailable/);
   }
 });
+
+test("only an allowlisted admin can edit or hide their own messages, without a time limit", async () => {
+  const oldDate = "2020-01-01T00:00:00Z";
+  const messages = [{id:messageId,conversation_id:conversationId,sender:"admin",body:"Old text",created_at:oldDate}];
+  const h = handler(fakeDatabase(messages), async () => { throw new Error("No email expected"); });
+  const edit = {action:"edit-message",conversationId,messageId,message:"Updated text"};
+  assert.equal((await handler(fakeDatabase(messages),fetch,null)(request(edit))).status,401);
+  assert.equal((await h(request(edit,"https://evil.test"))).status,403);
+  assert.equal((await h(request({...edit,conversationId:inquiryId}))).status,404);
+  assert.equal((await h(request(edit))).status,200);
+  assert.equal(messages[0].body,"Updated text");
+  assert.ok(messages[0].edited_at);
+  messages.push({id:inquiryId,conversation_id:conversationId,sender:"client",body:"Client reply"});
+  assert.equal((await h(request({...edit,messageId:inquiryId}))).status,404);
+  assert.equal((await h(request({action:"delete-message",conversationId,messageId:inquiryId}))).status,404);
+  assert.equal((await h(request({action:"delete-message",conversationId,messageId}))).status,200);
+  assert.ok(messages[0].deleted_at);
+  assert.equal((await h(request(edit))).status,404);
+  const shown = await h(new Request("https://hmpeds.com/api/hmp-messages"));
+  assert.deepEqual((await shown.json()).threads[0].messages.map(message => message.body),["Client reply"]);
+});
+
+test("proposal and document cards cannot be rewritten as plain chat", async () => {
+  const messages = [{id:messageId,conversation_id:conversationId,sender:"admin",body:"HMP_PROPOSAL_V1:{}"}];
+  const h = handler(fakeDatabase(messages),fetch);
+  assert.equal((await h(request({action:"edit-message",conversationId,messageId,message:"replaced"}))).status,400);
+  messages[0].body="Document sent"; messages[0].document={kind:"invoice"};
+  assert.equal((await h(request({action:"edit-message",conversationId,messageId,message:"replaced"}))).status,400);
+});

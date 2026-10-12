@@ -18,7 +18,7 @@ function database(){
   return {rows,failSave:false,from(table){
     let filters=[],op="read",payload,options;
     const q={select(){return this;},order(){return this;},limit(){return this;},range(){return this;},eq(k,v){filters.push(r=>r[k]===v);return this;},in(k,v){filters.push(r=>v.includes(r[k]));return this;},
-      is(k,v){filters.push(r=>r[k]===v);return this;},
+      is(k,v){filters.push(r=>(r[k] ?? null)===v);return this;},
       update(v){op="update";payload=v;return this;},upsert(v,o){op="upsert";payload=v;options=o;return this;},
       execute(single=false){let found=rows[table].filter(r=>filters.every(f=>f(r)));if(op==="update")found.forEach(r=>Object.assign(r,payload));
         if(op==="upsert"){const exists=rows[table].find(r=>r[options.onConflict]===payload[options.onConflict]);if(exists)Object.assign(exists,payload);else rows[table].push(structuredClone(payload));found=[exists || payload];}

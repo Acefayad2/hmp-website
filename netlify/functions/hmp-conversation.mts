@@ -89,7 +89,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   if (!inquiry) return json({ error: "Conversation is unavailable." }, 404);
 
   if (request.method === "GET") {
-    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at");
+    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at,edited_at");
     if (error) return json({ error: "Conversation is temporarily unavailable." }, 502);
     const signedMessages = await Promise.all((messages || []).map(async (message) => ({
       ...message,
@@ -111,6 +111,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
         document: message.document || null,
         attachments: message.signedAttachments,
         createdAt: message.created_at,
+        editedAt: message.edited_at || null,
       })),
     });
   }
@@ -122,6 +123,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
   const action = cleanText(body.action, 32);
+  if (action && action !== "send" && action !== "prepare-upload") return json({ error: "Clients cannot change sent messages." }, 403);
   if (action === "prepare-upload") {
     try {
       const upload = await prepareAttachmentUpload(

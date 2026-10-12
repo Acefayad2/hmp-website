@@ -10,6 +10,7 @@ function fixture(count, failAt = -1) {
     return {
       select() { return this; },
       in(column, ids) { assert.equal(column, "conversation_id"); assert.deepEqual(ids, ["authorized-conversation"]); return this; },
+      is(column, value) { assert.equal(column, "deleted_at"); assert.equal(value, null); return this; },
       order() { return this; },
       async range(from, to) {
         calls.push([from, to]);

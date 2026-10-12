@@ -214,7 +214,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       inquiryIds.length
         ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,service,celebration_date,status").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [], error: null }),
-      readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,email_notified_at,email_notification_error"),
+      readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,edited_at,email_notified_at,email_notification_error"),
     ]);
     // A database/schema failure is not an empty conversation. Keep the UI's
     // existing data and surface a retryable error instead of hiding messages.
@@ -249,6 +249,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
             document: message.document || null,
             attachments: message.signedAttachments,
             createdAt: message.created_at,
+            editedAt: message.edited_at || null,
             emailNotifiedAt: message.email_notified_at || null,
             emailNotificationError: message.email_notification_error || "",
           })),
@@ -268,12 +269,40 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
   }
   const action = cleanText(body.action, 32);
 
+  if (action === "edit-message" || action === "delete-message") {
+    const conversationId = cleanText(body.conversationId, 36);
+    const messageId = cleanText(body.messageId, 36);
+    if (!uuidPattern.test(conversationId) || !uuidPattern.test(messageId)) return json({ error: "Invalid message" }, 400);
+    const { data: existing, error: readError } = await client.from("hmp_client_messages")
+      .select("id,body,document").eq("id", messageId).eq("conversation_id", conversationId)
+      .eq("sender", "admin").is("deleted_at", null).maybeSingle();
+    if (readError) return json({ error: "Message could not be loaded" }, 502);
+    if (!existing) return json({ error: "Admin message not found" }, 404);
+    let changes: Record<string, string>;
+    if (action === "edit-message") {
+      if (existing.document || String(existing.body || "").startsWith(proposalPrefix)) {
+        return json({ error: "Proposal and document messages cannot be edited here" }, 400);
+      }
+      const message = cleanText(body.message, 4000);
+      if (!message) return json({ error: "Enter a message" }, 400);
+      changes = { body: message, edited_at: new Date().toISOString() };
+    } else {
+      changes = { deleted_at: new Date().toISOString() };
+    }
+    const { data: updated, error: updateError } = await client.from("hmp_client_messages")
+      .update(changes).eq("id", messageId).eq("conversation_id", conversationId)
+      .eq("sender", "admin").is("deleted_at", null).select("id").maybeSingle();
+    if (updateError) return json({ error: "Message could not be saved" }, 502);
+    if (!updated) return json({ error: "Message changed. Refresh and try again" }, 409);
+    return json({ ok: true });
+  }
+
   if (action === "retry-notification") {
     const conversationId=cleanText(body.conversationId,36), messageId=cleanText(body.messageId,36);
     if(!uuidPattern.test(conversationId) || !uuidPattern.test(messageId)) return json({error:"Invalid message"},400);
     const {data:conversation}=await client.from("hmp_client_conversations").select("*").eq("id",conversationId).maybeSingle();
     if(!conversation) return json({error:"Conversation not found"},404);
-    const {data:message}=await client.from("hmp_client_messages").select("*").eq("id",messageId).eq("conversation_id",conversationId).eq("sender","admin").maybeSingle();
+    const {data:message}=await client.from("hmp_client_messages").select("*").eq("id",messageId).eq("conversation_id",conversationId).eq("sender","admin").is("deleted_at",null).maybeSingle();
     if(!message) return json({error:"Admin message not found"},404);
     const {data:inquiry}=await client.from("hmp_admin_inquiries").select("client_name,email,service").eq("submission_id",conversation.inquiry_id).maybeSingle();
     return json({ok:true,...await notifyStoredMessage(client,inquiry,conversation,message,fetchFn)});

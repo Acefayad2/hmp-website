@@ -30,6 +30,7 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.body,
   message.document,
   message.createdAt,
+  message.editedAt,
   (message.attachments || []).map((attachment) => [
     attachment.id,
     attachment.path,
@@ -109,6 +110,7 @@ const renderMessages = (messages) => {
     const time = document.createElement("time");
     time.dateTime = message.createdAt;
     time.textContent = formatDate(message.createdAt, true);
+    if (message.editedAt) time.textContent += " · Edited";
     article.append(name);
     const documentCard=message.sender === "admin" ? renderDocumentCard(message.document) : null;
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }

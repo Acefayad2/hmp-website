@@ -7,7 +7,7 @@ export async function readMessageHistory(client: SupabaseClient, conversationIds
   if (!conversationIds.length) return { data: rows, error: null };
   for (let offset = 0; ; offset += pageSize) {
     const { data, error } = await client.from("hmp_client_messages")
-      .select(columns).in("conversation_id", conversationIds)
+      .select(columns).in("conversation_id", conversationIds).is("deleted_at", null)
       .order("created_at", { ascending: true }).order("id", { ascending: true })
       .range(offset, offset + pageSize - 1);
     if (error) return { data: null, error };
