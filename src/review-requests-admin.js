@@ -21,7 +21,7 @@ export async function loadReviewRequests() {
     $("#review-requests-list").innerHTML=requests.map(row => {
       const expired=Date.parse(row.expires_at)<=Date.now();
       const label=row.submitted_at ? "Review received" : expired ? "Expired" : row.email_delivered_at ? "Email sent · awaiting review" : "Email not confirmed";
-      return `<div class="agreement-row"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.client_email)}</small></span><span>${label}</span>${!row.submitted_at && !expired && !row.email_delivered_at ? `<button type="button" class="agreement-button secondary" data-retry-review="${escape(row.id)}">Retry email</button>` : ""}</div>`;
+      return `<div class="agreement-row"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.client_email)}</small></span><span>${label}</span>${row.clientUrl ? `<button type="button" class="agreement-button secondary" data-copy-review="${escape(row.id)}">Copy link</button>` : ""}${!row.submitted_at && !expired && !row.email_delivered_at ? `<button type="button" class="agreement-button secondary" data-retry-review="${escape(row.id)}">Send email</button>` : ""}</div>`;
     }).join("");
   } catch(error) {status.classList.remove("neutral");status.textContent=error.message;}
 }
@@ -38,18 +38,30 @@ $("#request-review-button").addEventListener("click",()=>open());
 $("#close-review-request").addEventListener("click",()=>{if(!busy)dialog.close();});
 dialog.addEventListener("cancel",event=>{if(busy)event.preventDefault();});
 $("#review-requests-list").addEventListener("click",event=>{
+  const copy=event.target.closest("[data-copy-review]");
+  if(copy) {
+    const row=requests.find(item=>item.id===copy.dataset.copyReview);
+    if(row?.clientUrl) navigator.clipboard.writeText(row.clientUrl)
+      .then(()=>{ $("#review-requests-status").textContent="Private review link copied. Text it only to this client."; })
+      .catch(()=>{ $("#review-requests-status").textContent="Copying was blocked by your browser."; });
+    return;
+  }
   const button=event.target.closest("[data-retry-review]");
   if(button) open(requests.find(row=>row.id===button.dataset.retryReview));
 });
 form.addEventListener("submit",async event=>{
   event.preventDefault(); if(busy || !form.reportValidity())return;
   const values=Object.fromEntries(new FormData(form));
+  const shareOnly=event.submitter?.dataset.reviewRequestAction==="share";
   busy=true; form.querySelectorAll("input,button").forEach(el=>el.disabled=true);
-  message.textContent="Sending review request…";
+  message.textContent=shareOnly ? "Creating private link…" : "Sending review request…";
   let sent=false;
   try {
-    const data=await request({id:requestId,...values}); sent=true;
-    message.textContent=data.warning || (data.alreadySent ? "This review request was already sent." : "Review request emailed. The client’s submission will need your approval before publication.");
+    const data=await request({id:requestId,...values,...(shareOnly ? {action:"share"} : {})}); sent=true;
+    if(shareOnly) {
+      try {await navigator.clipboard.writeText(data.clientUrl); message.textContent="Private link copied. Text it only to this client. No email was sent.";}
+      catch {message.textContent="Link created. Use Copy link in the review request list below.";}
+    } else message.textContent=data.warning || (data.alreadySent ? "This review request was already sent." : "Review request emailed. The client’s submission will need your approval before publication.");
     await loadReviewRequests();
   } catch(error) {message.textContent=error.message;}
   finally {

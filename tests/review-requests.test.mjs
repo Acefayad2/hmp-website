@@ -96,3 +96,15 @@ test("request retries keep one invitation and stable email key; successful deliv
   assert.match(mail.html,/&lt;Example&gt;/);assert.match(mail.html,/review#token=/);assert.match(mail.html,/administrator/);
   assert.equal((await h(request("hmp-review-requests","POST",{...body,clientEmail:"other@example.test"}))).status,409);
 });
+test("admin can create and copy a review link without sending email",async()=>{
+  const rows=[],db=database(rows);let emails=0;
+  const h=createReviewRequestHandler({getUserFn:user,databaseFactory:()=>db,fetchFn:async()=>{emails++;return Response.json({});}});
+  const body={id,clientName:"Example Client",clientEmail:"client@example.test",action:"share"};
+  const result=await h(request("hmp-review-requests","POST",body));
+  assert.equal(result.status,200);
+  assert.match((await result.json()).clientUrl,/review#token=/);
+  assert.equal(emails,0);
+  const list=await (await h(request("hmp-review-requests"))).json();
+  assert.equal(list.requests.length,1);
+  assert.match(list.requests[0].clientUrl,/review#token=/);
+});

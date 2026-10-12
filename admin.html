@@ -331,7 +331,7 @@
                 <button class="primary-button workspace-create-button" id="create-review-button" type="button">Add review</button>
               </div>
             </div>
-            <p>Client submissions stay private until you open the review and choose Approve &amp; publish. Archive a review to remove it from the website without deleting it.</p>
+            <p>Client submissions stay private until approved. Archive keeps a review privately; Delete moves it to a recoverable area for 30 days.</p>
             <div class="review-list-panel">
               <div class="review-list-heading">
                 <span>Review</span><span>Client</span><span>Service</span><span>Order</span><span>Status</span>
@@ -350,6 +350,13 @@
               <p id="review-archive-message" role="status" aria-live="polite"></p>
               <p id="review-archive-empty">No archived reviews.</p>
               <div id="review-archive-list"></div>
+            </section>
+            <section class="agreement-templates" id="deleted-reviews" aria-labelledby="deleted-reviews-title">
+              <h3 id="deleted-reviews-title">Deleted reviews</h3>
+              <p>Restore within 30 days. After that, deleted reviews are permanently removed.</p>
+              <p id="review-delete-message" role="status" aria-live="polite"></p>
+              <p id="review-delete-empty">No deleted reviews.</p>
+              <div id="review-delete-list"></div>
             </section>
           </section>
 
@@ -508,6 +515,7 @@
             <button class="text-button" id="close-invoice-editor" type="button">Close</button>
             <button class="secondary-button" id="print-invoice" type="button">Print / PDF</button>
             <button class="secondary-button" id="save-invoice" type="submit">Save draft</button>
+            <button class="secondary-button" id="copy-invoice-link" type="button">Copy client link</button>
             <button class="primary-button" id="send-invoice" type="button">Send invoice</button>
           </div>
         </div>
@@ -593,6 +601,7 @@
             <button class="text-button" id="close-contract-editor" type="button">Close</button>
             <button class="secondary-button" id="print-contract" type="button">Print / PDF</button>
             <button class="secondary-button" id="save-contract" type="submit">Save draft</button>
+            <button class="secondary-button" id="copy-contract-link" type="button">Copy client link</button>
             <button class="primary-button" id="send-contract" type="button">Send contract</button>
           </div>
         </div>
@@ -669,13 +678,13 @@
 
     <dialog class="agreement-dialog" id="review-request-dialog" aria-labelledby="review-request-title">
       <header><h2 id="review-request-title">Request a client review</h2><button class="agreement-button secondary" id="close-review-request" type="button">Close</button></header>
-      <p>Email a private link for the client to share their experience. Nothing is published without admin approval.</p>
+      <p>Email a private link or copy it to text the client. Nothing is published without admin approval.</p>
       <form id="review-request-form">
         <div class="agreement-grid">
           <label class="agreement-field">Client name<input name="clientName" maxlength="120" required></label>
           <label class="agreement-field">Client email<input name="clientEmail" type="email" maxlength="320" required></label>
         </div>
-        <div class="agreement-actions"><button class="agreement-button" type="submit">Send review request</button></div>
+        <div class="agreement-actions"><button class="agreement-button secondary" type="submit" data-review-request-action="share">Create link to text</button><button class="agreement-button" type="submit">Send review request</button></div>
         <p class="agreement-status" id="review-request-message" role="status"></p>
       </form>
     </dialog>
@@ -711,7 +720,8 @@
             <label><input id="review-published" name="published" type="checkbox" /><span><strong>Approved for website</strong><small>Publish only after you have reviewed and approved the content</small></span></label>
           </div>
           <div class="review-form-actions">
-            <button class="review-delete-button" id="delete-review" type="button" hidden>Archive review</button>
+            <button class="review-delete-button" id="archive-review" type="button" hidden>Archive review</button>
+            <button class="review-delete-button" id="delete-review" type="button" hidden>Delete review</button>
             <p class="form-message" id="review-editor-message" role="status"></p>
             <div class="review-save-actions">
               <button class="primary-button" id="approve-review" type="button" hidden>Approve &amp; publish</button>

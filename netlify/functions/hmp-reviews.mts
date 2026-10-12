@@ -55,6 +55,7 @@ const normalizeReview = (record: Record<string, unknown>) => ({
   rating: number(record.rating, 5),
   published: Boolean(record.published),
   archivedAt: record.archived_at || null,
+  deletedAt: record.deleted_at || null,
   clientSubmitted: Boolean(record.source_request_id),
   displayOrder: number(record.display_order),
   createdAt: record.created_at || "",
@@ -112,7 +113,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
         .order("id", { ascending: true });
       query = adminRequest
         ? query.range(offset, offset + 99)
-        : query.limit(100).eq("published", true).is("archived_at", null);
+        : query.limit(100).eq("published", true).is("archived_at", null).is("deleted_at", null);
 
       const { data, error } = await query;
       if (error) {
@@ -145,21 +146,29 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
     } catch {
       return json({ error: "Invalid request" }, 400);
     }
-    if (request.method === "DELETE" || body.action === "archive" || body.action === "restore") {
+    if (request.method === "DELETE" || ["archive", "restore", "delete", "restore-deleted"].includes(String(body.action))) {
       const id = text(body.id, 36);
       if (!uuidPattern.test(id)) return json({ error: "Invalid review" }, 400);
-      const restore = request.method === "PATCH" && body.action === "restore";
+      const action = request.method === "DELETE" ? "archive" : String(body.action);
       const now = new Date().toISOString();
       let query = client.from("hmp_admin_reviews")
-        .update({ archived_at: restore ? null : now, published: false, updated_at: now })
+        .update({
+          archived_at: action === "archive" ? now : null,
+          deleted_at: action === "delete" ? now : null,
+          published: false,
+          updated_at: now,
+        })
         .eq("id", id);
-      if (restore) query = query.not("archived_at", "is", null);
+      if (action === "restore") query = query.not("archived_at", "is", null).is("deleted_at", null);
+      if (action === "restore-deleted") query = query.gt("deleted_at", new Date(Date.now() - 30 * 86400000).toISOString());
+      if (action === "archive") query = query.is("archived_at", null).is("deleted_at", null);
+      if (action === "delete") query = query.is("deleted_at", null);
       const { data, error } = await query.select("*").maybeSingle();
       if (error) {
         console.error("Supabase review archive change failed", error.code);
-        return json({ error: `Review could not be ${restore ? "restored" : "archived"}` }, 502);
+        return json({ error: "Review could not be updated" }, 502);
       }
-      if (!data) return json({ error: restore ? "Archived review not found" : "Review not found" }, 404);
+      if (!data) return json({ error: "Review not found in that folder" }, 404);
       return json({ ok: true, review: normalizeReview(data) });
     }
     if (body.action !== undefined) return json({ error: "Invalid review action" }, 400);
@@ -203,6 +212,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
       .update(payload)
       .eq("id", id)
       .is("archived_at", null)
+      .is("deleted_at", null)
       .select("*")
       .single();
     if (error) {

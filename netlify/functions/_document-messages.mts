@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { clientConversationUrl, conversationToken, newNonce, tokenHash } from "./_conversation-security.mts";
 import { manualInquiryRecord } from "./_manual-inquiry.mts";
 
-const stableId = (value: string) => {
+export const stableId = (value: string) => {
   const hex = createHash("sha256").update(value).digest("hex");
   return `${hex.slice(0,8)}-${hex.slice(8,12)}-4${hex.slice(13,16)}-8${hex.slice(17,20)}-${hex.slice(20,32)}`;
 };
@@ -62,4 +62,14 @@ export async function recordSentDocument(client: any, kind: "invoice" | "contrac
     p_snapshot:documentSnapshot(kind,record), p_recipient:recipient, p_email_id:emailId, p_sender:owner,
   });
   if (error) throw new Error("Email sent, but its conversation copy could not be saved. Retry this send without changing the document.");
+}
+
+export async function recordSharedDocument(client: any, kind: "invoice" | "contract", record: any, conversation: any, recipient: string, owner: string) {
+  const snapshot = documentSnapshot(kind, record);
+  const { error } = await client.rpc("hmp_record_shared_document", {
+    p_kind: kind, p_document_id: record.id, p_conversation_id: conversation.id,
+    p_message_id: stableId(`shared-document/${kind}/${record.id}/${recipient}/${JSON.stringify(snapshot)}`),
+    p_snapshot: snapshot, p_recipient: recipient, p_sender: owner,
+  });
+  if (error) throw new Error("Document could not be shared in the private client portal.");
 }

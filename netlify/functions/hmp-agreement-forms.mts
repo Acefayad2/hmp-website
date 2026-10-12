@@ -91,7 +91,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         return json({agreement:publicAgreement(data)});
       }
       const information = row.snapshot.kind === "information";
-      const shareOnly = information && body.action === "share";
+      const shareOnly = body.action === "share";
       if (body.action !== "send" && !shareOnly) return json({error:"Invalid action"}, 400);
       const resendKey = Netlify.env.get("RESEND_API_KEY");
       const from = Netlify.env.get("HMP_CONTRACT_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL");

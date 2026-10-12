@@ -57,7 +57,20 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
     conversation.className = "text-button";
     conversation.textContent = "Open client conversation";
     conversation.addEventListener("click", () => openConversation(thread.id));
-    content.append(renderProposalCard(proposal), conversation);
+    const copy = document.createElement("button");
+    copy.type = "button";
+    copy.className = "text-button";
+    copy.textContent = thread.active ? "Copy client link" : "Client link expired";
+    copy.disabled = !thread.active;
+    const status = document.createElement("span");
+    status.setAttribute("role", "status");
+    copy.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(thread.clientUrl);
+        status.textContent = "Private portal link copied. Text it only to this client.";
+      } catch { status.textContent = "Copying was blocked. Open the conversation to copy its link."; }
+    });
+    content.append(renderProposalCard(proposal), conversation, copy, status);
     record.append(summary, content);
     list.append(record);
   });

@@ -1200,6 +1200,30 @@ const saveContract = async ({ quiet = false } = {}) => {
   }
 };
 
+const copyDocumentLink = async (kind) => {
+  const invoice = kind === "invoice";
+  const message = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
+  const button = $(invoice ? "#copy-invoice-link" : "#copy-contract-link");
+  const saved = await (invoice ? saveInvoice({ quiet: true }) : saveContract({ quiet: true }));
+  if (!saved) return;
+  button.disabled = true;
+  setMessage(message, "Preparing a private client link…");
+  try {
+    const response = await fetch("/api/hmp-documents/share", {
+      method: "POST", credentials: "same-origin",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind, id: saved.id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Client link could not be prepared.");
+    await copyText(data.clientUrl);
+    setMessage(message, "Private client link copied. Text it only to this client; they will need their portal PIN. No email was sent.", true);
+    loadMessages().catch(() => {});
+  } catch (error) {
+    setMessage(message, error.message || "Client link could not be copied.");
+  } finally { button.disabled = false; }
+};
+
 const documentSendRequests = new Map();
 const documentSendRequestId = (kind, saved) => {
   // Keep the provider key when retrying unchanged content after a failed send.
@@ -1246,9 +1270,11 @@ const sendContract = async () => {
 const renderReviews = () => {
   const list = $("#review-list");
   const empty = $("#review-empty");
-  const active = reviews.filter((review) => !review.archivedAt);
-  const archived = reviews.filter((review) => review.archivedAt)
+  const active = reviews.filter((review) => !review.archivedAt && !review.deletedAt);
+  const archived = reviews.filter((review) => review.archivedAt && !review.deletedAt)
     .sort((a, b) => String(b.archivedAt).localeCompare(String(a.archivedAt)));
+  const deleted = reviews.filter((review) => review.deletedAt)
+    .sort((a, b) => String(b.deletedAt).localeCompare(String(a.deletedAt)));
   empty.hidden = active.length > 0;
   list.hidden = active.length === 0;
   $("#review-archive-empty").hidden = archived.length > 0;
@@ -1261,7 +1287,15 @@ const renderReviews = () => {
         <p class="archived-review-text">${escapeHTML(review.reviewText)}</p>
         <small>Archived ${escapeHTML(new Date(review.archivedAt).toLocaleDateString())}</small>
       </div>
-      <button class="primary-button" type="button" data-restore-review="${escapeHTML(review.id)}" aria-label="Restore review from ${escapeHTML(review.reviewerName)}">Restore review</button>
+      <div class="review-folder-actions"><button class="primary-button" type="button" data-review-folder-action="restore" data-review-id="${escapeHTML(review.id)}" aria-label="Restore review from ${escapeHTML(review.reviewerName)}">Restore review</button><button class="review-delete-button" type="button" data-review-folder-action="delete" data-review-id="${escapeHTML(review.id)}" aria-label="Delete review from ${escapeHTML(review.reviewerName)}">Delete</button></div>
+    </article>`).join("");
+  $("#review-delete-empty").hidden = deleted.length > 0;
+  $("#review-delete-list").innerHTML = deleted.map((review) => `
+    <article class="archived-review">
+      <div><span class="status-pill">Deleted · Not published</span><h4>${escapeHTML(review.reviewerName)}</h4>
+        <p class="archived-review-text">${escapeHTML(review.reviewText)}</p>
+        <small>Permanently removed after ${escapeHTML(new Date(Date.parse(review.deletedAt) + 30 * 86400000).toLocaleDateString())}</small></div>
+      <button class="primary-button" type="button" data-review-folder-action="restore-deleted" data-review-id="${escapeHTML(review.id)}">Restore review</button>
     </article>`).join("");
   const moons = (rating) => Array.from(
     { length: Math.min(5, Math.max(1, Number(rating) || 5)) },
@@ -1309,6 +1343,7 @@ const openReviewEditor = (review = null) => {
   $("#review-text").value = review?.reviewText || "";
   $("#review-published").checked = Boolean(review?.published);
   $("#approve-review").hidden = !review || review.published;
+  $("#archive-review").hidden = !review;
   $("#delete-review").hidden = !review;
   setMessage($("#review-editor-message"), "");
   $("#review-editor-dialog").showModal();
@@ -1368,11 +1403,13 @@ const saveReview = async (event) => {
       $("#review-role").value = reviewerRole;
       $("#review-rating").value = "5";
       $("#review-order").value = Math.max(0, ...reviews.map((item) => Number(item.displayOrder) || 0)) + 10;
+      $("#archive-review").hidden = true;
       $("#delete-review").hidden = true;
       setMessage($("#review-editor-message"), "Review saved. Choose the client’s next service and enter their separate review.", true);
       document.querySelector('[name="reviewServices"]')?.focus();
     } else {
       activeReviewId = saved.id;
+      $("#archive-review").hidden = false;
       $("#delete-review").hidden = false;
       $("#approve-review").hidden = saved.published;
       setMessage($("#review-editor-message"), saved.published ? "Review approved and published on the website." : "Review saved privately. It is not published on the website.", true);
@@ -1384,53 +1421,35 @@ const saveReview = async (event) => {
   }
 };
 
-const archiveReview = async () => {
-  const review = reviews.find((item) => item.id === activeReviewId);
-  if (!review || !window.confirm(`Archive the review from ${review.reviewerName}? It will be removed from the website and kept below the active reviews. You can restore it later.`)) return;
-  const button = $("#delete-review");
+const changeReviewFolder = async (review, action, button, message) => {
+  if (action === "delete" && !window.confirm(`Move the review from ${review.reviewerName} to Deleted? You can restore it for 30 days; after that it will be permanently removed.`)) return;
+  if (action === "archive" && !window.confirm(`Archive the review from ${review.reviewerName}? It will be removed from the website and kept privately until restored.`)) return;
   button.disabled = true;
-  setMessage($("#review-editor-message"), "Archiving review…");
-  try {
-    const response = await fetch("/api/hmp-reviews", {
-      method: "DELETE",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: activeReviewId }),
-    });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Review could not be archived.");
-    reviews = reviews.map((item) => item.id === review.id ? data.review : item);
-    renderReviews();
-    $("#review-editor-dialog").close();
-    setMessage($("#review-archive-message"), "Review archived privately. You can restore it below.", true);
-    $("#review-archive-message").scrollIntoView({ block: "nearest" });
-  } catch (error) {
-    setMessage($("#review-editor-message"), error.message || "Review could not be archived.");
-  } finally {
-    button.disabled = false;
-  }
-};
-
-const restoreReview = async (event) => {
-  const button = event.target.closest("[data-restore-review]");
-  if (!button) return;
-  button.disabled = true;
-  setMessage($("#review-archive-message"), "Restoring review…");
+  setMessage(message, `${action.startsWith("restore") ? "Restoring" : action === "archive" ? "Archiving" : "Deleting"} review…`);
   try {
     const response = await fetch("/api/hmp-reviews", {
       method: "PATCH", credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: button.dataset.restoreReview, action: "restore" }),
+      body: JSON.stringify({ id: review.id, action }),
     });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Review could not be restored.");
-    reviews = reviews.map((item) => item.id === data.review.id ? data.review : item);
+    if (!response.ok) throw new Error(data.error || "Review could not be updated.");
+    reviews = reviews.map((item) => item.id === review.id ? data.review : item);
     renderReviews();
-    setMessage($("#review-archive-message"), "Review restored to the active list. It remains private until you approve & publish it.", true);
-    openReviewEditor(data.review);
+    if ($("#review-editor-dialog").open) $("#review-editor-dialog").close();
+    const destination = action === "archive" ? $("#review-archive-message") : action === "delete" ? $("#review-delete-message") : message;
+    setMessage(destination, action.startsWith("restore") ? "Review restored as a private draft. Approve it to publish." : action === "archive" ? "Review archived privately." : "Review moved to Deleted. Restore it within 30 days.", true);
+    if (action.startsWith("restore")) openReviewEditor(data.review);
   } catch (error) {
-    setMessage($("#review-archive-message"), error.message || "Review could not be restored.");
+    setMessage(message, error.message || "Review could not be updated.");
   } finally { button.disabled = false; }
+};
+
+const onReviewFolderAction = (event) => {
+  const button = event.target.closest("[data-review-folder-action]");
+  if (!button) return;
+  const review = reviews.find((item) => item.id === button.dataset.reviewId);
+  if (review) changeReviewFolder(review, button.dataset.reviewFolderAction, button, button.closest("#review-delete-list") ? $("#review-delete-message") : $("#review-archive-message"));
 };
 
 const saveInvoice = async ({ quiet = false } = {}) => {
@@ -1786,6 +1805,7 @@ window.addEventListener("afterprint", () => {
   document.querySelectorAll("#invoice-sheet .invoice-print-text").forEach((node) => node.remove());
 });
 $("#send-invoice").addEventListener("click", sendInvoice);
+$("#copy-invoice-link").addEventListener("click", () => copyDocumentLink("invoice"));
 $("#invoice-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveInvoice();
@@ -1843,6 +1863,7 @@ $("#print-contract").addEventListener("click", () => {
   document.body.classList.remove("printing-contract");
 });
 $("#send-contract").addEventListener("click", sendContract);
+$("#copy-contract-link").addEventListener("click", () => copyDocumentLink("contract"));
 $("#contract-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   await saveContract();
@@ -1876,8 +1897,16 @@ $("#review-services").addEventListener("change", (event) => {
     if (general) general.checked = false;
   }
 });
-$("#delete-review").addEventListener("click", archiveReview);
-$("#review-archive-list").addEventListener("click", restoreReview);
+$("#archive-review").addEventListener("click", () => {
+  const review = reviews.find((item) => item.id === activeReviewId);
+  if (review) changeReviewFolder(review, "archive", $("#archive-review"), $("#review-editor-message"));
+});
+$("#delete-review").addEventListener("click", () => {
+  const review = reviews.find((item) => item.id === activeReviewId);
+  if (review) changeReviewFolder(review, "delete", $("#delete-review"), $("#review-editor-message"));
+});
+$("#review-archive-list").addEventListener("click", onReviewFolderAction);
+$("#review-delete-list").addEventListener("click", onReviewFolderAction);
 $("#review-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-review-id]");
   if (!row) return;

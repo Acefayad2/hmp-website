@@ -185,10 +185,17 @@ test("information email uses native form wording without signing and only sends 
   assert.equal(mail.length, 1);
 });
 
-test("link-only activation is restricted to information forms, never bypassing contract consent", async () => {
+test("agreement link-only activation requires HMP consent and sends no email", async () => {
   const row = {...rowFor(), status:"Draft"};
   assert.equal((await handlerFor([row])(request("hmp-agreement-forms", "PATCH", {id,action:"share",updatedAt:row.updated_at}))).status, 400);
   assert.equal(row.status, "Draft");
+  let emails=0;
+  const handler=handlerFor([row],true,async()=>{emails++;return new Response("{}",{status:200});});
+  const result=await handler(request("hmp-agreement-forms","PATCH",{id,action:"share",updatedAt:row.updated_at,hmpConsent:true}));
+  assert.equal(result.status,200);
+  assert.match((await result.json()).link,/agreement#token=/);
+  assert.equal(row.status,"Sent");
+  assert.equal(emails,0);
 });
 
 test("information storage failure does not claim completion", async () => {

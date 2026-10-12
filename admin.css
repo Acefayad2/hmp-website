@@ -410,9 +410,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .review-admin-note strong { white-space: nowrap; }
 .review-admin-note span { color: var(--muted); }
 .review-list-panel { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: rgba(255,255,255,.72); }
+#review-list, #review-archive-list, #review-delete-list { max-height: 420px; overflow-y: auto; }
 .review-list-heading, .review-list-row { display: grid; grid-template-columns: minmax(260px,2fr) minmax(135px,.8fr) minmax(150px,.9fr) 70px 105px; gap: 18px; align-items: center; }
 .review-list-heading { padding: 13px 24px; color: var(--muted); background: rgba(232,217,213,.35); font-size: 9px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
-.review-list-row { width: 100%; padding: 18px 24px; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
+.review-list-row { width: 100%; padding: 12px 24px; border: 0; border-bottom: 1px solid var(--line); color: var(--ink); background: transparent; text-align: left; cursor: pointer; }
 .review-list-row:last-child { border-bottom: 0; }
 .review-list-row:hover { background: rgba(232,217,213,.28); }
 .review-list-row strong { display: block; }
@@ -428,6 +429,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .archived-review h4 { margin: 14px 0 8px; font-size: 20px; }
 .archived-review-text { white-space: pre-wrap; }
 .archived-review small { color: var(--muted); }
+.review-folder-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .review-status .status-pill.sample { background: rgba(229,185,128,.3); }
 .review-empty { padding: 78px 24px; text-align: center; }
 .review-empty > span { color: var(--gold); font: 600 24px var(--serif); letter-spacing: .12em; }
@@ -575,7 +577,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .invoice-editor-dialog { width: 100%; max-height: 100dvh; border-radius: 0; }
   .invoice-editor-toolbar { align-items: flex-start; padding: 13px 14px; }
   .invoice-editor-toolbar > div:first-child { display: none; }
-  .invoice-toolbar-actions { width: 100%; justify-content: space-between; gap: 4px; overflow-x: auto; }
+  .invoice-toolbar-actions { width: 100%; flex-wrap: wrap; justify-content: flex-start; gap: 6px; }
+  .invoice-toolbar-actions > button { flex: 1 1 calc(50% - 6px); }
   .invoice-editor-toolbar .text-button, .secondary-button, .invoice-editor-toolbar .primary-button { min-height: 40px; padding: 0 8px; font-size: 8px; letter-spacing: .04em; }
   .invoice-sheet { width: 100%; min-height: 0; margin: 0; padding: 28px 20px 40px; box-shadow: none; }
   .invoice-document-header { gap: 15px; }
