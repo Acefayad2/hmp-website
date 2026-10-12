@@ -426,6 +426,7 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.sender,
   message.body,
   message.createdAt,
+  message.editedAt,
   message.emailNotifiedAt,
   message.emailNotificationError,
   message.document,
@@ -455,6 +456,12 @@ const renderAdminMessages = (thread) => {
     time.dateTime = message.createdAt;
     time.textContent = formatDate(message.createdAt, true);
     meta.append(name, time);
+    if (message.editedAt) {
+      const edited = document.createElement("span");
+      edited.textContent = "Edited";
+      edited.title = `Edited ${formatDate(message.editedAt, true)}`;
+      meta.append(edited);
+    }
     const proposal = parseProposal(message.body);
     const copy = document.createElement("p");
     if (message.sender === "admin") appendLinkedText(copy, message.body);
@@ -467,6 +474,25 @@ const renderAdminMessages = (thread) => {
       article.append(renderProposalCard(proposal));
     } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
+    if (message.sender === "admin") {
+      const actions = document.createElement("div");
+      actions.className = "admin-message-actions";
+      if (message.body && !proposal && !message.document) {
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.textContent = "Edit";
+        edit.setAttribute("aria-label", `Edit message sent ${formatDate(message.createdAt, true)}`);
+        edit.addEventListener("click", () => showAdminMessageEditor(article, thread.id, message));
+        actions.append(edit);
+      }
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.textContent = "Delete";
+      remove.setAttribute("aria-label", `Delete message sent ${formatDate(message.createdAt, true)}`);
+      remove.addEventListener("click", () => deleteAdminMessage(thread.id, message.id));
+      actions.append(remove);
+      article.append(actions);
+    }
     if (message.sender === "admin" && (message.emailNotifiedAt || message.emailNotificationError)) {
       const status=document.createElement("p");
       status.className="message-email-status";
@@ -485,6 +511,53 @@ const renderAdminMessages = (thread) => {
   $("#admin-message-empty").hidden = (thread.messages || []).length > 0;
   list.hidden = (thread.messages || []).length === 0;
   if (!list.hidden) list.scrollTop = list.scrollHeight;
+};
+
+const changeAdminMessage = async (action, conversationId, messageId, message) => {
+  const response = await fetch("/api/hmp-messages", {
+    method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action, conversationId, messageId, message }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Message could not be changed.");
+  await loadMessages();
+  setMessage($("#admin-message-status"), action === "edit-message" ? "Message updated." : "Message deleted from both portals.", true);
+};
+
+const showAdminMessageEditor = (article, conversationId, message) => {
+  if (article.querySelector(".admin-message-editor")) return;
+  const editor = document.createElement("form");
+  editor.className = "admin-message-editor";
+  const input = document.createElement("textarea");
+  input.value = message.body;
+  input.maxLength = 4000;
+  input.required = true;
+  input.setAttribute("aria-label", "Edit message text");
+  const controls = document.createElement("div");
+  const save = document.createElement("button");
+  save.type = "submit";
+  save.textContent = "Save changes";
+  const cancel = document.createElement("button");
+  cancel.type = "button";
+  cancel.textContent = "Cancel";
+  cancel.addEventListener("click", () => editor.remove());
+  controls.append(save, cancel);
+  editor.append(input, controls);
+  editor.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!input.value.trim()) return;
+    save.disabled = true;
+    try { await changeAdminMessage("edit-message", conversationId, message.id, input.value); }
+    catch (error) { setMessage($("#admin-message-status"), error.message); save.disabled = false; }
+  });
+  article.append(editor);
+  input.focus();
+};
+
+const deleteAdminMessage = async (conversationId, messageId) => {
+  if (!window.confirm("Delete this message from the Admin and Client portals? This will not recall an email already delivered.")) return;
+  try { await changeAdminMessage("delete-message", conversationId, messageId); }
+  catch (error) { setMessage($("#admin-message-status"), error.message); }
 };
 
 const proposalFormFields = {
