@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMessagesHandler, notifyStoredMessage, sendReplyNotification } from "../netlify/functions/hmp-messages.mts";
+import { parseProposal, serializeProposal } from "../proposal-ui.js";
 const settings={RESEND_API_KEY:"test-only",HMP_INQUIRY_FROM_EMAIL:"sender@example.test",SUPABASE_SERVICE_ROLE_KEY:"test-key",HMP_ADMIN_EMAILS:"admin@example.test"};
 globalThis.Netlify={env:{get:key=>settings[key]}};
 const conversationId="11111111-1111-4111-8111-111111111111", messageId="22222222-2222-4222-8222-222222222222", inquiryId="33333333-3333-4333-8333-333333333333";
@@ -92,6 +93,14 @@ test("proposals and attachment-only messages use the same notification path",asy
   const message={id:messageId,conversation_id:conversationId,sender:"admin",body:"",attachments:[{name:"video.mp4"}]};
   assert.equal((await notifyStoredMessage(fakeDatabase([message]),inquiry,conversation,message,fetchFn)).notified,true);
   assert.match(emails[1].subject,/replied/);
+});
+
+test("sent proposals retain additional information for the client", async () => {
+  const messages = [];
+  const proposal = serializeProposal({ clientName: "Test Client", serviceFee: 900, additionalInformation: "Parking is behind the venue.\nPlease use the side entrance." });
+  const response = await handler(fakeDatabase(messages), async () => new Response("{}"))(request({ ...sendBody, message: proposal }));
+  assert.equal(response.status, 200);
+  assert.equal(parseProposal(messages[0].body).additionalInformation, "Parking is behind the venue.\nPlease use the side entrance.");
 });
 
 test("database read failures cannot look like empty conversations or missing proposals", async () => {

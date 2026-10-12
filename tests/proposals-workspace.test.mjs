@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { collectProposals } from "../src/proposals-workspace.js";
-import { serializeProposal } from "../proposal-ui.js";
+import { parseProposal, serializeProposal } from "../proposal-ui.js";
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 
@@ -39,4 +39,16 @@ test("new proposals start at four hours with editable details, notes, and paymen
   assert.match(editor, /serviceDetails: "",/);
   assert.match(editor, /notes: "",/);
   assert.match(editor, /paymentTerms: "",/);
+});
+
+test("additional information starts blank and survives proposal serialization", () => {
+  const html = readFileSync(new URL("../admin.html", import.meta.url), "utf8");
+  const source = readFileSync(new URL("../src/admin.js", import.meta.url), "utf8");
+  const handler = readFileSync(new URL("../netlify/functions/hmp-messages.mts", import.meta.url), "utf8");
+  assert.match(html, /id="proposal-additional-information"/);
+  assert.match(source, /additionalInformation: "#proposal-additional-information"/);
+  assert.match(source, /additionalInformation: "",/);
+  assert.match(handler, /additionalInformation: cleanText\(proposal.additionalInformation, 600\)/);
+  assert.equal(parseProposal(serializeProposal({ additionalInformation: "Parking is available behind the venue." })).additionalInformation,
+    "Parking is available behind the venue.");
 });

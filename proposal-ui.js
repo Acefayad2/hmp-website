@@ -21,6 +21,7 @@ export const normalizeProposal = (value = {}) => ({
   machines: number(value.machines, 100),
   serviceDetails: text(value.serviceDetails, 1400),
   notes: text(value.notes, 1600),
+  additionalInformation: text(value.additionalInformation, 600),
   serviceFee: number(value.serviceFee),
   validUntil: text(value.validUntil, 10),
   paymentTerms: text(value.paymentTerms, 600),
@@ -138,6 +139,16 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
   if (serviceItems.length) article.append(listSection("Service details", serviceItems));
   const noteItems = lines(value.notes);
   if (noteItems.length) article.append(listSection("Please note", noteItems));
+  if (value.additionalInformation) {
+    const section = document.createElement("section");
+    const heading = document.createElement("h4");
+    heading.textContent = "Additional information";
+    const content = document.createElement("p");
+    content.className = "proposal-additional-information";
+    content.textContent = value.additionalInformation;
+    section.append(heading, content);
+    article.append(section);
+  }
 
   const total = document.createElement("div");
   total.className = "proposal-total";

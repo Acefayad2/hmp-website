@@ -73,6 +73,7 @@ const normalizeAdminMessage = (value: unknown) => {
     machines: number(proposal.machines, 100),
     serviceDetails: cleanText(proposal.serviceDetails, 1400),
     notes: cleanText(proposal.notes, 1600),
+    additionalInformation: cleanText(proposal.additionalInformation, 600),
     serviceFee: number(proposal.serviceFee, 1_000_000),
     validUntil: cleanText(proposal.validUntil, 10),
     paymentTerms: cleanText(proposal.paymentTerms, 600),
