@@ -43,6 +43,13 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+export const invoiceLifecycleChange = (action: string, now: string) => {
+  if (action === "archive") return { archived_at: now, deleted_at: null };
+  if (action === "delete") return { archived_at: null, deleted_at: now };
+  if (action === "restore") return { archived_at: null, deleted_at: null };
+  throw new Error("Invalid invoice action");
+};
+
 export const normalizeInvoice = (record: Record<string, unknown>) => ({
   id: record.id || "",
   invoiceNumber: record.invoice_number || "",
@@ -70,6 +77,8 @@ export const normalizeInvoice = (record: Record<string, unknown>) => ({
   createdBy: record.created_by || "",
   createdAt: record.created_at || "",
   updatedAt: record.updated_at || "",
+  archivedAt: record.archived_at || "",
+  deletedAt: record.deleted_at || "",
 });
 
 export const cleanPayload = (body: Record<string, unknown>) => {
@@ -174,6 +183,26 @@ export default async (request: Request, _context: Context) => {
       return json({ error: "Invalid request" }, 400);
     }
 
+    if (request.method === "PATCH" && typeof body.action === "string") {
+      const id = text(body.id, 36);
+      const action = text(body.action, 20);
+      if (!uuidPattern.test(id) || !["archive", "delete", "restore"].includes(action)) {
+        return json({ error: "Invalid invoice action" }, 400);
+      }
+      const change = invoiceLifecycleChange(action, new Date().toISOString());
+      const { data, error } = await client
+        .from("hmp_admin_invoices")
+        .update({ ...change, updated_at: new Date().toISOString() })
+        .eq("id", id)
+        .select("*")
+        .single();
+      if (error) {
+        console.error("Supabase invoice lifecycle failed", error.code);
+        return json({ error: error.code === "PGRST116" ? "Invoice not found" : "Invoice could not be updated" }, error.code === "PGRST116" ? 404 : 502);
+      }
+      return json({ ok: true, invoice: normalizeInvoice(data) });
+    }
+
     let payload: ReturnType<typeof cleanPayload>;
     try {
       payload = cleanPayload(body);
@@ -200,6 +229,8 @@ export default async (request: Request, _context: Context) => {
       .from("hmp_admin_invoices")
       .update(payload)
       .eq("id", id)
+      .is("archived_at", null)
+      .is("deleted_at", null)
       .select("*")
       .single();
     if (error) {

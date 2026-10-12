@@ -127,6 +127,7 @@ export const createSendInvoiceHandler = ({getUserFn=getUser,databaseFactory=getD
     .eq("id", id)
     .single();
   if (readError || !invoice) return json({ error: "Invoice not found" }, 404);
+  if (invoice.archived_at || invoice.deleted_at) return json({ error: "Restore this invoice before sending it" }, 409);
 
   const recipient = typeof body.recipient === "string" ? body.recipient.trim().toLowerCase() : invoice.client_email;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) {

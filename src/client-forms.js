@@ -27,7 +27,7 @@ export async function loadInformationForms() {
     const rows = data.agreements.filter(row => informationTemplates.some(t => t.id === row.template_id));
     const signature = JSON.stringify(rows);
     if (signature !== listSignature) {
-      $("#information-list").innerHTML = rows.map(row => `<button type="button" class="agreement-row" data-information-id="${escape(row.id)}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.client_email)}</small><small>${escape(informationTemplates.find(t => t.id === row.template_id).title)}</small></span><span>${escape(row.status === "Sent" ? "Awaiting client" : row.status)}${row.completed_at ? `<small>${escape(new Date(row.completed_at).toLocaleString())}</small>` : ""}</span></button>`).join("");
+      $("#information-list").innerHTML = rows.map(row => `<button type="button" class="agreement-row" data-information-id="${escape(row.id)}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.client_email)}</small></span><span>${escape(informationTemplates.find(t => t.id === row.template_id).title)}</span><span>${escape(row.status === "Sent" ? "Awaiting client" : row.status)}${row.completed_at ? `<small>${escape(new Date(row.completed_at).toLocaleString())}</small>` : ""}</span></button>`).join("");
       listSignature = signature;
     }
     message.textContent = rows.length ? "Select a record to view responses or share its private link." : "No client forms yet. Choose a form above to get started.";

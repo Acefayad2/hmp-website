@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cleanPayload, normalizeInvoice } from "../netlify/functions/hmp-invoices.mts";
+import { cleanPayload, invoiceLifecycleChange, normalizeInvoice } from "../netlify/functions/hmp-invoices.mts";
 import { renderEmail } from "../netlify/functions/hmp-send-invoice.mts";
 
 const draft = {
@@ -25,6 +25,16 @@ test("event addresses never inherit or overwrite historical billing addresses", 
   assert.ok(!Object.hasOwn(cleanPayload(olderClient), "event_address"));
   assert.equal(cleanPayload({ ...draft, eventAddress: "" }).event_address, null);
   assert.equal(cleanPayload({ ...draft, eventAddress: "x".repeat(1001) }).event_address.length, 1000);
+});
+
+test("archive and delete keep invoice records recoverable without changing billing status", () => {
+  const now = "2026-10-11T20:00:00.000Z";
+  assert.deepEqual(invoiceLifecycleChange("archive", now), { archived_at: now, deleted_at: null });
+  assert.deepEqual(invoiceLifecycleChange("delete", now), { archived_at: null, deleted_at: now });
+  assert.deepEqual(invoiceLifecycleChange("restore", now), { archived_at: null, deleted_at: null });
+  assert.throws(() => invoiceLifecycleChange("purge", now), /Invalid invoice action/);
+  assert.equal(normalizeInvoice({ status: "Paid", deleted_at: now }).status, "Paid");
+  assert.equal(normalizeInvoice({ status: "Paid", deleted_at: now }).deletedAt, now);
 });
 
 test("email preserves newlines and safely escapes descriptions and event addresses", () => {

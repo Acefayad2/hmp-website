@@ -135,6 +135,16 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .invoice-list-row strong { display: block; }
 .invoice-list-row small { display: block; margin-top: 3px; color: var(--muted); }
 .invoice-list-row .invoice-list-total { font: 600 20px var(--serif); }
+.invoice-list-entry { border-bottom:1px solid var(--line); }
+.invoice-list-entry:last-child { border-bottom:0; }
+.invoice-list-entry .invoice-list-row { border-bottom:0; }
+.invoice-row-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:7px; padding:0 24px 12px; }
+.invoice-row-actions button { padding:8px 10px; border:1px solid var(--line); border-radius:999px; color:var(--plum); background:#fff; cursor:pointer; font-size:11px; }
+.invoice-row-actions button:hover { background:var(--rose); }
+.invoice-view-switch { display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px; }
+.invoice-view-switch button { padding:10px 18px; border:1px solid var(--line); border-radius:999px; color:var(--plum); background:#fff; cursor:pointer; }
+.invoice-view-switch button[aria-pressed="true"] { color:#fff; background:var(--plum); border-color:var(--plum); }
+.invoice-view-switch button:focus-visible,.invoice-row-actions button:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
 .invoice-empty { padding: 78px 24px; text-align: center; }
 .invoice-empty > span { color: var(--gold); font: 600 24px var(--serif); letter-spacing: .12em; }
 .invoice-empty h3 { margin: 12px 0 5px; font: 600 32px var(--serif); }
@@ -277,15 +287,24 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .proposal-client-picker label { flex-basis:100%; color:var(--muted); font-size:12px; font-weight:700; }
 .proposal-client-picker select { flex:1 1 240px; min-width:0; min-height:48px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; color:var(--ink); background:var(--ivory); }
 .proposal-client-picker .primary-button { flex:0 1 auto; width:auto; min-height:48px; margin:0; padding:0 22px; }
-.proposal-record { margin:14px 0; border:1px solid var(--line); border-radius:16px; background:#fff; overflow:hidden; }
-.proposal-record summary { padding:22px; cursor:pointer; overflow-wrap:anywhere; }
+.proposal-list-heading,.proposal-record summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)) 120px 120px; gap:18px; align-items:center; }
+.proposal-list-heading { padding:13px 24px; color:var(--muted); background:rgba(232,217,213,.35); font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
+.proposal-record { border-bottom:1px solid var(--line); background:#fff; overflow:hidden; }
+.proposal-record:last-child { border-bottom:0; }
+.proposal-record summary { padding:18px 24px; cursor:pointer; overflow-wrap:anywhere; }
 .proposal-record summary strong { font-size:16px; }
-.proposal-record summary span { display:block; margin:9px 0 0 18px; color:var(--muted); font-size:12px; }
+.proposal-record summary span { color:var(--muted); font-size:12px; }
 .proposal-record-content { padding:0 20px 22px; }
 .proposal-record .portal-proposal > header { flex-wrap:wrap; }
 .proposal-record .portal-proposal > header div { flex:1 1 170px; text-align:left; overflow-wrap:anywhere; }
 .proposal-record-content > .text-button { margin-top:18px; }
 .proposal-record summary:focus-visible, .proposal-client-picker select:focus-visible { outline:3px solid var(--gold); outline-offset:-3px; }
+.form-list-heading,.form-list-panel .agreement-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) minmax(130px,.7fr); gap:18px; align-items:center; }
+.form-list-heading { padding:13px 24px; color:var(--muted); background:rgba(232,217,213,.35); font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
+.form-list-panel .agreement-list { display:block; margin:0; }
+.form-list-panel .agreement-row { width:100%; padding:18px 24px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:#fff; }
+.form-list-panel .agreement-row:last-child { border-bottom:0; }
+.form-list-panel .agreement-row:hover { background:rgba(232,217,213,.28); }
 .proposal-form-body { padding:28px 30px 30px; }
 .proposal-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .proposal-form-grid label > span:first-child { display:block; margin-bottom:7px; color:var(--muted); font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
@@ -493,6 +512,11 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .invoice-list-row { grid-template-columns: 1fr auto; gap: 8px 14px; }
   .invoice-list-row > span:nth-child(3) { grid-column: 1; }
   .invoice-list-row .invoice-list-total, .invoice-list-row .status-pill { grid-column: 2; justify-self: end; }
+  .invoice-row-actions { padding:0 18px 14px; }
+  .proposal-list-heading,.form-list-heading { display:none; }
+  .proposal-record summary,.form-list-panel .agreement-row { grid-template-columns:minmax(0,1fr) auto; gap:7px 14px; }
+  .proposal-record summary > :first-child,.form-list-panel .agreement-row > :first-child { grid-column:1 / -1; }
+  .proposal-record summary > :last-child,.form-list-panel .agreement-row > :last-child { grid-column:2; }
   .email-setup-notice { align-items: flex-start; flex-direction: column; gap: 4px; }
   .review-admin-note { align-items: flex-start; flex-direction: column; gap: 4px; }
   .review-list-heading { display: none; }
