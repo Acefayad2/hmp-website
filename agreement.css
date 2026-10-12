@@ -10,6 +10,7 @@
 .agreement-field textarea { resize:vertical; }
 .agreement-wide { grid-column:1/-1; }
 .agreement-templates h3 { margin:0; }
+.review-honey { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .agreement-template { text-align:left; border:1px solid #d9c7c0; border-radius:16px; padding:20px; background:#fff8f1; color:#5f3f41; font:inherit; cursor:pointer; }
 .agreement-template strong, .agreement-template span { display:block; }
 .agreement-template span { margin-top:12px; font-size:14px; }

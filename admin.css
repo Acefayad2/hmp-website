@@ -484,6 +484,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .review-form-actions .form-message { margin: 0; }
 .review-form-actions .primary-button { width: auto; min-height: 48px; margin: 0; padding: 0 22px; }
 .review-save-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.review-share-panel p { line-height:1.55; }
+.review-share-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin-top:14px; }
+.review-share-controls input { flex:1 1 260px; min-width:0; min-height:44px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; color:var(--ink); background:var(--ivory); font:inherit; }
+.review-share-controls button { margin:0; }
 .review-another-button { min-height: 48px; padding: 0 18px; border: 1px solid var(--plum); border-radius: 999px; color: var(--plum); background: transparent; cursor: pointer; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .review-another-button:hover { background: rgba(115,73,73,.08); }
 .review-another-button:focus-visible { outline: 3px solid rgba(182,124,66,.5); outline-offset: 3px; }

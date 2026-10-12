@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { reviewSubmission, reviewConsent, reviewServices } from "../review-request-schema.mjs";
 import { createReviewRequestHandler, reviewToken, reviewHash } from "../netlify/functions/hmp-review-requests.mts";
 import { createReviewHandler } from "../netlify/functions/hmp-reviews.mts";
+import { createPublicReviewHandler, config as publicReviewConfig } from "../netlify/functions/hmp-public-review.mts";
 
 const env={SUPABASE_URL:"https://example.supabase.co",SUPABASE_SERVICE_ROLE_KEY:"test-secret",HMP_ADMIN_EMAILS:"admin@example.test",RESEND_API_KEY:"test-resend",HMP_INVOICE_FROM_EMAIL:"hmp@example.test"};
 globalThis.Netlify={env:{get:name=>env[name]}};
@@ -107,4 +108,39 @@ test("admin can create and copy a review link without sending email",async()=>{
   const list=await (await h(request("hmp-review-requests"))).json();
   assert.equal(list.requests.length,1);
   assert.match(list.requests[0].clientUrl,/review#token=/);
+});
+test("shared review link validates contact and submits once to the unpublished approval queue",async()=>{
+  const requests=[],reviews=[],db=database(requests,reviews);
+  const submit=createPublicReviewHandler({databaseFactory:()=>db});
+  const body={...submission,requestId:id,clientEmail:"Client@Example.Test",published:true,source_request_id:"spoofed"};
+  assert.equal((await submit(request("hmp-public-review","POST",body))).status,201);
+  assert.equal(requests.length,1);
+  assert.equal(requests[0].client_email,"client@example.test");
+  assert.equal(requests[0].created_by,"Universal review link");
+  assert.equal(reviews.length,1);
+  assert.equal(reviews[0].published,false);
+  assert.equal(reviews[0].source_request_id,id);
+  assert.equal(reviews[0].client_email,undefined);
+  const adminRequests=createReviewRequestHandler({getUserFn:user,databaseFactory:()=>db});
+  const listed=await (await adminRequests(request("hmp-review-requests"))).json();
+  assert.equal(listed.requests[0].created_by,"Universal review link");
+  assert.equal(listed.requests[0].clientUrl,"");
+  assert.equal((await submit(request("hmp-public-review","POST",body))).status,200);
+  assert.equal(reviews.length,1);
+  assert.equal((await submit(request("hmp-public-review","POST",{...body,clientEmail:"other@example.test"}))).status,409);
+  const publicReviews=createReviewHandler({databaseFactory:()=>db});
+  assert.equal((await (await publicReviews(request("hmp-reviews"))).json()).reviews.length,0);
+  assert.equal(publicReviewConfig.path,"/api/hmp-public-review");
+  assert.equal(publicReviewConfig.rateLimit.windowLimit,5);
+});
+test("shared review link rejects cross-origin, malformed and unconsented submissions",async()=>{
+  const rows=[],reviews=[],submit=createPublicReviewHandler({databaseFactory:()=>database(rows,reviews)});
+  const body={...submission,requestId:id,clientEmail:"client@example.test"};
+  assert.equal((await submit(new Request("https://hmpeds.com/api/hmp-public-review",{method:"POST",headers:{Origin:"https://other.example"},body:JSON.stringify(body)}))).status,403);
+  assert.equal((await submit(request("hmp-public-review","POST",{...body,requestId:"not-a-uuid"}))).status,400);
+  assert.equal((await submit(request("hmp-public-review","POST",{...body,clientEmail:"invalid"}))).status,400);
+  assert.equal((await submit(request("hmp-public-review","POST",{...body,consent:false}))).status,400);
+  assert.equal((await submit(request("hmp-public-review","POST",{...body,website:"spam"}))).status,201);
+  assert.equal(rows.length,0);
+  assert.equal(reviews.length,0);
 });

@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261012-calendar" />
+    <link rel="stylesheet" href="admin.css?v=20261012-universal" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
@@ -352,6 +352,15 @@
               </div>
             </div>
             <p>Client submissions stay private until approved. Archive keeps a review privately; Delete moves it to a recoverable area for 30 days.</p>
+            <section class="agreement-templates review-share-panel" aria-labelledby="review-share-title">
+              <h3 id="review-share-title">Reusable client review link</h3>
+              <p>Send this same link to any client. Each review goes to Awaiting approval and stays off the website until you approve it.</p>
+              <div class="review-share-controls">
+                <input id="universal-review-url" type="url" readonly value="https://hmpeds.com/review" aria-label="Reusable review link" />
+                <button class="agreement-button secondary" id="copy-universal-review-url" type="button">Copy link</button>
+              </div>
+              <p id="review-share-status" role="status"></p>
+            </section>
             <div class="review-list-panel">
               <div class="review-list-heading">
                 <span>Review</span><span>Client</span><span>Service</span><span>Order</span><span>Status</span>
@@ -754,6 +763,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261012-calendar"></script>
+    <script type="module" src="assets/admin.js?v=20261012-universal"></script>
   </body>
 </html>

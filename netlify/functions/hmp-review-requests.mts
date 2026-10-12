@@ -49,8 +49,8 @@ export function createReviewRequestHandler({getUserFn=getUser, databaseFactory=c
         return json({submitted:true},201);
       }
       if(request.method==="GET") {
-        const {data,error}=await db.from(table).select("id,client_name,client_email,created_at,expires_at,email_delivered_at,submitted_at").order("created_at",{ascending:false}).limit(500);
-        return error ? json({error:"Review requests are unavailable. The database update may still be pending."},502) : json({requests:(data || []).map(row => ({...row, clientUrl: !row.submitted_at && Date.parse(row.expires_at)>Date.now() ? `https://hmpeds.com/review#token=${reviewToken(row.id,key)}` : ""}))});
+        const {data,error}=await db.from(table).select("id,client_name,client_email,created_by,created_at,expires_at,email_delivered_at,submitted_at").order("created_at",{ascending:false}).limit(500);
+        return error ? json({error:"Review requests are unavailable. The database update may still be pending."},502) : json({requests:(data || []).map(row => ({...row, clientUrl: row.created_by!=="Universal review link" && !row.submitted_at && Date.parse(row.expires_at)>Date.now() ? `https://hmpeds.com/review#token=${reviewToken(row.id,key)}` : ""}))});
       }
       if(!uuid.test(body.id || "")) return json({error:"Invalid request ID"},400);
       const contact=reviewContact(body);

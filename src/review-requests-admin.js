@@ -3,7 +3,7 @@ const $ = selector => document.querySelector(selector);
 const dialog=$("#review-request-dialog"), form=$("#review-request-form"), message=$("#review-request-message");
 const panel=document.createElement("section");
 panel.className="agreement-templates";
-panel.innerHTML='<h3>Email review requests</h3><p id="review-requests-status" class="agreement-status" role="status"></p><div id="review-requests-list" class="agreement-list"></div>';
+panel.innerHTML='<h3>Review requests and shared-link submissions</h3><p id="review-requests-status" class="agreement-status" role="status"></p><div id="review-requests-list" class="agreement-list"></div>';
 $("#reviews-workspace").insertBefore(panel, $("#archived-reviews"));
 let requests=[], requestId="", busy=false;
 const request = async (body) => {
@@ -17,14 +17,20 @@ export async function loadReviewRequests() {
   try {
     const data=await request(); requests=data.requests || [];
     status.classList.add("neutral");
-    status.textContent=requests.length ? "" : "No review requests sent yet.";
+    status.textContent=requests.length ? "" : "No review requests or submissions yet.";
     $("#review-requests-list").innerHTML=requests.map(row => {
       const expired=Date.parse(row.expires_at)<=Date.now();
-      const label=row.submitted_at ? "Review received" : expired ? "Expired" : row.email_delivered_at ? "Email sent · awaiting review" : "Email not confirmed";
-      return `<div class="agreement-row"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.client_email)}</small></span><span>${label}</span>${row.clientUrl ? `<button type="button" class="agreement-button secondary" data-copy-review="${escape(row.id)}">Copy link</button>` : ""}${!row.submitted_at && !expired && !row.email_delivered_at ? `<button type="button" class="agreement-button secondary" data-retry-review="${escape(row.id)}">Send email</button>` : ""}</div>`;
+      const shared=row.created_by==="Universal review link";
+      const label=shared ? "Submitted through shared link" : row.submitted_at ? "Review received" : expired ? "Expired" : row.email_delivered_at ? "Email sent · awaiting review" : "Email not confirmed";
+      return `<div class="agreement-row"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.client_email)}</small></span><span>${label}</span>${row.clientUrl ? `<button type="button" class="agreement-button secondary" data-copy-review="${escape(row.id)}">Copy link</button>` : ""}${!shared && !row.submitted_at && !expired && !row.email_delivered_at ? `<button type="button" class="agreement-button secondary" data-retry-review="${escape(row.id)}">Send email</button>` : ""}</div>`;
     }).join("");
   } catch(error) {status.classList.remove("neutral");status.textContent=error.message;}
 }
+$("#copy-universal-review-url").addEventListener("click",async()=>{
+  const input=$("#universal-review-url"), status=$("#review-share-status");
+  try {await navigator.clipboard.writeText(input.value);status.textContent="Reusable review link copied. Share it with clients by email, text, or the portal.";}
+  catch {input.select();status.textContent="Copy the selected link to share it with clients.";}
+});
 function open(row) {
   requestId=row?.id || crypto.randomUUID(); form.reset();
   form.elements.clientName.value=row?.client_name || "";
