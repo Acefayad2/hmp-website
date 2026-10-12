@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20260929-archive" />
+    <link rel="stylesheet" href="admin.css?v=20261011-message-signature" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
@@ -152,7 +152,21 @@
                 <button class="primary-button workspace-create-button" id="create-proposal-button" type="button">Create proposal</button>
               </div>
             </div>
-            <div class="messages-layout">
+            <div class="message-workspace-tabs" role="tablist" aria-label="Messages settings">
+              <button id="message-conversations-tab" type="button" role="tab" aria-controls="message-conversations-panel" aria-selected="true">Conversations</button>
+              <button id="message-signature-tab" type="button" role="tab" aria-controls="message-signature-panel" aria-selected="false">Signature</button>
+            </div>
+            <section class="message-signature-panel" id="message-signature-panel" role="tabpanel" aria-labelledby="message-signature-tab" hidden>
+              <p class="kicker">Message signature</p>
+              <h3>End each reply on the right note.</h3>
+              <p>Save one signature for the HMP team. Use “Insert signature” while writing a reply; you can edit it before sending.</p>
+              <form id="message-signature-form">
+                <label for="message-signature-input">HMP message signature</label>
+                <textarea id="message-signature-input" maxlength="1000" rows="6" placeholder="Your name&#10;HMP Luxury Event Services" disabled></textarea>
+                <div class="message-signature-actions"><p class="form-message" id="message-signature-status" role="status"></p><button class="primary-button" type="submit" disabled>Save signature</button></div>
+              </form>
+            </section>
+            <div class="messages-layout" id="message-conversations-panel" role="tabpanel" aria-labelledby="message-conversations-tab">
               <aside class="thread-panel">
                 <div class="thread-panel-heading"><strong>Conversations</strong><span id="thread-count">0</span></div>
                 <div id="thread-list"></div>
@@ -180,6 +194,7 @@
                   <form class="admin-message-composer" id="admin-message-form">
                     <label for="admin-message-input">Reply as HMP · client notified by email</label>
                     <textarea id="admin-message-input" maxlength="4000" rows="4" placeholder="Type your reply…"></textarea>
+                    <button class="message-insert-signature" id="insert-message-signature" type="button" disabled>Insert signature</button>
                     <div class="attachment-picker">
                       <label class="attachment-button" for="admin-message-attachments">＋ Add photos or files</label>
                       <input id="admin-message-attachments" type="file" multiple accept="image/*,video/*,audio/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv" />
@@ -733,6 +748,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20260930-native-forms"></script>
+    <script type="module" src="assets/admin.js?v=20261011-message-signature"></script>
   </body>
 </html>
