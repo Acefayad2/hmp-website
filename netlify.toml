@@ -1,6 +1,9 @@
 [build]
-  command = "npm run build"
+  command = "npm run build && npm run build:functions"
   publish = "dist"
+
+[functions]
+  directory = ".netlify/deploy-functions"
 
 [[headers]]
   for = "/*"
