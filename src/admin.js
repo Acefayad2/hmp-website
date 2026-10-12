@@ -11,6 +11,7 @@ import { matchesSearch, searchText } from "../page-search.js";
 import { insertMessageSignature } from "./message-signature.mjs";
 import { appendLinkedText, normalizeCalendarUrl } from "../calendar-link.js";
 import { proposalEventType } from "./proposal-event-type.js";
+import { parseCalendarDate } from "../calendar-date.mjs";
 import {
   acceptInvite,
   getUser,
@@ -122,14 +123,8 @@ const escapeHTML = (value = "") =>
       ],
   );
 
-const parseDate = (value) => {
-  if (!value) return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-};
-
 const formatDate = (value, includeTime = false) => {
-  const date = parseDate(value);
+  const date = parseCalendarDate(value);
   if (!date) return value || "Not provided";
   return new Intl.DateTimeFormat("en-US", {
     month: "short",

@@ -12,6 +12,7 @@ import {
 import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20261012-calendar";
 import { renderDocumentCard } from "./document-message-ui.js?v=20260923-1";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
+import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
 
 const $ = (selector) => document.querySelector(selector);
 const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration Accessories\b/g, "Event Accessories").replace(/\bEvent Kit\b/g, "Celebration Kit");
@@ -40,8 +41,8 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
 
 const formatDate = (value, includeTime = false) => {
   if (!value) return "To be confirmed";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "To be confirmed";
+  const date = parseCalendarDate(value);
+  if (!date) return "To be confirmed";
   return new Intl.DateTimeFormat("en-US", includeTime
     ? { month:"short", day:"numeric", year:"numeric", hour:"numeric", minute:"2-digit" }
     : { month:"long", day:"numeric", year:"numeric" }).format(date);
