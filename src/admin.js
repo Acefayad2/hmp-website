@@ -12,6 +12,7 @@ import { matchesSearch, searchText } from "../page-search.js";
 import { insertMessageSignature } from "./message-signature.mjs";
 import { appendLinkedText, normalizeCalendarUrl } from "../calendar-link.js";
 import { proposalEventType } from "./proposal-event-type.js";
+import { createProposalDirtyState } from "./proposal-dirty-state.js";
 import { parseCalendarDate } from "../calendar-date.mjs";
 import {
   acceptInvite,
@@ -149,6 +150,7 @@ const setMessage = (element, message, success = false) => {
 const setWorkspaceView = (requestedView, updateUrl = false) => {
   if (requestedView === "events") requestedView = "forms";
   const view = workspaceViews[requestedView] ? requestedView : "inquiries";
+  if (view !== activeWorkspaceView && $("#proposal-editor-dialog").open && !closeProposalEditor()) return false;
   const config = workspaceViews[view];
   const isInquiries = view === "inquiries";
   const isMessages = view === "messages";
@@ -233,6 +235,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
     const url = view === "inquiries" ? "/admin" : `/admin?view=${view}`;
     history.pushState({ view }, "", url);
   }
+  return true;
 };
 
 const showPasswordForm = (message) => {
@@ -594,6 +597,20 @@ const proposalPayload = () => Object.fromEntries(
   Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
 );
 
+const proposalDirtyState = createProposalDirtyState({
+  read: proposalPayload,
+  isOpen: () => $("#proposal-editor-dialog").open,
+});
+
+const closeProposalEditor = ({ confirmDiscard = true } = {}) => {
+  if (confirmDiscard && proposalDirtyState.isDirty()
+    && !window.confirm("Discard your unsaved proposal changes?")) return false;
+  proposalDirtyState.reset();
+  activeProposalDraftId = "";
+  $("#proposal-editor-dialog").close();
+  return true;
+};
+
 const openProposalEditor = () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (!thread) return;
@@ -624,6 +641,7 @@ const openProposalEditor = () => {
     $(selector).value = values[key] ?? "";
   });
   setMessage($("#proposal-editor-message"), "");
+  proposalDirtyState.begin();
   $("#proposal-editor-dialog").showModal();
 };
 
@@ -637,6 +655,7 @@ const openProposalDraft = (draft) => {
   openProposalEditor();
   activeProposalDraftId = draft.id;
   Object.entries(proposalFormFields).forEach(([key, selector]) => { $(selector).value = draft.payload?.[key] ?? ""; });
+  proposalDirtyState.begin();
 };
 
 const saveProposalDraft = async () => {
@@ -659,6 +678,7 @@ const saveProposalDraft = async () => {
     activeProposalDraftId = data.draft.id;
     proposalDrafts = [data.draft, ...proposalDrafts.filter((draft) => draft.id !== data.draft.id)];
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
+    proposalDirtyState.markSaved(payload);
     setMessage($("#proposal-editor-message"), "Proposal draft saved privately. Find it under Drafts → Proposals.", true);
   } catch (error) { setMessage($("#proposal-editor-message"), error.message || "Proposal draft could not be saved."); }
   finally { button.disabled = false; }
@@ -731,6 +751,7 @@ const createManualInquiry = async (event) => {
 const sendProposal = async (event) => {
   event.preventDefault();
   if (!activeThreadId || !event.currentTarget.reportValidity()) return;
+  const conversationId = activeThreadId;
   const proposal = proposalPayload();
   if (proposal.calendarUrl && !normalizeCalendarUrl(proposal.calendarUrl)) {
     setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");
@@ -751,7 +772,7 @@ const sendProposal = async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         action: "send",
-        conversationId: activeThreadId,
+        conversationId,
         message,
         requestId: crypto.randomUUID(),
         attachments: [],
@@ -759,21 +780,32 @@ const sendProposal = async (event) => {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Proposal could not be sent.");
-    let draftWarning = "";
-    if (activeProposalDraftId) {
-      const draftResponse = await fetch("/api/hmp-proposal-drafts", {
-        method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "mark-sent", id: activeProposalDraftId, conversationId: activeThreadId, messageId: data.message.id }),
-      });
-      if (draftResponse.ok) proposalDrafts = proposalDrafts.filter((draft) => draft.id !== activeProposalDraftId);
-      else draftWarning = "Proposal sent, but the saved draft could not be cleared. Please refresh before sending it again.";
-    }
-    await loadMessages();
+    const sentDraftId = activeProposalDraftId;
+    closeProposalEditor({ confirmDiscard: false });
     showMessageNotificationStatus(data,"Proposal");
-    if (draftWarning) setMessage($("#proposal-workspace-status"), draftWarning);
+    const postSendWarnings = [];
+    if (sentDraftId) {
+      try {
+        const draftResponse = await fetch("/api/hmp-proposal-drafts", {
+          method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "mark-sent", id: sentDraftId, conversationId, messageId: data.message.id }),
+        });
+        if (draftResponse.ok) proposalDrafts = proposalDrafts.filter((draft) => draft.id !== sentDraftId);
+        else postSendWarnings.push("The saved draft could not be cleared; refresh before using it again.");
+      } catch {
+        postSendWarnings.push("The saved draft could not be cleared; refresh before using it again.");
+      }
+    }
+    await loadMessages().catch(() => {
+      postSendWarnings.push("Latest messages could not be refreshed; reload to see the sent proposal.");
+    });
+    if (postSendWarnings.length) {
+      const warning = `${$("#admin-message-status").textContent} ${postSendWarnings.join(" ")}`.trim();
+      setMessage($("#admin-message-status"), warning);
+      setMessage($("#proposal-workspace-status"), warning);
+      if (activeWorkspaceView === "drafts") setMessage($("#drafts-status"), warning);
+    }
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
-    $("#proposal-editor-dialog").close();
-    activeProposalDraftId = "";
   } catch (error) {
     setMessage($("#proposal-editor-message"), error.message || "Proposal could not be sent.");
   } finally {
@@ -1915,7 +1947,10 @@ documentTabs.forEach((tab, index) => {
   });
 });
 window.addEventListener("popstate", () => {
-  setWorkspaceView(new URLSearchParams(location.search).get("view") || "inquiries");
+  if (!setWorkspaceView(new URLSearchParams(location.search).get("view") || "inquiries")) {
+    const url = activeWorkspaceView === "inquiries" ? "/admin" : `/admin?view=${activeWorkspaceView}`;
+    history.pushState({ view: activeWorkspaceView }, "", url);
+  }
 });
 inquiryList.addEventListener("click", (event) => {
   const row = event.target.closest("[data-inquiry-id]");
@@ -1973,7 +2008,7 @@ $("#admin-message-attachments").addEventListener("change", () => {
 });
 
 window.addEventListener("beforeunload", (event) => {
-  if (pendingFiles($("#admin-message-attachments")).length) {
+  if (pendingFiles($("#admin-message-attachments")).length || proposalDirtyState.isDirty()) {
     event.preventDefault();
     event.returnValue = "";
   }
@@ -2011,7 +2046,7 @@ $("#proposal-workspace-create").addEventListener("click", () => {
 });
 $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-dialog").close());
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
-$("#close-proposal-editor").addEventListener("click", () => $("#proposal-editor-dialog").close());
+$("#close-proposal-editor").addEventListener("click", () => closeProposalEditor());
 $("#proposal-form").addEventListener("submit", sendProposal);
 $("#save-proposal-draft").addEventListener("click", saveProposalDraft);
 window.addEventListener("hmp-drafts-changed", () => {
@@ -2039,7 +2074,11 @@ $("#insert-calendar-link").addEventListener("click", () => {
 });
 $("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
 $("#proposal-editor-dialog").addEventListener("click", (event) => {
-  if (event.target === $("#proposal-editor-dialog")) $("#proposal-editor-dialog").close();
+  if (event.target === $("#proposal-editor-dialog")) closeProposalEditor();
+});
+$("#proposal-editor-dialog").addEventListener("cancel", (event) => {
+  event.preventDefault();
+  closeProposalEditor();
 });
 
 $("#create-invoice-button").addEventListener("click", () => openInvoiceEditor());
