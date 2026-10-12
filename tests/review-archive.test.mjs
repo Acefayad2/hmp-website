@@ -20,6 +20,7 @@ function setup(rows = [original()], user = { email: "admin@example.test" }, fail
       eq(key, value) { filters.push(row => row[key] === value); return this; },
       is(key, value) { filters.push(row => (row[key] ?? null) === value); return this; },
       not(key, op, value) { assert.equal(op, "is"); filters.push(row => (row[key] ?? null) !== value); return this; },
+      gt(key, value) { filters.push(row => row[key] > value); return this; },
       update(value) { payload = value; return this; },
       delete() { assert.fail("A review must never be permanently deleted"); },
       result(single = false, required = false) {
@@ -65,6 +66,38 @@ test("restoring is explicit and always unpublished, even with a spoofed publish 
   rows[0].published = true;
   assert.equal((await handler(request("PATCH", { id, action: "restore" }))).status, 404);
   assert.equal(rows[0].published, true);
+});
+
+test("deleted reviews are private, recoverable, and never publish on restore", async () => {
+  const { rows, handler } = setup();
+  const deleted = await handler(request("PATCH", { id, action: "delete" }));
+  assert.equal(deleted.status, 200);
+  assert.ok(rows[0].deleted_at);
+  assert.equal(rows[0].published, false);
+  assert.equal((await (await handler(request())).json()).reviews.length, 0);
+  assert.equal((await (await handler(request("GET", undefined, true))).json()).reviews[0].deletedAt, rows[0].deleted_at);
+  assert.equal((await handler(request("PATCH", { id, reviewerName: "Changed", reviewText: "Changed", published: true }))).status, 404);
+  const restored = await handler(request("PATCH", { id, action: "restore-deleted", published: true }));
+  assert.equal(restored.status, 200);
+  assert.equal(rows[0].deleted_at, null);
+  assert.equal(rows[0].published, false);
+});
+
+test("an archived review can move to Deleted without losing its content", async () => {
+  const { rows, handler } = setup();
+  await handler(request("PATCH", { id, action: "archive" }));
+  assert.equal((await handler(request("PATCH", { id, action: "delete" }))).status, 200);
+  assert.equal(rows[0].archived_at, null);
+  assert.ok(rows[0].deleted_at);
+  assert.equal(rows[0].review_text, "Keep this review");
+});
+
+test("deleted reviews cannot be restored after the 30-day window", async () => {
+  const { rows, handler } = setup();
+  rows[0].deleted_at = "2020-01-01T00:00:00Z";
+  rows[0].published = false;
+  assert.equal((await handler(request("PATCH", { id, action: "restore-deleted" }))).status, 404);
+  assert.ok(rows[0].deleted_at);
 });
 
 test("a stale editor cannot edit or republish an archived review", async () => {

@@ -52,12 +52,13 @@ function renderEditor() {
     <details class="agreement-panel"><summary>Review full agreement text</summary><p>Client answers and HMP service details supply the matching blanks in this agreement. The event date supplied by the client fills event-date placeholders.</p>${termsHTML(active.snapshot)}</details>
     ${active.status === "Completed" ? completionHTML(active) : ""}
     ${draft ? `<label class="agreement-checkbox"><input id="agreement-hmp-consent" type="checkbox"><span>I authorize my typed name as my electronic signature for HMP on this agreement when I send it.</span></label>` : ""}
-    <div class="agreement-actions">${draft ? '<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button" type="button" id="agreement-send">Send client form</button>' : ""}${active.status === "Sent" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div><p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
+    <div class="agreement-actions">${draft ? '<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button secondary" type="button" id="agreement-share">Create private link</button><button class="agreement-button" type="button" id="agreement-send">Send client form</button>' : ""}${active.status === "Sent" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div><p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
   $("#agreement-close").onclick = () => { if (!busy && (!dirty || confirm("Discard unsaved changes to this form?"))) {dirty = false; dialog.close();} };
   const form = $("#agreement-admin-form");
   form.oninput = () => {dirty = true;};
   form.onsubmit = event => {event.preventDefault(); if (!busy && form.reportValidity()) perform("save");};
   $("#agreement-send")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("send"); });
+  $("#agreement-share")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("share"); });
   $("#agreement-void")?.addEventListener("click", () => { if (!busy && confirm("Void this form? Its private link will stop working. Existing signed forms are never deleted.")) perform("void"); });
   $("#agreement-print-button").onclick = () => printAgreement(draft ? {...active, ...formValues()} : active);
   $("#agreement-copy")?.addEventListener("click", async () => {
@@ -77,11 +78,11 @@ async function perform(action) {
     let values;
     if (active.status === "Draft" && action !== "void") {
       values = formValues();
-      if (action === "send") {
+      if (action === "send" || action === "share") {
         validateAnswers(active.snapshot.adminFields, values.adminAnswers);
         sendConsent = $("#agreement-hmp-consent").checked;
-        if (!sendConsent) throw new Error("Please authorize the HMP representative’s electronic signature before sending.");
-        if (!confirm(`Send this form to ${values.clientEmail}? Service details will be locked.`)) return;
+        if (!sendConsent) throw new Error("Please authorize the HMP representative’s electronic signature before sharing.");
+        if (!confirm(`${action === "share" ? "Create a private link for" : "Send this form to"} ${values.clientEmail}? Service details will be locked.${action === "share" ? " No email will be sent." : ""}`)) return;
       }
     }
     busy = true;
@@ -92,12 +93,12 @@ async function perform(action) {
       active = data.agreement; dirty = false;
     }
     let warning = "";
-    if (action === "send" || action === "void") {
+    if (action === "send" || action === "share" || action === "void") {
       const data = await agreementRequest(endpoint, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action, updatedAt:active.updatedAt, hmpConsent:sendConsent})});
       active = data.agreement; link = data.link || ""; warning = data.warning || ""; dirty = false;
     }
     renderEditor();
-    $("#agreement-editor-status").textContent = warning || (action === "send" ? "Client form sent. The client can complete and sign it using the private link." : action === "void" ? "Form voided. The private link is disabled." : "Draft saved.");
+    $("#agreement-editor-status").textContent = warning || (action === "send" ? "Client form sent. The client can complete and sign it using the private link." : action === "share" ? "Private link ready to copy and text to this client. No email was sent." : action === "void" ? "Form voided. The private link is disabled." : "Draft saved.");
     $("#agreement-editor-status").classList.add("success");
     await loadAgreementForms();
   } catch(error) {

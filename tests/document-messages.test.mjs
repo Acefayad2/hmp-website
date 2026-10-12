@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {createSendInvoiceHandler} from "../netlify/functions/hmp-send-invoice.mts";
 import {createSendContractHandler} from "../netlify/functions/hmp-send-contract.mts";
+import {createShareDocumentHandler} from "../netlify/functions/hmp-share-document.mts";
 import {createConversationHandler} from "../netlify/functions/hmp-conversation.mts";
 import {createMessagesHandler} from "../netlify/functions/hmp-messages.mts";
 import {documentSnapshot,prepareDocumentConversation} from "../netlify/functions/_document-messages.mts";
@@ -28,11 +29,26 @@ function database(){
         if(!rows.hmp_client_portal_pins.some(r=>r.id===p.p_id))rows.hmp_client_portal_pins.push({id:p.p_id,pin_hash:null,version:"test-version"});
         return {data:true,error:null};
       }
-      assert.equal(name,"hmp_record_sent_document");if(this.failSave)return {error:{code:"test"}};
-      if(!rows.hmp_client_messages.some(m=>m.id===p.p_message_id))rows.hmp_client_messages.push({id:p.p_message_id,conversation_id:p.p_conversation_id,sender:"admin",body:"Document sent",document:structuredClone(p.p_snapshot),email_notified_at:new Date().toISOString(),created_at:new Date().toISOString()});
+      assert.ok(["hmp_record_sent_document","hmp_record_shared_document"].includes(name));if(this.failSave)return {error:{code:"test"}};
+      if(!rows.hmp_client_messages.some(m=>m.id===p.p_message_id))rows.hmp_client_messages.push({id:p.p_message_id,conversation_id:p.p_conversation_id,sender:"admin",body:name==="hmp_record_shared_document" ? "Document shared" : "Document sent",document:structuredClone(p.p_snapshot),email_notified_at:name==="hmp_record_shared_document" ? null : new Date().toISOString(),created_at:new Date().toISOString()});
       return {error:null};
     }};
 }
+test("admins can copy an unsent invoice link without emailing or marking it sent",async()=>{
+  const db=database();
+  const handler=createShareDocumentHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+  const share=()=>new Request("https://hmpeds.com/api/hmp-documents/share",{method:"POST",headers:{Origin:"https://hmpeds.com"},body:JSON.stringify({kind:"invoice",id})});
+  const response=await handler(share());
+  assert.equal(response.status,200);
+  assert.match((await response.json()).clientUrl,/conversation#token=/);
+  assert.equal((await handler(share())).status,200);
+  assert.equal(db.rows.hmp_client_messages.length,1);
+  assert.equal(db.rows.hmp_client_messages[0].email_notified_at,null);
+  assert.equal(db.rows.hmp_admin_invoices[0].status,"Draft");
+  assert.equal((await createShareDocumentHandler({getUserFn:async()=>null,databaseFactory:()=>db})(share())).status,401);
+  db.rows.hmp_admin_invoices[0].deleted_at=new Date().toISOString();
+  assert.equal((await handler(share())).status,409);
+});
 const req=(body={id,requestId},origin="https://hmpeds.com")=>new Request("https://hmpeds.com/api/send",{method:"POST",headers:{Origin:origin},body:JSON.stringify(body)});
 for(const [kind,factory] of [["invoice",createSendInvoiceHandler],["contract",createSendContractHandler]]) {
   test(`${kind} sends a private link and immutable copy visible to both participants; retry adds no duplicate`,async()=>{
