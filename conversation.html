@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="robots" content="noindex,nofollow" />
-    <title>Talk with an HMP Representative</title>
+    <title>Your HMP Client Hub</title>
     <link rel="icon" href="assets/brand/hmp-logo-header-2026.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="conversation.css?v=20261012-calendar" />
+    <link rel="stylesheet" href="conversation.css?v=20261013-client-activity" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
   </head>
@@ -21,14 +21,14 @@
       <a href="/" aria-label="HMP website home">
         <img src="assets/brand/hmp-logo-header-2026.png" alt="HMP Luxury Event Services" />
       </a>
-      <span>Private client conversation</span>
+      <span>Private client hub</span>
     </header>
 
     <main class="conversation-shell">
       <section class="conversation-intro">
         <p class="kicker">Personal support</p>
-        <h1>Talk with a<br /><em>representative.</em></h1>
-        <p>Send a private message to the HMP team about your event. We’ll respond here and notify you by email when a reply is ready.</p>
+        <h1>Your event,<br /><em>all in one place.</em></h1>
+        <p>Find your event messages, proposals, invoices, contracts, and forms here. Send a private message to the HMP team whenever you need help.</p>
         <dl id="conversation-summary" hidden>
           <div><dt>Service</dt><dd id="summary-service"></dd></div>
           <div><dt>Event date</dt><dd id="summary-date"></dd></div>
@@ -37,7 +37,7 @@
 
       <section class="conversation-panel" aria-live="polite">
         <div class="conversation-panel-heading">
-          <div><p class="kicker">HMP client care</p><h2 id="conversation-title">Opening your conversation…</h2></div>
+          <div><p class="kicker">Your event hub</p><h2 id="conversation-title">Opening your client hub…</h2></div>
           <span class="private-badge">Private</span>
         </div>
         <div class="conversation-error" id="conversation-error" hidden>
@@ -57,6 +57,7 @@
           <p>Forgot your PIN? Only the HMP team can reset it. Contact <a href="mailto:info@hmpeds.com">info@hmpeds.com</a>.</p>
         </form>
         <button class="client-sign-out" type="button" id="client-sign-out" hidden>Sign out of client portal</button>
+        <nav class="hub-tabs" id="client-hub-tabs" aria-label="Client hub sections" hidden></nav>
         <div class="message-list" id="message-list" hidden></div>
         <div class="message-empty" id="message-empty" hidden>
           <span>☾</span>
@@ -78,6 +79,6 @@
       </section>
     </main>
     <footer><span>HMP Luxury Event Services</span><a href="mailto:info@hmpeds.com">info@hmpeds.com</a></footer>
-    <script type="module" src="conversation.js?v=20261012-message-edit"></script>
+    <script type="module" src="conversation.js?v=20261013-client-activity"></script>
   </body>
 </html>

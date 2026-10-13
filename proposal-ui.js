@@ -8,7 +8,12 @@ const number = (value, max = 1_000_000) => {
   return Number.isFinite(parsed) ? Math.min(max, Math.max(0, parsed)) : 0;
 };
 
+export const normalizeServiceHours = (value) =>
+  typeof value === "string" && /^n\/?a$/i.test(value.trim()) ? "N/A" : number(value, 240);
+
 export const normalizeProposal = (value = {}) => ({
+  lineageId: typeof value.lineageId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.lineageId) ? value.lineageId : "",
+  version: Number.isSafeInteger(Number(value.version)) && Number(value.version) > 0 ? Math.min(10000, Number(value.version)) : 1,
   title: text(value.title, 160) || "Service Proposal",
   clientName: text(value.clientName, 200),
   celebrationType: text(value.celebrationType, 200),
@@ -16,7 +21,7 @@ export const normalizeProposal = (value = {}) => ({
   eventTime: text(value.eventTime, 100),
   eventLocation: text(value.eventLocation, 500),
   guestCount: number(value.guestCount, 100_000),
-  serviceHours: number(value.serviceHours, 240),
+  serviceHours: normalizeServiceHours(value.serviceHours),
   associates: number(value.associates, 100),
   machines: number(value.machines, 100),
   serviceDetails: text(value.serviceDetails, 1400),
@@ -193,4 +198,34 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
     article.append(actions);
   }
   return article;
+};
+
+export const renderProposalPreview = (proposal) => {
+  const value = normalizeProposal(proposal);
+  const preview = document.createElement("section");
+  preview.className = "proposal-preview";
+  const copy = document.createElement("div");
+  const label = document.createElement("span");
+  label.textContent = "Service proposal";
+  const title = document.createElement("h3");
+  title.textContent = value.title;
+  copy.append(label, title);
+  const open = document.createElement("button");
+  open.type = "button";
+  open.textContent = "View proposal";
+  const dialog = document.createElement("dialog");
+  dialog.className = "proposal-preview-dialog";
+  dialog.setAttribute("aria-label", value.title);
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "proposal-preview-close";
+  close.textContent = "Close proposal";
+  close.addEventListener("click", () => dialog.close());
+  dialog.append(close, renderProposalCard(value));
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  open.addEventListener("click", () => dialog.showModal());
+  preview.append(copy, open, dialog);
+  return preview;
 };

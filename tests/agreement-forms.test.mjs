@@ -3,8 +3,9 @@ import assert from "node:assert/strict";
 import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
 import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
-import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
+import { fieldsHTML, answersHTML, signatureDisplayHTML } from "../agreement-ui.mjs";
 import { informationTemplates } from "../information-form-schema.mjs";
+import { signatureFieldsHTML } from "../signature-capture.mjs";
 
 globalThis.Netlify = {env:{get:name => ({SUPABASE_URL:"https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY:"test-only-secret", HMP_ADMIN_EMAILS:"admin@example.test", RESEND_API_KEY:"test-only-resend", HMP_CONTRACT_FROM_EMAIL:"forms@example.test"})[name]}};
 const id = "11111111-1111-4111-8111-111111111111";
@@ -92,6 +93,24 @@ test("client submission saves once, retries return the same record, admin cannot
   assert.equal(retry.status,200); assert.equal(row.record_hash,fingerprint); assert.equal(row.signature.name,"Test Client");
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"save"}))).status,409);
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"void"}))).status,409);
+});
+test("revising a completed form creates a linked draft without changing its signed record", async () => {
+  const original = rowFor();
+  original.status = "Completed";
+  original.signature = {name:"Test Client"};
+  original.record_hash = "signed-fingerprint";
+  const rows = [original], handler = handlerFor(rows);
+  const response = await handler(request("hmp-agreement-forms", "POST", {action:"revise", id}));
+  assert.equal(response.status, 201);
+  const {agreement} = await response.json();
+  assert.equal(agreement.status, "Draft");
+  assert.equal(agreement.revisionGroupId, id);
+  assert.equal(agreement.revisionNumber, 2);
+  assert.notEqual(agreement.id, id);
+  assert.equal(agreement.signature, undefined);
+  assert.equal(original.status, "Completed");
+  assert.equal(original.record_hash, "signed-fingerprint");
+  assert.equal(rows.length, 2);
 });
 test("all four client forms can be completed with their full field sets", async () => {
   for(const t of agreementTemplates) {
@@ -183,6 +202,59 @@ test("information email uses native form wording without signing and only sends 
   assert.doesNotMatch(mail[0].html, /complete, and sign|Complete and sign/);
   await handler(request("hmp-agreement-forms", "PATCH", {id,action:"send"}));
   assert.equal(mail.length, 1);
+});
+
+test("Admin can require a signature on an information form before sharing it", async () => {
+  const rows=[], admin=handlerFor(rows), client=handlerFor(rows,false);
+  const created=await admin(request("hmp-agreement-forms","POST",{templateId:informationTemplates[0].id,
+    clientName:"Test Client",clientEmail:"client@example.test",answers:{eventName:"Event A"},requireSignature:true}));
+  assert.equal(created.status,201);
+  const row=rows[0], token=agreementToken(row.id,row.token_nonce);
+  assert.equal(row.snapshot.signatureRequired,true);
+  assert.equal((await admin(request("hmp-agreement-forms","PATCH",{id:row.id,action:"share",updatedAt:row.updated_at}))).status,200);
+  const answers=inputFor(row.snapshot.clientFields);
+  assert.equal((await client(request("hmp-agreement","POST",{answers},token))).status,400);
+  assert.equal(row.status,"Sent");
+  const signed=await client(request("hmp-agreement","POST",{answers,signatureName:"Test Client",signatureMethod:"typed",consent:true},token));
+  assert.equal(signed.status,200);
+  assert.equal(row.signature.method,"typed");
+  assert.equal(row.signature.name,"Test Client");
+  assert.match(signatureDisplayHTML(row.signature),/Electronic signature/);
+  assert.match(row.record_hash,/^[a-f0-9]{64}$/);
+});
+
+test("signature requirement can change on a draft but not after the private link is issued", async () => {
+  const rows=[], admin=handlerFor(rows);
+  await admin(request("hmp-agreement-forms","POST",{templateId:informationTemplates[1].id,
+    clientName:"Test Client",clientEmail:"client@example.test",answers:{}}));
+  const row=rows[0];
+  assert.equal(row.snapshot.signatureRequired,false);
+  const saved=await admin(request("hmp-agreement-forms","PATCH",{id:row.id,action:"save",updatedAt:row.updated_at,
+    clientName:"Test Client",clientEmail:"client@example.test",answers:{},requireSignature:true}));
+  assert.equal(saved.status,200);
+  assert.equal(row.snapshot.signatureRequired,true);
+  assert.equal((await admin(request("hmp-agreement-forms","PATCH",{id:row.id,action:"share",updatedAt:row.updated_at}))).status,200);
+  assert.equal((await admin(request("hmp-agreement-forms","PATCH",{id:row.id,action:"save",updatedAt:row.updated_at,
+    clientName:"Test Client",clientEmail:"client@example.test",answers:{},requireSignature:false}))).status,409);
+  assert.equal(row.snapshot.signatureRequired,true);
+});
+
+test("a drawn signature is accepted only as a bounded PNG from the signing pad", () => {
+  const row=rowFor(), answers=inputFor(row.snapshot.clientFields);
+  const body={answers,signatureName:"Test Client",signatureMethod:"drawn",consent:true};
+  assert.throws(()=>completionPayload(row,body),/Draw a smaller signature/);
+  assert.throws(()=>completionPayload(row,{...body,signatureImage:"data:image/svg+xml;base64,PHN2Zz4="}),/Draw a smaller signature/);
+  const png=Buffer.alloc(100);
+  Buffer.from("89504e470d0a1a0a","hex").copy(png);
+  png.writeUInt32BE(600,16); png.writeUInt32BE(180,20);
+  const completed=completionPayload(row,{...body,signatureImage:`data:image/png;base64,${png.toString("base64")}`});
+  assert.equal(completed.signature.method,"drawn");
+  assert.match(signatureDisplayHTML(completed.signature),/Hand-drawn signature/);
+  assert.throws(()=>completionPayload({...row,snapshot:{...row.snapshot,signingConsent:"I consent to my typed name."}},
+    {...body,signatureImage:`data:image/png;base64,${png.toString("base64")}`}),/only supports a typed signature/);
+  assert.throws(()=>completionPayload(row,{...body,signatureImage:`data:image/png;base64,${Buffer.alloc(61000).toString("base64")}`}),/Draw a smaller signature/);
+  assert.doesNotMatch(signatureFieldsHTML("I consent to my typed name.",false),/Draw my signature/);
+  assert.match(signatureFieldsHTML(row.snapshot.signingConsent),/Draw my signature/);
 });
 
 test("agreement link-only activation requires HMP consent and sends no email", async () => {

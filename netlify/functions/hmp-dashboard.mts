@@ -1,7 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { isSameOriginMutation } from "./_conversation-security.mts";
+import { conversationToken, isSameOriginMutation, newNonce, tokenHash } from "./_conversation-security.mts";
 import { manualInquiryRecord } from "./_manual-inquiry.mts";
 
 const json = (body: unknown, status = 200) =>
@@ -59,7 +59,7 @@ const normalizeInquiry = (record: Record<string, unknown>) => ({
   source: record.source || "Website",
 });
 
-const statuses = new Set(["New", "Contacted", "Quoted", "Booked", "Closed"]);
+const statuses = new Set(["New", "Booked", "Closed"]);
 const priorities = new Set(["Low", "Normal", "High", "Urgent"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,14 +67,14 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const cleanText = (value: unknown, maxLength: number) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
-export default async (request: Request, _context: Context) => {
-  const user = await getUser();
+export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request, _context?: Context) => {
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Dashboard data is unavailable" }, 503);
 
   if (request.method === "POST") {
@@ -101,6 +101,7 @@ export default async (request: Request, _context: Context) => {
   }
 
   if (request.method === "PATCH") {
+    if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
     let body: Record<string, unknown>;
     try {
       body = await request.json();
@@ -141,7 +142,24 @@ export default async (request: Request, _context: Context) => {
       return json({ error: error.code === "PGRST116" ? "Inquiry not found" : "Changes could not be saved" }, error.code === "PGRST116" ? 404 : 502);
     }
 
-    return json({ ok: true, inquiry: normalizeInquiry(data) });
+    let hubWarning = "";
+    if (status === "Booked") {
+      const hubId = crypto.randomUUID();
+      const nonce = newNonce();
+      const { error: hubError } = await client.from("hmp_client_conversations").upsert({
+        id: hubId,
+        inquiry_id: id,
+        access_token_hash: tokenHash(conversationToken(hubId, nonce)),
+        token_nonce: nonce,
+        token_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+      }, { onConflict: "inquiry_id", ignoreDuplicates: true });
+      if (hubError) {
+        console.error("Booked inquiry hub creation failed", hubError.code);
+        hubWarning = "Booking was saved, but the client hub could not be prepared. Save again to retry.";
+      }
+    }
+
+    return json({ ok: true, inquiry: normalizeInquiry(data), hubWarning });
   }
 
   if (request.method !== "GET") {
@@ -165,6 +183,8 @@ export default async (request: Request, _context: Context) => {
     updatedAt: new Date().toISOString(),
   });
 };
+
+export default createDashboardHandler();
 
 export const config: Config = {
   path: "/api/hmp-dashboard",

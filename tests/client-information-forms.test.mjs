@@ -34,3 +34,12 @@ test("native fields escape help and answers, show optional details and preserve 
   assert.match(rendered, /First line\nSecond line/);
   assert.match(rendered, /Test event/);
 });
+
+test("a completed information form includes its signature and fingerprint in the printable copy", () => {
+  const rendered=informationSummary({snapshot:informationTemplates[0],clientName:"Test Client",clientEmail:"client@example.test",
+    adminAnswers:{},clientAnswers:{},completedAt:"2026-10-13T12:00:00Z",id:"record-1",recordHash:"abc123",
+    signature:{name:"Test Client",method:"typed",consent:"I agree",signedAt:"2026-10-13T12:00:00Z"}});
+  assert.match(rendered,/Electronic signature/);
+  assert.match(rendered,/Test Client/);
+  assert.match(rendered,/abc123/);
+});

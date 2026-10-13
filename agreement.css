@@ -42,7 +42,16 @@
 .agreement-status.success { color:#305d38; }
 .agreement-status.neutral { color:#765e5e; }
 .agreement-fingerprint { font-size:12px; overflow-wrap:anywhere; }
-.agreement-signature { font:italic 30px Georgia,serif; }
+.agreement-signature { font:italic 38px "Brush Script MT","Snell Roundhand",cursive; }
+.agreement-signature-choice { display:flex; flex-wrap:wrap; gap:12px 24px; border:0; padding:0; margin:22px 0 12px; }
+.agreement-signature-choice legend { font-weight:bold; margin-bottom:8px; }
+.agreement-signature-choice label { display:flex; align-items:center; gap:8px; cursor:pointer; }
+.agreement-typed-preview, .agreement-draw-panel { margin:12px 0 20px; }
+.agreement-typed-preview { min-height:70px; border-bottom:1px solid #bba6a2; padding:10px 14px; }
+.agreement-signature-script { font:italic 38px "Brush Script MT","Snell Roundhand",cursive; }
+.agreement-draw-panel canvas { display:block; width:100%; max-width:600px; height:180px; border:1px solid #bba6a2; border-radius:10px; background:#fff; touch-action:none; cursor:crosshair; margin-bottom:12px; }
+.agreement-signature-image { display:block; width:min(100%,600px); height:auto; max-height:180px; object-fit:contain; object-position:left center; }
+.agreement-signature-name { font:18px Georgia,serif; }
 .agreement-list { display:grid; gap:10px; margin:20px 0; }
 .agreement-row { display:flex; flex-wrap:wrap; text-align:left; justify-content:space-between; gap:8px 18px; padding:16px 20px; border:1px solid #ded0c8; background:#fffdf9; border-radius:14px; font:inherit; color:#4c3335; cursor:pointer; }
 .agreement-row small { display:block; }

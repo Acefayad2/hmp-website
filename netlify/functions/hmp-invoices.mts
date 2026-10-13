@@ -1,6 +1,8 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { documentGroupId, nextRevision } from "./_document-revisions.mts";
+import { isSameOriginMutation } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -79,6 +81,8 @@ export const normalizeInvoice = (record: Record<string, unknown>) => ({
   updatedAt: record.updated_at || "",
   archivedAt: record.archived_at || "",
   deletedAt: record.deleted_at || "",
+  revisionGroupId: documentGroupId(record as {id:string;revision_group_id?:string|null}),
+  revisionNumber: number(record.revision_number, 1),
 });
 
 export const cleanPayload = (body: Record<string, unknown>) => {
@@ -146,14 +150,14 @@ export const cleanPayload = (body: Record<string, unknown>) => {
   };
 };
 
-export default async (request: Request, _context: Context) => {
-  const user = await getUser();
+export const createInvoiceHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request, _context?: Context) => {
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Invoice data is unavailable" }, 503);
 
   if (request.method === "GET") {
@@ -186,8 +190,18 @@ export default async (request: Request, _context: Context) => {
     if (request.method === "PATCH" && typeof body.action === "string") {
       const id = text(body.id, 36);
       const action = text(body.action, 20);
-      if (!uuidPattern.test(id) || !["archive", "delete", "restore"].includes(action)) {
+      if (!uuidPattern.test(id) || !["archive", "delete", "restore", "mark-paid"].includes(action)) {
         return json({ error: "Invalid invoice action" }, 400);
+      }
+      if (action === "mark-paid" && !isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
+      if (action === "mark-paid") {
+        const { data, error } = await client.from("hmp_admin_invoices")
+          .update({ status: "Paid", updated_at: new Date().toISOString() })
+          .eq("id", id).eq("status", "Sent").is("archived_at", null).is("deleted_at", null)
+          .select("*").maybeSingle();
+        if (error) return json({ error: "Invoice could not be marked paid" }, 502);
+        if (!data) return json({ error: "Only an active sent invoice can be marked paid" }, 409);
+        return json({ ok: true, invoice: normalizeInvoice(data) });
       }
       const change = invoiceLifecycleChange(action, new Date().toISOString());
       const { data, error } = await client
@@ -203,9 +217,31 @@ export default async (request: Request, _context: Context) => {
       return json({ ok: true, invoice: normalizeInvoice(data) });
     }
 
+    if (request.method === "POST" && body.action === "revise") {
+      if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
+      const sourceId = text(body.id, 36);
+      if (!uuidPattern.test(sourceId)) return json({ error: "Invalid invoice" }, 400);
+      const { data: source, error: sourceError } = await client.from("hmp_admin_invoices")
+        .select("*").eq("id", sourceId).maybeSingle();
+      if (sourceError) return json({ error: "Invoice could not be loaded" }, 502);
+      if (!source) return json({ error: "Invoice not found" }, 404);
+      if (source.archived_at || source.deleted_at) return json({ error: "Restore this invoice before revising it" }, 409);
+      try {
+        const revision = await nextRevision(client, "hmp_admin_invoices", source);
+        const copy = cleanPayload({ ...normalizeInvoice(source), status: "Draft" });
+        const { data, error } = await client.from("hmp_admin_invoices")
+          .insert({ ...copy, status: "Draft", revision_group_id: revision.groupId,
+            revision_number: revision.number, created_by: user.email || email })
+          .select("*").single();
+        if (error) return json({ error: error.code === "23505" ? "A newer version was created. Refresh and try again." : "Invoice revision could not be created" }, error.code === "23505" ? 409 : 502);
+        return json({ ok: true, invoice: normalizeInvoice(data) }, 201);
+      } catch { return json({ error: "Version history is unavailable" }, 502); }
+    }
+
     let payload: ReturnType<typeof cleanPayload>;
     try {
       payload = cleanPayload(body);
+      payload.status = "Draft";
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Invoice details are invalid" }, 400);
     }
@@ -225,23 +261,31 @@ export default async (request: Request, _context: Context) => {
 
     const id = text(body.id, 36);
     if (!uuidPattern.test(id)) return json({ error: "Invalid invoice" }, 400);
+    const { data: current, error: currentError } = await client.from("hmp_admin_invoices")
+      .select("status,archived_at,deleted_at").eq("id", id).maybeSingle();
+    if (currentError) return json({ error: "Invoice could not be loaded" }, 502);
+    if (!current) return json({ error: "Invoice not found" }, 404);
+    if (current.status !== "Draft") return json({ error: "This invoice is locked. Create a revision to edit and resend it." }, 409);
     const { data, error } = await client
       .from("hmp_admin_invoices")
       .update(payload)
       .eq("id", id)
+      .eq("status", "Draft")
       .is("archived_at", null)
       .is("deleted_at", null)
       .select("*")
       .single();
-    if (error) {
-      console.error("Supabase invoice update failed", error.code);
-      return json({ error: error.code === "PGRST116" ? "Invoice not found" : "Invoice could not be saved" }, error.code === "PGRST116" ? 404 : 502);
+    if (error || !data) {
+      console.error("Supabase invoice update failed", error?.code);
+      return json({ error: error?.code === "PGRST116" ? "Invoice not found" : "Invoice could not be saved" }, error?.code === "PGRST116" ? 404 : 502);
     }
     return json({ ok: true, invoice: normalizeInvoice(data) });
   }
 
   return json({ error: "Method not allowed" }, 405);
 };
+
+export default createInvoiceHandler();
 
 export const config: Config = {
   path: "/api/hmp-invoices",

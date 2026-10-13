@@ -4,7 +4,10 @@ import "./receipt-admin.js";
 import { loadInformationForms, openInformationDraft } from "./client-forms.js";
 import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
+import { groupDocumentVersions } from "./document-versions.js";
 import { renderDocumentCard } from "../document-message-ui.js";
+import { hubMessages, renderHubTabs } from "../client-hub.js";
+import { clientActivityItems } from "../client-activity.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import "./admin-search.js";
@@ -40,6 +43,7 @@ import {
   parseProposal,
   printProposal,
   renderProposalCard,
+  renderProposalPreview,
   serializeProposal,
 } from "../proposal-ui.js";
 
@@ -71,9 +75,17 @@ let reviews = [];
 let activeReviewId = "";
 let messageThreads = [];
 let proposalDrafts = [];
+let activeProposalLineageId = "";
+let activeProposalVersion = 1;
 let activeProposalDraftId = "";
 let savedFormDrafts = [];
 let activeThreadId = "";
+let activeHubSection = "messages";
+let activeActivityThreadId = "";
+let activityFormsById = new Map();
+let activitySeatingByThreadId = new Map();
+let activitySeatingRequest = 0;
+let availableHubForms = [];
 let activeConversationUrl = "";
 let messageSignature = "";
 let messageSignatureLoaded = false;
@@ -102,6 +114,9 @@ const workspaceViews = {
   },
   messages: {
     title: "Client messages",
+  },
+  activity: {
+    title: "Client activity",
   },
   drafts: {
     title: "Drafts",
@@ -155,6 +170,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const config = workspaceViews[view];
   const isInquiries = view === "inquiries";
   const isMessages = view === "messages";
+  const isActivity = view === "activity";
   const isDrafts = view === "drafts";
   const isProposals = view === "proposals";
   const isInvoices = view === "invoices";
@@ -168,6 +184,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $(".metrics").hidden = !isInquiries;
   $(".dashboard-grid").hidden = !isInquiries;
   $("#messages-workspace").hidden = !isMessages;
+  $("#activity-workspace").hidden = !isActivity;
   $("#drafts-workspace").hidden = !isDrafts;
   $("#proposals-workspace").hidden = !isProposals;
   $("#document-tabs").hidden = !isDocuments;
@@ -180,8 +197,8 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $("#contract-workspace").hidden = !isContracts;
   $("#forms-workspace").hidden = !isForms;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews;
-  if (!isInquiries && !isMessages && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
+  $("#workspace-empty").hidden = isInquiries || isMessages || isActivity || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews;
+  if (!isInquiries && !isMessages && !isActivity && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
@@ -189,6 +206,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   if (isContracts) loadAgreementForms();
   if (isForms) loadInformationForms();
   if (isMessages) loadMessageSignature().catch((error) => setMessage($("#message-signature-status"), error.message));
+  if (isActivity) loadClientActivity().catch((error) => setMessage($("#activity-status"), error.message));
   if (isDrafts) loadDrafts().catch((error) => setMessage($("#drafts-status"), error.message));
   if (isProposals) {
     setMessage($("#proposal-workspace-status"), "Loading proposals…");
@@ -375,7 +393,11 @@ const openInquiry = (id) => {
   const note = $("#detail-note");
   note.hidden = !item.additionalInformation;
   note.querySelector("p").textContent = item.additionalInformation || "";
-  $("#manage-status").value = item.status || "New";
+  const legacyStatus = $("#manage-legacy-status");
+  const status = item.status || "New";
+  legacyStatus.hidden = ["New", "Booked", "Closed"].includes(status);
+  legacyStatus.textContent = legacyStatus.hidden ? "" : `Previous status: ${status} — choose a new status`;
+  $("#manage-status").value = legacyStatus.hidden ? status : "";
   $("#manage-priority").value = item.priority || "Normal";
   $("#manage-follow-up").value = item.followUpDate || "";
   $("#manage-owner").value = item.owner || "";
@@ -387,7 +409,7 @@ const openInquiry = (id) => {
   $("#copy-conversation-link").hidden = !thread;
   $("#open-conversation").hidden = !thread;
   setMessage($("#conversation-link-message"), thread
-    ? "A secure conversation link is active for this inquiry."
+    ? "A secure client hub link is active for this inquiry."
     : "");
   dialog.showModal();
 };
@@ -422,7 +444,19 @@ const saveInquiry = async (event) => {
     renderServiceMix();
     renderInquiries();
     renderDetailGrid(data.inquiry);
-    setMessage($("#management-message"), "Changes saved securely.", true);
+    if (data.inquiry.status === "Booked") {
+      let hubLoadFailed = false;
+      try { await loadMessages(); } catch { hubLoadFailed = true; }
+      const thread = messageThreads.find((item) => item.inquiryId === data.inquiry.id);
+      activeConversationUrl = thread?.clientUrl || "";
+      $("#create-conversation-link").textContent = thread ? "Renew private link" : "Create private link";
+      $("#copy-conversation-link").hidden = !thread;
+      $("#open-conversation").hidden = !thread;
+      setMessage($("#conversation-link-message"), thread && !hubLoadFailed
+        ? "Client hub is ready in Messages. Share the private link when ready; add Guest Seating there if included."
+        : "Booking saved, but the client hub could not be loaded. Refresh Messages to check it.");
+    }
+    setMessage($("#management-message"), data.hubWarning || "Changes saved securely.", !data.hubWarning);
   } catch (error) {
     setMessage($("#management-message"), error.message || "Changes could not be saved.");
   } finally {
@@ -454,13 +488,22 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
 ]));
 
 const renderAdminMessages = (thread) => {
-  const signature = getMessageSignature(thread.messages);
+  const allMessages = thread.messages || [];
+  const signature = `${activeHubSection}:${getMessageSignature(allMessages)}`;
   if (thread.id === renderedAdminThreadId && signature === renderedAdminMessageSignature) return;
   renderedAdminThreadId = thread.id;
   renderedAdminMessageSignature = signature;
+  const focusedTab = document.activeElement?.classList?.contains("hub-tab")
+    ? [...$("#admin-hub-tabs").children].indexOf(document.activeElement) : -1;
+  renderHubTabs($("#admin-hub-tabs"), allMessages, activeHubSection, (section) => {
+    activeHubSection = section;
+    renderAdminMessages(thread);
+  });
+  if (focusedTab >= 0) $("#admin-hub-tabs").children[focusedTab]?.focus();
+  const visible = hubMessages(allMessages, activeHubSection);
   const list = $("#admin-message-list");
   list.replaceChildren();
-  (thread.messages || []).forEach((message) => {
+  visible.forEach((message) => {
     const article = document.createElement("article");
     article.className = `admin-message ${message.sender === "admin" ? "admin" : "client"}`;
     const meta = document.createElement("div");
@@ -485,7 +528,7 @@ const renderAdminMessages = (thread) => {
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
-      article.append(renderProposalCard(proposal));
+      article.append(renderProposalPreview(proposal));
     } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
     if (message.sender === "admin") {
@@ -522,8 +565,9 @@ const renderAdminMessages = (thread) => {
     }
     list.append(article);
   });
-  $("#admin-message-empty").hidden = (thread.messages || []).length > 0;
-  list.hidden = (thread.messages || []).length === 0;
+  $("#admin-message-empty").textContent = activeHubSection === "all" ? "No messages yet. Send a welcome note to begin the conversation." : `No ${activeHubSection} in this event hub yet.`;
+  $("#admin-message-empty").hidden = visible.length > 0;
+  list.hidden = visible.length === 0;
   if (!list.hidden) list.scrollTop = list.scrollHeight;
 };
 
@@ -594,9 +638,21 @@ const proposalFormFields = {
   calendarUrl: "#proposal-calendar-url",
 };
 
-const proposalPayload = () => Object.fromEntries(
-  Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
-);
+const proposalPayload = () => ({
+  ...Object.fromEntries(Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value])),
+  lineageId: activeProposalLineageId,
+  version: activeProposalVersion,
+});
+
+const validProposalServiceHours = () => {
+  const input = $("#proposal-service-hours");
+  const value = input.value.trim();
+  const hours = Number(value);
+  const valid = !value || /^n\/?a$/i.test(value)
+    || (/^\d+(?:\.[05])?$/.test(value) && hours <= 240);
+  input.setCustomValidity(valid ? "" : "Enter 0–240 hours in half-hour increments, or N/A.");
+  return valid;
+};
 
 const proposalDirtyState = createProposalDirtyState({
   read: proposalPayload,
@@ -616,6 +672,8 @@ const openProposalEditor = () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (!thread) return;
   activeProposalDraftId = "";
+  activeProposalLineageId = crypto.randomUUID();
+  activeProposalVersion = 1;
   const inquiry = inquiries.find((candidate) => candidate.id === thread.inquiryId) || {};
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 14);
@@ -642,8 +700,21 @@ const openProposalEditor = () => {
     $(selector).value = values[key] ?? "";
   });
   setMessage($("#proposal-editor-message"), "");
+  $("#proposal-editor-dialog .dialog-heading > div > p:last-child").textContent = "Adjust the details, then send this version securely to your client.";
   proposalDirtyState.begin();
   $("#proposal-editor-dialog").showModal();
+};
+
+const openProposalRevision = (selected, versions) => {
+  activeThreadId = selected.thread.id;
+  openProposalEditor();
+  activeProposalLineageId = selected.proposal.lineageId || selected.message.id;
+  activeProposalVersion = Math.max(...versions.map(({ proposal }) => proposal.version)) + 1;
+  Object.entries(proposalFormFields).forEach(([key, selector]) => {
+    $(selector).value = selected.proposal[key] ?? "";
+  });
+  $("#proposal-editor-dialog .dialog-heading > div > p:last-child").textContent = `Version ${activeProposalVersion} will replace the current proposal in the Admin list. Earlier sent versions stay in its history.`;
+  proposalDirtyState.begin();
 };
 
 const openProposalDraft = (draft) => {
@@ -655,12 +726,15 @@ const openProposalDraft = (draft) => {
   activeThreadId = draft.conversationId;
   openProposalEditor();
   activeProposalDraftId = draft.id;
+  activeProposalLineageId = draft.payload?.lineageId || crypto.randomUUID();
+  activeProposalVersion = draft.payload?.version || 1;
   Object.entries(proposalFormFields).forEach(([key, selector]) => { $(selector).value = draft.payload?.[key] ?? ""; });
   proposalDirtyState.begin();
 };
 
 const saveProposalDraft = async () => {
   if (!activeThreadId) return;
+  if (!validProposalServiceHours()) { $("#proposal-service-hours").reportValidity(); return; }
   const payload = proposalPayload();
   if (payload.calendarUrl && !normalizeCalendarUrl(payload.calendarUrl)) {
     setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");
@@ -751,6 +825,7 @@ const createManualInquiry = async (event) => {
 
 const sendProposal = async (event) => {
   event.preventDefault();
+  validProposalServiceHours();
   if (!activeThreadId || !event.currentTarget.reportValidity()) return;
   const conversationId = activeThreadId;
   const proposal = proposalPayload();
@@ -814,6 +889,87 @@ const sendProposal = async (event) => {
   }
 };
 
+const loadHubForms = async (thread) => {
+  const select = $("#hub-form-select");
+  select.dataset.threadId = thread.id;
+  select.replaceChildren(new Option("Loading client forms…", ""));
+  $("#hub-share-form").disabled = true;
+  setMessage($("#hub-form-status"), "");
+  try {
+    const response = await fetch("/api/hmp-agreement-forms", {credentials:"same-origin",cache:"no-store"});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Client forms could not be loaded.");
+    if (activeThreadId !== thread.id) return;
+    const shared = new Set((thread.messages || []).filter((message) => message.document?.kind === "form").map((message) => message.document.id));
+    availableHubForms = (data.agreements || []).filter((form) =>
+      String(form.client_email || "").trim().toLowerCase() === String(thread.clientEmail || "").trim().toLowerCase()
+      && ["Sent", "Completed"].includes(form.status) && Date.parse(form.expires_at) > Date.now() && !shared.has(form.id));
+    select.replaceChildren(new Option(availableHubForms.length ? "Choose a form for this event" : "No unshared sent forms for this client", ""));
+    for (const form of availableHubForms) {
+      const title = form.snapshot?.title || form.template_id || "Client form";
+      const event = form.admin_answers?.eventName || form.admin_answers?.event_name || "";
+      select.add(new Option(`${title}${event ? ` · ${event}` : ""} · ${form.status}`, form.id));
+    }
+  } catch (error) {
+    if (activeThreadId !== thread.id) return;
+    select.replaceChildren(new Option("Forms unavailable", ""));
+    setMessage($("#hub-form-status"), error.message || "Client forms could not be loaded.");
+  }
+};
+
+const shareHubForm = async () => {
+  const form = availableHubForms.find((item) => item.id === $("#hub-form-select").value);
+  const thread = messageThreads.find((item) => item.id === activeThreadId);
+  if (!form || !thread) return;
+  const title = form.snapshot?.title || form.template_id || "Client form";
+  if (!window.confirm(`Add “${title}” to ${thread.clientName}'s ${thread.service} hub? Check that this form belongs to this event.`)) return;
+  const button = $("#hub-share-form");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"share-form",conversationId:thread.id,formId:form.id})});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Form could not be added.");
+    $("#hub-form-select").dataset.threadId = "";
+    await loadMessages();
+    setMessage($("#hub-form-status"), data.alreadyShared ? "This form is already in the hub." : "Form added to this event hub. Send the client link if needed.", true);
+  } catch (error) {
+    setMessage($("#hub-form-status"), error.message || "Form could not be added.");
+  } finally {
+    button.disabled = !$("#hub-form-select").value;
+  }
+};
+
+const shareHubSeating = async (event) => {
+  event.preventDefault();
+  const thread = messageThreads.find((item) => item.id === activeThreadId);
+  const form = event.currentTarget;
+  const url = $("#hub-seating-url").value.trim();
+  if (!thread || !form.reportValidity()) return;
+  if (!window.confirm(`Add this private Guest Seating link to ${thread.clientName}'s ${thread.service} hub? Check that the event and client match.`)) return;
+  const button = form.querySelector("button[type=submit]");
+  button.disabled = true;
+  setMessage($("#hub-seating-status"), "Checking the event…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "share-seating", conversationId: thread.id, url }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Guest Seating could not be added.");
+    if (activeThreadId === thread.id) {
+      $("#hub-seating-url").value = "";
+      activeHubSection = "seating";
+    }
+    await loadMessages();
+    if (activeThreadId === thread.id)
+      setMessage($("#hub-seating-status"), data.alreadyShared ? "This Guest Seating link is already in the hub." : `${data.eventName} added to this client hub.`, true);
+  } catch (error) {
+    if (activeThreadId === thread.id) setMessage($("#hub-seating-status"), error.message || "Guest Seating could not be added.");
+  } finally {
+    button.disabled = false;
+  }
+};
+
 const openMessageThread = (threadId) => {
   const thread = messageThreads.find((candidate) => candidate.id === threadId);
   if (!thread) return;
@@ -822,6 +978,7 @@ const openMessageThread = (threadId) => {
     if (attachmentInput.disabled) return;
     if ((pendingFiles(attachmentInput).length || $("#admin-message-input").value.trim())
       && !window.confirm("Discard your unsent reply and attachments before opening another conversation?")) return;
+    activeHubSection = "messages";
     clearStagedAttachments(attachmentInput);
     $("#admin-message-input").value = "";
     renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
@@ -836,7 +993,10 @@ const openMessageThread = (threadId) => {
   $("#copy-active-link").textContent = thread.active ? "Copy client link" : "Link expired";
   $("#copy-active-link").disabled = !thread.active;
   setMessage($("#admin-message-status"), "");
+  $("#hub-seating-url").value = "";
+  setMessage($("#hub-seating-status"), "");
   renderAdminMessages(thread);
+  if (threadId !== $("#hub-form-select").dataset.threadId) loadHubForms(thread);
   document.querySelectorAll("[data-thread-id]").forEach((button) => {
     button.classList.toggle("active", button.dataset.threadId === threadId);
   });
@@ -873,20 +1033,132 @@ const renderMessageThreads = () => {
   });
 };
 
+const renderClientActivity = () => {
+  const clients = $("#activity-clients");
+  clients.replaceChildren();
+  if (!messageThreads.some((thread) => thread.id === activeActivityThreadId)) {
+    activeActivityThreadId = messageThreads[0]?.id || "";
+  }
+  for (const thread of messageThreads) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "activity-client";
+    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.service, thread.celebrationDate);
+    button.setAttribute("aria-pressed", String(thread.id === activeActivityThreadId));
+    const name = document.createElement("strong");
+    name.textContent = thread.clientName;
+    const service = document.createElement("small");
+    service.textContent = eventServiceLabel(thread.service);
+    button.append(name, service);
+    button.addEventListener("click", () => {
+      activeActivityThreadId = thread.id;
+      renderClientActivity();
+      void loadSeatingActivityForThread(thread);
+    });
+    clients.append(button);
+  }
+  const thread = messageThreads.find((item) => item.id === activeActivityThreadId);
+  $("#activity-client-title").textContent = thread?.clientName || "No client hubs yet";
+  $("#activity-client-event").textContent = thread
+    ? `${eventServiceLabel(thread.service)} · ${formatDate(thread.celebrationDate)}` : "";
+  $("#activity-open-hub").hidden = !thread;
+  const timeline = $("#activity-timeline");
+  timeline.replaceChildren();
+  const items = clientActivityItems(thread, activityFormsById, activitySeatingByThreadId.get(thread?.id) || []);
+  for (const item of items) {
+    const row = document.createElement("li");
+    const date = document.createElement("time");
+    date.dateTime = item.at || "";
+    date.textContent = formatDate(item.at, true);
+    const title = document.createElement("strong");
+    title.textContent = item.title;
+    const detail = document.createElement("span");
+    detail.textContent = item.detail;
+    row.append(date, title, detail);
+    timeline.append(row);
+  }
+  $("#activity-empty").hidden = items.length > 0;
+  $("#activity-empty").textContent = thread
+    ? "No shared documents or client activity for this event yet." : "Create a client hub from an inquiry to see its activity here.";
+};
+
+const loadSeatingActivityForThread = async (thread) => {
+  const requestId = ++activitySeatingRequest;
+  if (!thread) return;
+  const hasSeating = thread?.messages?.some((message) => message.sender === "admin" && message.document?.kind === "seating");
+  if (!hasSeating) {
+    if (activitySeatingByThreadId.delete(thread.id)) renderClientActivity();
+    setMessage($("#activity-seating-status"), "");
+    return;
+  }
+  setMessage($("#activity-seating-status"), "Loading Guest Seating activity…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "seating-activity", conversationId: thread.id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Guest Seating activity is unavailable.");
+    const titles = {
+      sign_in: "Guest Seating client signed in", pin_setup: "Guest Seating PIN created",
+      guest_added: "Guest added", guest_updated: "Guest updated", guest_deleted: "Guest deleted",
+      guest_list_uploaded: "Guest list uploaded", guest_list_removed: "Guest list removed",
+    };
+    activitySeatingByThreadId.set(thread.id, (data.activity || []).map((item) => ({
+      id: item.id, at: item.at, title: titles[item.kind] || "Guest Seating activity", detail: item.detail,
+    })));
+    if (requestId === activitySeatingRequest && activeActivityThreadId === thread.id) {
+      setMessage($("#activity-seating-status"), "");
+      renderClientActivity();
+    }
+  } catch (error) {
+    activitySeatingByThreadId.delete(thread.id);
+    if (requestId === activitySeatingRequest && activeActivityThreadId === thread.id) {
+      setMessage($("#activity-seating-status"), error.message || "Guest Seating activity is unavailable.");
+      renderClientActivity();
+    }
+  }
+};
+
 const loadMessages = async () => {
   const response = await fetch("/api/hmp-messages", { credentials: "same-origin", cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Messages are unavailable.");
   messageThreads = data.threads || [];
   renderMessageThreads();
+  if (activeWorkspaceView === "activity") renderClientActivity();
   renderProposalsWorkspace(messageThreads, (threadId) => {
     openMessageThread(threadId);
     if (activeThreadId === threadId) setWorkspaceView("messages", true);
-  });
+  }, openProposalRevision);
   if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
     openMessageThread(activeThreadId);
   }
 };
+
+const loadClientActivity = async () => {
+  setMessage($("#activity-status"), "Loading client activity…");
+  await loadMessages();
+  try {
+    const response = await fetch("/api/hmp-agreement-forms", { credentials: "same-origin", cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Form statuses are unavailable.");
+    activityFormsById = new Map((data.agreements || []).map((form) => [form.id, form]));
+    setMessage($("#activity-status"), "");
+  } catch {
+    activityFormsById = new Map();
+    setMessage($("#activity-status"), "Shared documents are shown, but completed-form statuses could not be refreshed.");
+  }
+  renderClientActivity();
+  const selected = messageThreads.find((thread) => thread.id === activeActivityThreadId);
+  if (selected) await loadSeatingActivityForThread(selected);
+};
+
+$("#activity-open-hub").addEventListener("click", () => {
+  if (!activeActivityThreadId) return;
+  openMessageThread(activeActivityThreadId);
+  if (activeThreadId === activeActivityThreadId) setWorkspaceView("messages", true);
+});
 
 const loadMessageSignature = () => {
   if (messageSignatureLoaded) return Promise.resolve();
@@ -1232,10 +1504,15 @@ const openInvoiceEditor = (invoice = null) => {
   setMessage($("#invoice-editor-message"), "");
   renderInvoiceItems();
   const inactive = Boolean(invoice?.archivedAt || invoice?.deletedAt);
+  const locked = Boolean(invoice && invoice.status !== "Draft");
+  $("#revise-invoice").hidden = !locked || inactive;
+  $("#mark-invoice-paid").hidden = invoice?.status !== "Sent" || inactive;
   $("#invoice-form").querySelectorAll("input, textarea, select, button").forEach((control) => {
-    if (control.id !== "close-invoice-editor" && control.id !== "print-invoice") control.disabled = inactive;
+    control.disabled = (inactive || locked) && !["close-invoice-editor", "print-invoice", "revise-invoice", "mark-invoice-paid"].includes(control.id);
   });
+  $("#invoice-status").disabled = true;
   if (inactive) setMessage($("#invoice-editor-message"), "Restore this invoice before editing or sending it.");
+  else if (locked) setMessage($("#invoice-editor-message"), "This sent record is preserved. Create a revised draft to change and resend it.");
   $("#invoice-editor-dialog").showModal();
   resizeInvoiceTextareas();
 };
@@ -1248,24 +1525,35 @@ const invoicePayload = () => ({
   items: invoiceItems,
 });
 
+const documentVersionHistory = (versions, kind) => {
+  if (versions.length < 2) return "";
+  const attr = kind === "invoice" ? "data-invoice-id" : "data-contract-id";
+  const row = (document) => `<button type="button" ${attr}="${escapeHTML(document.id)}"><span>Version ${escapeHTML(document.revisionNumber || 1)} · ${escapeHTML(document.status)}</span><span>${escapeHTML(document.invoiceNumber || document.contractNumber || "")}</span></button>`;
+  return `<details class="document-version-history"><summary>Version history (${versions.length})</summary>
+    ${versions.slice(1, 5).map(row).join("")}
+    ${versions.length > 5 ? `<details><summary>${versions.length - 5} older archived versions</summary>${versions.slice(5).map(row).join("")}</details>` : ""}
+    </details>`;
+};
+
 const renderInvoices = () => {
   const list = $("#invoice-list");
   const empty = $("#invoice-empty");
   const visible = invoices.filter((invoice) => invoiceView === "deleted" ? invoice.deletedAt : invoiceView === "archived" ? invoice.archivedAt : !invoice.archivedAt && !invoice.deletedAt);
+  const groups = groupDocumentVersions(visible);
   document.querySelectorAll("[data-invoice-view]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.invoiceView === invoiceView));
   });
-  empty.hidden = visible.length > 0;
-  list.hidden = visible.length === 0;
+  empty.hidden = groups.length > 0;
+  list.hidden = groups.length === 0;
   $("#invoice-empty h3").textContent = invoiceView === "active" ? "No invoices yet" : invoiceView === "archived" ? "No archived invoices" : "No deleted invoices";
   $("#invoice-empty p").textContent = invoiceView === "active" ? "Create the first branded invoice for an HMP client." : invoiceView === "archived" ? "Archived invoices can be restored here." : "Deleted invoices are kept here and can be restored.";
   $("#empty-create-invoice").hidden = invoiceView !== "active";
-  list.innerHTML = visible
+  list.innerHTML = groups
     .map(
-      (invoice) => `
+      (versions) => { const invoice = versions[0]; return `
       <div class="invoice-list-entry" data-search-text="${escapeHTML(searchText(invoice.eventName, invoice.eventAddress, invoice.eventDate, invoice.clientPhone, invoice.notes, invoice.paymentTerms, invoice.total, (invoice.items || []).map(item => item.description)))}">
         <button class="invoice-list-row" type="button" data-invoice-id="${escapeHTML(invoice.id)}">
-          <span><strong>${escapeHTML(invoice.invoiceNumber)}</strong><small>${escapeHTML(formatDate(invoice.issueDate))}</small></span>
+          <span><strong>${escapeHTML(invoice.invoiceNumber)}</strong><small>Version ${escapeHTML(invoice.revisionNumber || 1)} · ${escapeHTML(formatDate(invoice.issueDate))}</small></span>
           <span><strong>${escapeHTML(invoice.clientName)}</strong><small>${escapeHTML(invoice.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(invoice.dueDate))}</span>
           <span class="invoice-list-total">${formatMoney(invoice.total)}</span>
@@ -1274,7 +1562,8 @@ const renderInvoices = () => {
         <div class="invoice-row-actions">
           ${invoiceView === "active" ? `<button type="button" data-invoice-action="archive" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Archive invoice ${escapeHTML(invoice.invoiceNumber)}">Archive</button><button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : `<button type="button" data-invoice-action="restore" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Restore invoice ${escapeHTML(invoice.invoiceNumber)}">Restore</button>${invoiceView === "archived" ? `<button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : ""}`}
         </div>
-      </div>`,
+        ${documentVersionHistory(versions, "invoice")}
+      </div>`; },
     )
     .join("");
 };
@@ -1350,6 +1639,14 @@ const openContractEditor = (contract = null) => {
   $("#contract-number-display").textContent = contract?.contractNumber || "Draft";
   $("#send-contract").textContent = contract?.status === "Sent" ? "Send again" : "Send contract";
   setMessage($("#contract-editor-message"), "");
+  const locked = Boolean(contract && contract.status !== "Draft");
+  $("#revise-contract").hidden = !locked || contract?.status === "Void";
+  $("#mark-contract-signed").hidden = contract?.status !== "Sent";
+  $("#contract-form").querySelectorAll("input, textarea, select, button").forEach((control) => {
+    control.disabled = locked && !["close-contract-editor", "print-contract", "revise-contract", "mark-contract-signed", "contract-client-signature-name", "contract-client-signed-at"].includes(control.id);
+  });
+  $("#contract-status").disabled = true;
+  if (locked) setMessage($("#contract-editor-message"), "This sent record is preserved. Create a revised draft to change and resend it.");
   $("#contract-editor-dialog").showModal();
 };
 
@@ -1363,18 +1660,19 @@ const contractPayload = () => ({
 const renderContracts = () => {
   const list = $("#contract-list");
   const empty = $("#contract-empty");
-  empty.hidden = contracts.length > 0;
-  list.hidden = contracts.length === 0;
-  list.innerHTML = contracts
+  const groups = groupDocumentVersions(contracts);
+  empty.hidden = groups.length > 0;
+  list.hidden = groups.length === 0;
+  list.innerHTML = groups
     .map(
-      (contract) => `
-        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
-          <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
+      (versions) => { const contract = versions[0]; return `<div class="contract-list-entry" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
+        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}">
+          <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>Version ${escapeHTML(contract.revisionNumber || 1)} · ${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
           <span><strong>${escapeHTML(contract.clientName)}</strong><small>${escapeHTML(contract.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(contract.eventDate))}</span>
           <span class="invoice-list-total">${formatMoney(contract.totalAmount)}</span>
           <span class="status-pill">${escapeHTML(contract.status)}</span>
-        </button>`,
+        </button>${documentVersionHistory(versions, "contract")}</div>`; },
     )
     .join("");
 };
@@ -1450,6 +1748,75 @@ const saveContract = async ({ quiet = false } = {}) => {
   }
 };
 
+const reviseSavedDocument = async (kind) => {
+  const invoice = kind === "invoice";
+  const id = invoice ? activeInvoiceId : activeContractId;
+  const status = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
+  const button = $(invoice ? "#revise-invoice" : "#revise-contract");
+  if (!id) return;
+  button.disabled = true;
+  setMessage(status, "Creating a linked draft…");
+  try {
+    const response = await fetch(invoice ? "/api/hmp-invoices" : "/api/hmp-contracts", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "revise", id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "A revised draft could not be created.");
+    const document = invoice ? data.invoice : data.contract;
+    if (invoice) {
+      invoices = [document, ...invoices];
+      $("#invoice-editor-dialog").close();
+      renderInvoices();
+      openInvoiceEditor(document);
+      setMessage($("#invoice-editor-message"), `Version ${document.revisionNumber} is a private draft. The previous invoice remains unchanged.`, true);
+    } else {
+      contracts = [document, ...contracts];
+      $("#contract-editor-dialog").close();
+      renderContracts();
+      openContractEditor(document);
+      setMessage($("#contract-editor-message"), `Version ${document.revisionNumber} is a private draft. The previous contract remains unchanged.`, true);
+    }
+  } catch (error) { setMessage(status, error.message || "A revised draft could not be created."); }
+  finally { button.disabled = false; }
+};
+
+const markDocumentComplete = async (kind) => {
+  const invoice = kind === "invoice";
+  const id = invoice ? activeInvoiceId : activeContractId;
+  const status = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
+  const button = $(invoice ? "#mark-invoice-paid" : "#mark-contract-signed");
+  if (!id) return;
+  const signatureName = invoice ? "" : $("#contract-client-signature-name").value.trim();
+  const signedAt = invoice ? "" : $("#contract-client-signed-at").value;
+  if (!invoice && (!signatureName || !signedAt)) {
+    setMessage(status, "Enter the client's signing name and date before marking this contract signed.");
+    return;
+  }
+  if (!window.confirm(invoice ? "Mark this invoice paid?" : "Mark this contract signed?")) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(invoice ? "/api/hmp-invoices" : "/api/hmp-contracts", {
+      method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: invoice ? "mark-paid" : "mark-signed", clientSignatureName: signatureName, clientSignedAt: signedAt }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Status could not be updated.");
+    if (invoice) {
+      invoices = invoices.map((item) => item.id === id ? data.invoice : item);
+      $("#invoice-status").value = "Paid";
+      renderInvoices();
+    } else {
+      contracts = contracts.map((item) => item.id === id ? data.contract : item);
+      $("#contract-status").value = "Signed";
+      renderContracts();
+    }
+    button.hidden = true;
+    setMessage(status, invoice ? "Invoice marked paid. Its contents remain locked." : "Contract marked signed. Its contents remain locked.", true);
+  } catch (error) { setMessage(status, error.message || "Status could not be updated."); }
+  finally { button.disabled = false; }
+};
+
 const copyDocumentLink = async (kind) => {
   const invoice = kind === "invoice";
   const message = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
@@ -1508,13 +1875,13 @@ const sendContract = async () => {
     documentSendRequests.delete(sendRequest.key);
     await loadContracts();
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
-    $("#contract-status").value = "Sent";
-    $("#send-contract").textContent = "Send again";
+    const sent = contracts.find((item) => item.id === saved.id);
+    if (sent) { $("#contract-editor-dialog").close(); openContractEditor(sent); }
     setMessage($("#contract-editor-message"), `Contract sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {
     setMessage($("#contract-editor-message"), error.message || "Contract email could not be sent.");
   } finally {
-    button.disabled = false;
+    button.disabled = contracts.find((item) => item.id === saved.id)?.status !== "Draft";
   }
 };
 
@@ -1768,13 +2135,13 @@ const sendInvoice = async () => {
     documentSendRequests.delete(sendRequest.key);
     await loadInvoices();
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
-    $("#invoice-status").value = "Sent";
-    $("#send-invoice").textContent = "Send again";
+    const sent = invoices.find((item) => item.id === saved.id);
+    if (sent) { $("#invoice-editor-dialog").close(); openInvoiceEditor(sent); }
     setMessage($("#invoice-editor-message"), `Invoice sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {
     setMessage($("#invoice-editor-message"), error.message || "Invoice email could not be sent.");
   } finally {
-    button.disabled = false;
+    button.disabled = invoices.find((item) => item.id === saved.id)?.status !== "Draft";
   }
 };
 
@@ -1986,6 +2353,11 @@ $("#thread-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-thread-id]");
   if (row) openMessageThread(row.dataset.threadId);
 });
+$("#hub-form-select").addEventListener("change", () => {
+  $("#hub-share-form").disabled = !$("#hub-form-select").value;
+});
+$("#hub-share-form").addEventListener("click", shareHubForm);
+$("#hub-seating-share").addEventListener("submit", shareHubSeating);
 $("#message-conversations-tab").addEventListener("click", () => selectMessageTab("conversations"));
 $("#message-signature-tab").addEventListener("click", () => selectMessageTab("signature"));
 $("#message-signature-form").addEventListener("submit", saveMessageSignature);
@@ -2048,6 +2420,8 @@ $("#proposal-workspace-create").addEventListener("click", () => {
 $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-dialog").close());
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => closeProposalEditor());
+$("#close-proposal-editor-bottom").addEventListener("click", () => closeProposalEditor());
+$("#proposal-service-hours").addEventListener("input", validProposalServiceHours);
 $("#proposal-form").addEventListener("submit", sendProposal);
 $("#save-proposal-draft").addEventListener("click", saveProposalDraft);
 window.addEventListener("hmp-drafts-changed", () => {
@@ -2079,7 +2453,10 @@ $("#insert-calendar-link").addEventListener("click", () => {
   if (insertCalendarLink(calendarInput.value, "Calendar link")) calendarInput.value = "";
   else calendarInput.focus();
 });
-$("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
+$("#print-proposal").addEventListener("click", () => {
+  if (!validProposalServiceHours()) { $("#proposal-service-hours").reportValidity(); return; }
+  printProposal(proposalPayload());
+});
 $("#proposal-editor-dialog").addEventListener("click", (event) => {
   if (event.target === $("#proposal-editor-dialog")) closeProposalEditor();
 });
@@ -2108,6 +2485,8 @@ window.addEventListener("afterprint", () => {
   document.querySelectorAll("#invoice-sheet .invoice-print-text").forEach((node) => node.remove());
 });
 $("#send-invoice").addEventListener("click", sendInvoice);
+$("#revise-invoice").addEventListener("click", () => reviseSavedDocument("invoice"));
+$("#mark-invoice-paid").addEventListener("click", () => markDocumentComplete("invoice"));
 $("#copy-invoice-link").addEventListener("click", () => copyDocumentLink("invoice"));
 $("#invoice-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2166,6 +2545,8 @@ $("#print-contract").addEventListener("click", () => {
   document.body.classList.remove("printing-contract");
 });
 $("#send-contract").addEventListener("click", sendContract);
+$("#revise-contract").addEventListener("click", () => reviseSavedDocument("contract"));
+$("#mark-contract-signed").addEventListener("click", () => markDocumentComplete("contract"));
 $("#copy-contract-link").addEventListener("click", () => copyDocumentLink("contract"));
 $("#contract-form").addEventListener("submit", async (event) => {
   event.preventDefault();
