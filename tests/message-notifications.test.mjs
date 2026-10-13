@@ -112,6 +112,15 @@ test("sent proposals retain NA service hours for the client", async () => {
   assert.equal(parseProposal(messages[0].body).serviceHours, "N/A");
 });
 
+test("sent proposals retain a safe calendar link for the client", async () => {
+  const messages = [];
+  const calendarUrl = "https://calendar.app.google/CJn7HCVgHaqHM2fK6";
+  const proposal = serializeProposal({ clientName: "Test Client", serviceFee: 900, calendarUrl });
+  const response = await handler(fakeDatabase(messages), async () => new Response("{}"))(request({ ...sendBody, message: proposal }));
+  assert.equal(response.status, 200);
+  assert.equal(parseProposal(messages[0].body).calendarUrl, calendarUrl);
+});
+
 test("database read failures cannot look like empty conversations or missing proposals", async () => {
   for (const failedTable of ["hmp_admin_inquiries", "hmp_client_messages"]) {
     const database = fakeDatabase([]);

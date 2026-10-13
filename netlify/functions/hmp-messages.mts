@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { normalizeCalendarUrl } from "../../calendar-link.js";
 import { normalizeServiceHours } from "../../proposal-ui.js";
 import { timingSafeEqual } from "node:crypto";
 import { getUser } from "@netlify/identity";
@@ -101,6 +102,7 @@ const normalizeAdminMessage = (value: unknown) => {
     serviceFee: number(proposal.serviceFee, 1_000_000),
     validUntil: cleanText(proposal.validUntil, 10),
     paymentTerms: cleanText(proposal.paymentTerms, 600),
+    calendarUrl: normalizeCalendarUrl(cleanText(proposal.calendarUrl, 2000)),
   };
   if (!normalized.clientName || !normalized.serviceFee) {
     throw new Error("Proposal client and service fee are required");
