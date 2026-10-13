@@ -229,7 +229,8 @@
                     <textarea id="admin-message-input" maxlength="4000" rows="4" placeholder="Type your reply…"></textarea>
                     <button class="message-insert-signature" id="insert-message-signature" type="button" disabled>Insert signature</button>
                     <div class="admin-calendar-share">
-                      <label for="admin-calendar-url">Share a calendar link separately</label>
+                      <button class="message-insert-signature" id="insert-hmp-calendar-link" type="button">Add HMP booking calendar</button>
+                      <label for="admin-calendar-url">Or share another calendar link</label>
                       <input id="admin-calendar-url" type="url" inputmode="url" maxlength="2000" placeholder="https://…" />
                       <button class="message-insert-signature" id="insert-calendar-link" type="button">Add to reply</button>
                     </div>
@@ -810,6 +811,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261013-client-activity"></script>
+    <script type="module" src="assets/admin.js?v=20261013-client-activity-booking"></script>
   </body>
 </html>

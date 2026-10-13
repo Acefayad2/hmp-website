@@ -32,3 +32,23 @@ test("portal message links are text nodes and safe anchors, not injected HTML", 
     globalThis.document = previousDocument;
   }
 });
+
+test("HMP booking calendar can be shared as a safe clickable message link", () => {
+  const bookingUrl = "https://calendar.app.google/CJn7HCVgHaqHM2fK6";
+  assert.equal(normalizeCalendarUrl(bookingUrl), bookingUrl);
+  const previousDocument = globalThis.document;
+  globalThis.document = {
+    createTextNode: (text) => ({ type: "text", text }),
+    createElement: (tag) => ({ type: tag }),
+  };
+  try {
+    const element = { children: [], append(child) { this.children.push(child); } };
+    appendLinkedText(element, `Book an appointment: ${bookingUrl}`);
+    const link = element.children.find((child) => child.type === "a");
+    assert.equal(link.href, bookingUrl);
+    assert.equal(link.textContent, bookingUrl);
+    assert.equal(link.rel, "noopener noreferrer");
+  } finally {
+    globalThis.document = previousDocument;
+  }
+});
