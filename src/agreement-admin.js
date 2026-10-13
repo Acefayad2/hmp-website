@@ -16,25 +16,43 @@ dialog.addEventListener("cancel", event => {
 window.addEventListener("beforeunload", event => { if (dirty) {event.preventDefault(); event.returnValue = "";} });
 
 const templateList = $("#agreement-template-list");
-templateList.innerHTML = agreementTemplates.map(template => `<button class="agreement-template" type="button" data-template="${template.id}"><strong>${escape(template.title)}</strong><span>Prepare agreement →</span></button>`).join("");
+templateList.innerHTML = agreementTemplates.filter(template => template.id !== "money-bank-verification").map(template => `<button class="agreement-template" type="button" data-template="${template.id}"><strong>${escape(template.title)}</strong><span>Prepare agreement →</span></button>`).join("");
 templateList.addEventListener("click", event => {
   const button = event.target.closest("[data-template]");
   if (!button) return;
   const template = agreementTemplates.find(item => item.id === button.dataset.template);
+  startTemplate(template);
+});
+function startTemplate(template) {
   active = {snapshot:{...template,...terms[template.id]}, status:"Draft", adminAnswers:{}, clientName:"", clientEmail:""};
   link = ""; dirty = false; renderEditor(); dialog.showModal();
-});
+}
+$("#create-bank-verification").addEventListener("click", () => startTemplate(agreementTemplates.find(item => item.id === "money-bank-verification")));
 
 export async function loadAgreementForms() {
   const message = $("#agreement-list-message");
   try {
     const data = await agreementRequest(endpoint);
-    const agreements = data.agreements.filter(row => agreementTemplates.some(t => t.id === row.template_id));
+    const agreements = data.agreements.filter(row => agreementTemplates.some(t => t.id === row.template_id && t.id !== "money-bank-verification"));
     message.classList.add("neutral");
     message.textContent = agreements.length ? "" : "No agreement records yet. Choose a template above to get started.";
     $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at, row.document_title))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.document_title || agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");
   } catch (error) { message.classList.remove("neutral"); message.textContent = error.message; }
 }
+export async function loadBankVerificationForms() {
+  const message = $("#bank-verification-message");
+  try {
+    const data = await agreementRequest(endpoint);
+    const rows = data.agreements.filter(row => row.template_id === "money-bank-verification");
+    $("#bank-verification-list").innerHTML = rows.map(row => `<button class="agreement-row" type="button" data-bank-verification-id="${escape(row.id)}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.document_title || "Money Bank Verification")}</small></span><span>${escape(row.status)}</span></button>`).join("");
+    message.textContent = rows.length ? "Open a record to continue on-site or print a completed copy." : "No on-site verification records yet.";
+    message.classList.add("neutral");
+  } catch (error) {message.classList.remove("neutral"); message.textContent = error.message;}
+}
+$("#bank-verification-list").addEventListener("click", event => {
+  const button = event.target.closest("[data-bank-verification-id]");
+  if (button) openAgreementDraft(button.dataset.bankVerificationId);
+});
 export async function openAgreementDraft(id) {
   if (!id || busy) return;
   try {
@@ -108,7 +126,8 @@ async function perform(action) {
     renderEditor();
     $("#agreement-editor-status").textContent = warning || (action === "send" ? "Client form sent. The client can complete and sign it using the private link." : action === "share" ? "Private link ready to copy and text to this client. No email was sent." : action === "void" ? "Form voided. The private link is disabled." : "Draft saved.");
     $("#agreement-editor-status").classList.add("success");
-    await loadAgreementForms();
+    if (active.snapshot.id === "money-bank-verification") await loadBankVerificationForms();
+    else await loadAgreementForms();
     window.dispatchEvent(new Event("hmp-drafts-changed"));
   } catch(error) {
     if (error.data?.agreement) { active = error.data.agreement; link = error.data.link || ""; dirty = false; renderEditor(); await loadAgreementForms(); }

@@ -1,6 +1,7 @@
 import { informationTemplates } from "../information-form-schema.mjs";
 import { agreementRequest, escape, fieldsHTML } from "../agreement-ui.mjs";
 import { informationSummary, printInformation } from "../information-form-ui.mjs";
+import { loadBankVerificationForms } from "./agreement-admin.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -32,6 +33,7 @@ export async function loadInformationForms() {
     }
     message.textContent = rows.length ? "Select a record to view responses or share its private link." : "No client forms yet. Choose a form above to get started.";
     message.classList.add("neutral");
+    await loadBankVerificationForms();
   } catch (error) {message.classList.remove("neutral"); message.textContent = error.message;}
 }
 $("#refresh-information-forms").addEventListener("click", loadInformationForms);
