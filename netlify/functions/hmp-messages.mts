@@ -17,6 +17,7 @@ import {
   signAttachments,
   verifyAttachmentsExist,
 } from "./_conversation-attachments.mts";
+import { normalizeServiceHours } from "../../proposal-ui.js";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -47,7 +48,7 @@ const escapeHtml = (value: unknown) =>
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const proposalPrefix = "HMP_PROPOSAL_V1:";
 
-const normalizeAdminMessage = (value: unknown) => {
+export const normalizeAdminMessage = (value: unknown) => {
   const message = cleanText(value, 4000);
   if (!message.startsWith(proposalPrefix)) return message;
   let proposal: Record<string, unknown>;
@@ -68,7 +69,7 @@ const normalizeAdminMessage = (value: unknown) => {
     eventTime: cleanText(proposal.eventTime, 100),
     eventLocation: cleanText(proposal.eventLocation, 500),
     guestCount: number(proposal.guestCount, 100_000),
-    serviceHours: number(proposal.serviceHours, 240),
+    serviceHours: normalizeServiceHours(proposal.serviceHours),
     associates: number(proposal.associates, 100),
     machines: number(proposal.machines, 100),
     serviceDetails: cleanText(proposal.serviceDetails, 1400),
