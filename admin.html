@@ -100,17 +100,17 @@
           </header>
 
           <section class="metrics" aria-label="Inquiry summary">
-            <button type="button" class="metric metric-featured" data-inquiry-filter="all" aria-pressed="true" aria-controls="inquiry-list">
-              <span>Total inquiries</span><strong id="metric-total">—</strong><small>Website and manual entries</small>
+            <button type="button" class="metric metric-featured" data-inquiry-filter="inquiries" aria-pressed="true" aria-controls="inquiry-list">
+              <span>Inquiries</span><strong id="metric-inquiries">—</strong><small>New and in progress</small>
             </button>
-            <button type="button" class="metric" data-inquiry-filter="new" aria-pressed="false" aria-controls="inquiry-list">
-              <span>New</span><strong id="metric-new">—</strong><small>Ready for follow-up</small>
+            <button type="button" class="metric" data-inquiry-filter="booked" aria-pressed="false" aria-controls="inquiry-list">
+              <span>Booked</span><strong id="metric-booked">—</strong><small>Confirmed events</small>
             </button>
-            <button type="button" class="metric" data-inquiry-filter="upcoming" aria-pressed="false" aria-controls="inquiry-list">
-              <span>Upcoming</span><strong id="metric-upcoming">—</strong><small>Events ahead</small>
+            <button type="button" class="metric" data-inquiry-filter="closed" aria-pressed="false" aria-controls="inquiry-list">
+              <span>Closed</span><strong id="metric-closed">—</strong><small>Kept for your records</small>
             </button>
-            <button type="button" class="metric" data-inquiry-filter="largest" aria-pressed="false" aria-controls="inquiry-list">
-              <span>Largest event</span><strong id="metric-guests">—</strong><small>Guests in one inquiry</small>
+            <button type="button" class="metric" data-inquiry-filter="archived" aria-pressed="false" aria-controls="inquiry-list">
+              <span>Archived</span><strong id="metric-archived">—</strong><small>Out of the active views</small>
             </button>
           </section>
 
@@ -118,8 +118,9 @@
             <div class="inquiry-panel">
               <div class="panel-heading">
                 <div>
-                  <h2 id="inquiry-list-title">Event inquiries</h2>
+                  <h2 id="inquiry-list-title">Inquiries</h2>
                   <p id="result-count" role="status">Loading submissions…</p>
+                  <button class="archive-view-toggle" id="deleted-inquiries-toggle" type="button" hidden>View deleted inquiries</button>
                 </div>
                 <div class="filters">
                   <label class="search-field"><span>Search inquiries</span><input id="search-input" type="search" placeholder="Client, email, event, service, status…" aria-controls="inquiry-list" /></label>
@@ -129,7 +130,7 @@
               </div>
               <div class="inquiry-list" id="inquiry-list"></div>
               <div class="empty-state" id="empty-state" hidden>
-                <span>HMP</span><h3>No inquiries match</h3><p>Select Total inquiries to clear the filters and return to the full event list.</p>
+                <span>HMP</span><h3>No inquiries match</h3><p>Choose another summary box or clear the search to view more inquiries.</p>
               </div>
             </div>
 
@@ -447,10 +448,10 @@
             <span>Status</span>
             <select id="manage-status" name="status">
               <option>New</option>
-              <option>Contacted</option>
-              <option>Quoted</option>
               <option>Booked</option>
               <option>Closed</option>
+              <option>Archived</option>
+              <option value="Deleted" hidden>Deleted</option>
             </select>
           </label>
           <label>
@@ -478,6 +479,11 @@
         <div class="management-actions">
           <p class="form-message" id="management-message" role="status"></p>
           <button class="primary-button" type="submit">Save changes</button>
+        </div>
+        <div class="inquiry-record-actions" aria-label="Inquiry record actions">
+          <button class="inquiry-record-button" id="archive-inquiry" type="button">Archive inquiry</button>
+          <button class="inquiry-record-button inquiry-record-button-danger" id="delete-inquiry" type="button">Move to Deleted</button>
+          <button class="inquiry-record-button" id="restore-inquiry" type="button" hidden>Restore to Inquiries</button>
         </div>
       </form>
     </dialog>

@@ -59,7 +59,7 @@ const normalizeInquiry = (record: Record<string, unknown>) => ({
   source: record.source || "Website",
 });
 
-const statuses = new Set(["New", "Contacted", "Quoted", "Booked", "Closed"]);
+const statuses = new Set(["New", "Contacted", "Quoted", "Booked", "Closed", "Archived", "Deleted"]);
 const priorities = new Set(["Low", "Normal", "High", "Urgent"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,14 +67,20 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const cleanText = (value: unknown, maxLength: number) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
-export default async (request: Request, _context: Context) => {
-  const user = await getUser();
+export const createDashboardHandler = ({
+  getUserFn = getUser,
+  databaseFactory = getDatabase,
+}: {
+  getUserFn?: typeof getUser;
+  databaseFactory?: () => SupabaseClient | null;
+} = {}) => async (request: Request, _context?: Context) => {
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Dashboard data is unavailable" }, 503);
 
   if (request.method === "POST") {
@@ -101,9 +107,11 @@ export default async (request: Request, _context: Context) => {
   }
 
   if (request.method === "PATCH") {
+    if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
     let body: Record<string, unknown>;
     try {
       body = await request.json();
+      if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid request" }, 400);
     } catch {
       return json({ error: "Invalid request" }, 400);
     }
@@ -165,6 +173,8 @@ export default async (request: Request, _context: Context) => {
     updatedAt: new Date().toISOString(),
   });
 };
+
+export default createDashboardHandler();
 
 export const config: Config = {
   path: "/api/hmp-dashboard",
