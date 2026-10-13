@@ -656,6 +656,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .proposal-wide { grid-column:auto; }
   .proposal-form-actions { align-items:stretch; flex-direction:column; }
   .proposal-form-actions > div { display:grid; }
+  #close-proposal-editor-bottom { display:none; }
   .proposal-form-actions .primary-button { width:100%; }
   .invoice-editor-dialog { width: 100%; max-height: 100dvh; border-radius: 0; }
   .invoice-editor-toolbar { align-items: flex-start; padding: 13px 14px; }

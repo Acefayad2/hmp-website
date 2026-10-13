@@ -52,10 +52,12 @@ test("service hours accept NA without changing numeric proposals", () => {
 test("proposal editor has top and bottom Close buttons using the same dirty-state guard", () => {
   const html = readFileSync(new URL("../admin.html", import.meta.url), "utf8");
   const source = readFileSync(new URL("../src/admin.js", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../admin.css", import.meta.url), "utf8");
   assert.match(html, /id="proposal-service-hours" type="text"/);
   assert.match(html, /id="close-proposal-editor"/);
   assert.match(html, /id="close-proposal-editor-bottom"/);
   assert.match(source, /\$\("#close-proposal-editor-bottom"\)\.addEventListener\("click", \(\) => closeProposalEditor\(\)\)/);
+  assert.match(css, /@media \(max-width: 520px\)[\s\S]*?#close-proposal-editor-bottom \{ display:none; \}/);
 });
 
 test("additional information starts blank and survives proposal serialization", () => {
