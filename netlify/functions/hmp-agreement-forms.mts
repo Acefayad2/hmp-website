@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
-import { agreementToken, cleanContact, completionPayload, hash, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
+import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
@@ -59,12 +59,12 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
           if (!data) return json({error:"Agreement not found."}, 404);
           return json({agreement:publicAgreement(data), link:["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
         }
-        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at").order("created_at", {ascending:false}).limit(500);
+        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,document_title:snapshot->>title").order("created_at", {ascending:false}).limit(500);
         if (error) return json({error:"Client forms are unavailable. The agreement database migration may still be pending."}, 502);
         return json({agreements:data || []});
       }
       if (request.method === "POST") {
-        const snapshot = snapshotFor(body.templateId);
+        const snapshot = editableSnapshot(snapshotFor(body.templateId), body);
         const contact = cleanContact(body);
         const id = crypto.randomUUID(), seed = nonce();
         const {data, error} = await db.from(table).insert({id, ...contact, template_id:snapshot.id, snapshot,
@@ -85,7 +85,8 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       }
       if (body.action === "save") {
         if (row.status !== "Draft") return json({error:"Sent agreements cannot be edited. Void this form and create a new one."}, 409);
-        const {data, error} = await db.from(table).update({...cleanContact(body), admin_answers:validateAnswers(row.snapshot.adminFields, body.answers, false), updated_at:new Date().toISOString()})
+        const snapshot = editableSnapshot(row.snapshot, body);
+        const {data, error} = await db.from(table).update({...cleanContact(body), snapshot, admin_answers:validateAnswers(snapshot.adminFields, body.answers, false), updated_at:new Date().toISOString()})
           .eq("id", row.id).eq("status", "Draft").eq("updated_at", body.updatedAt || "").select("*").maybeSingle();
         if (error || !data) return json({error:"The draft changed elsewhere. Close and reopen it before saving."}, 409);
         return json({agreement:publicAgreement(data)});
@@ -93,17 +94,19 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       const information = row.snapshot.kind === "information";
       const shareOnly = body.action === "share";
       if (body.action !== "send" && !shareOnly) return json({error:"Invalid action"}, 400);
+      if (row.snapshot.signatureMode === "on-site-three-signatures" && !shareOnly) return json({error:"Money Bank Verification is completed on-site; open its private link on the shared device."}, 400);
       const resendKey = Netlify.env.get("RESEND_API_KEY");
       const from = Netlify.env.get("HMP_CONTRACT_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
       if (!shareOnly && (!resendKey || !from)) return json({error:"Save the draft first. A verified HMP email sender is required before sending."}, 503);
       let issued = row;
       if (row.status === "Draft") {
-        validateAnswers(row.snapshot.adminFields, row.admin_answers);
-        if (!information && body.hmpConsent !== true) return json({error:"The HMP representative must authorize their electronic signature."}, 400);
+        const completeAnswers = validateAnswers(row.snapshot.adminFields, row.admin_answers);
+        if (!information && !["client-only", "on-site-three-signatures"].includes(row.snapshot.signatureMode) && body.hmpConsent !== true) return json({error:"The HMP representative must authorize their electronic signature."}, 400);
         const now = new Date().toISOString();
         const {data, error} = await db.from(table).update({status:"Sent", sent_at:now, updated_at:now,
           expires_at:new Date(Date.now() + 90 * 86400000).toISOString(),
-          admin_answers:information ? row.admin_answers : {...row.admin_answers, hmpSignedAt:now, hmpConsent:"I authorize my typed name as my electronic signature for HMP on this agreement."}})
+          snapshot:information ? row.snapshot : issuedSnapshot(row.snapshot, completeAnswers),
+          admin_answers:information || ["client-only", "on-site-three-signatures"].includes(row.snapshot.signatureMode) ? row.admin_answers : {...row.admin_answers, hmpSignedAt:now, hmpConsent:"I authorize my typed name as my electronic signature for HMP on this agreement."}})
           .eq("id", row.id).eq("status", "Draft").eq("updated_at", body.updatedAt || "").select("*").maybeSingle();
         if (error || !data) return json({error:"The draft changed. Close and reopen it before sending."}, 409);
         issued = data;

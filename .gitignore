@@ -3,5 +3,6 @@ node_modules/
 .DS_Store
 dist/
 output/
+tmp/
 .playwright-cli/
 assets/admin.js
