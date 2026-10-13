@@ -1665,8 +1665,8 @@ const renderContracts = () => {
   list.hidden = groups.length === 0;
   list.innerHTML = groups
     .map(
-      (versions) => { const contract = versions[0]; return `<div class="contract-list-entry">
-        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
+      (versions) => { const contract = versions[0]; return `<div class="contract-list-entry" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
+        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}">
           <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>Version ${escapeHTML(contract.revisionNumber || 1)} · ${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
           <span><strong>${escapeHTML(contract.clientName)}</strong><small>${escapeHTML(contract.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(contract.eventDate))}</span>
