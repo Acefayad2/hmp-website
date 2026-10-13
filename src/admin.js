@@ -1050,8 +1050,9 @@ const loadSeatingActivityForThread = async (thread) => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Guest Seating activity is unavailable.");
     const titles = {
-      portal_opened: "Guest Seating portal opened", guest_added: "Guest added",
-      guest_updated: "Guest updated", guest_list_uploaded: "Guest list uploaded",
+      sign_in: "Guest Seating client signed in", pin_setup: "Guest Seating PIN created",
+      guest_added: "Guest added", guest_updated: "Guest updated", guest_deleted: "Guest deleted",
+      guest_list_uploaded: "Guest list uploaded", guest_list_removed: "Guest list removed",
     };
     activitySeatingByThreadId.set(thread.id, (data.activity || []).map((item) => ({
       id: item.id, at: item.at, title: titles[item.kind] || "Guest Seating activity", detail: item.detail,

@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { timingSafeEqual } from "node:crypto";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
@@ -49,6 +50,25 @@ const escapeHtml = (value: unknown) =>
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const proposalPrefix = "HMP_PROPOSAL_V1:";
 const seatingLinkPattern = /^https:\/\/seating\.hmpeds\.com\/client\/([a-z0-9-]+)\/([a-f0-9]{48})$/i;
+
+const linkedSeatingEvent = async (client: SupabaseClient, url: string) => {
+  const match = seatingLinkPattern.exec(url);
+  if (!match) return null;
+  const { data: index, error: indexError } = await client.from("hmp_seating_records")
+    .select("value").eq("key", `public/${match[1]}`).maybeSingle();
+  if (indexError) throw new Error("Guest Seating event could not be checked");
+  const eventId = String(index?.value?.eventId || "");
+  if (!uuidPattern.test(eventId)) return null;
+  const { data: record, error: eventError } = await client.from("hmp_seating_records")
+    .select("value").eq("key", `events/${eventId}`).maybeSingle();
+  if (eventError) throw new Error("Guest Seating event could not be checked");
+  const event = record?.value;
+  const provided = Buffer.from(match[2], "hex");
+  const expected = Buffer.from(String(event?.clientUploadToken || ""), "hex");
+  if (!event || String(event.publicCode || "").toLowerCase() !== match[1].toLowerCase()
+    || !expected.length || provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+  return { id: eventId, event };
+};
 
 const normalizeAdminMessage = (value: unknown) => {
   const message = cleanText(value, 4000);
@@ -280,19 +300,23 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const { data: shared, error: readError } = await client.from("hmp_client_messages")
       .select("document,deleted_at").eq("id", id).eq("conversation_id", conversationId).maybeSingle();
     if (readError) return json({ error: "Guest Seating link could not be checked" }, 502);
-    const match = !shared?.deleted_at && seatingLinkPattern.exec(String(shared?.document?.url || ""));
-    if (shared?.document?.kind !== "seating" || !match) return json({ activity: [] });
+    if (shared?.deleted_at || shared?.document?.kind !== "seating") return json({ activity: [] });
     try {
-      const response = await fetchFn(`https://seating.hmpeds.com/api/seating/client/${match[1]}/${match[2]}/activity`, {
-        redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000),
-      });
-      if (!response.ok) return json({ error: "Guest Seating activity is unavailable. Check that its private link is still active." }, 502);
-      const data = await response.json();
-      const allowedKinds = new Set(["portal_opened", "guest_added", "guest_updated", "guest_list_uploaded"]);
-      const activity = (Array.isArray(data.activity) ? data.activity : [])
-        .filter((item: any) => allowedKinds.has(item?.kind) && !Number.isNaN(Date.parse(item?.at || "")))
+      const linked = await linkedSeatingEvent(client, String(shared.document.url || ""));
+      if (!linked) return json({ error: "The Guest Seating link is no longer active. Replace it in this client hub." }, 409);
+      const rows: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await client.from("hmp_seating_records").select("key,value")
+          .like("key", `client-activity/${linked.id}/%`).order("key", { ascending: false }).range(from, from + 999);
+        if (error) throw new Error("Guest Seating activity could not be read");
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const allowedKinds = new Set(["sign_in", "pin_setup", "guest_list_uploaded", "guest_list_removed", "guest_added", "guest_updated", "guest_deleted"]);
+      const activity = rows.map((row) => row.value)
+        .filter((item: any) => allowedKinds.has(item?.action) && item?.eventId === linked.id && !Number.isNaN(Date.parse(item?.createdAt || "")))
         .map((item: any) => ({
-          id: cleanText(item.id, 100), kind: item.kind, detail: cleanText(item.detail, 300), at: item.at,
+          id: cleanText(item.id, 100), kind: item.action, detail: cleanText(item.summary, 300), at: item.createdAt,
         }));
       return json({ activity });
     } catch {
@@ -313,14 +337,12 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const { data: inquiry, error: inquiryError } = await client.from("hmp_admin_inquiries")
       .select("celebration_date").eq("submission_id", conversation.inquiry_id).maybeSingle();
     if (inquiryError || !inquiry) return json({ error: "The inquiry could not be checked" }, 502);
-    let seatingEvent: { name?: string; date?: string };
+    let seatingEvent: { name?: string; date?: string; archived?: boolean; deletedAt?: string; dataPurgedAt?: string };
     try {
-      const response = await fetchFn(`https://seating.hmpeds.com/api/seating/client/${match[1]}/${match[2]}`, {
-        redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000),
-      });
-      if (!response.ok) return json({ error: "Guest Seating could not verify that private link" }, 400);
-      const data = await response.json();
-      seatingEvent = data.event || {};
+      const linked = await linkedSeatingEvent(client, url);
+      if (!linked || linked.event.archived || linked.event.deletedAt || linked.event.dataPurgedAt)
+        return json({ error: "Guest Seating could not verify that active private link" }, 400);
+      seatingEvent = linked.event;
     } catch {
       return json({ error: "Guest Seating could not verify that private link. Try again later." }, 502);
     }

@@ -6,6 +6,8 @@ import { createMessagesHandler } from "../netlify/functions/hmp-messages.mts";
 const conversationId = "11111111-1111-4111-8111-111111111111";
 const inquiryId = "22222222-2222-4222-8222-222222222222";
 const formId = "33333333-3333-4333-8333-333333333333";
+const seatingEventId = "44444444-4444-4444-8444-444444444444";
+const seatingToken = "a".repeat(48);
 const settings = { HMP_ADMIN_EMAILS:"admin@example.test", SUPABASE_SERVICE_ROLE_KEY:"test-secret" };
 globalThis.Netlify = { env:{get:key => settings[key]} };
 
@@ -15,15 +17,27 @@ function database() {
     hmp_admin_inquiries:[{submission_id:inquiryId,email:"client@example.test",celebration_date:"2026-10-20"}],
     hmp_client_agreements:[{id:formId,client_email:"client@example.test",status:"Sent",expires_at:"2099-01-01T00:00:00Z",token_nonce:"test-nonce",snapshot:{title:"Event details"}}],
     hmp_client_messages:[],
+    hmp_seating_records:[
+      {key:"public/naija-gala",value:{eventId:seatingEventId}},
+      {key:`events/${seatingEventId}`,value:{id:seatingEventId,publicCode:"naija-gala",clientUploadToken:seatingToken,name:"Naija Gala",date:"2026-10-20"}},
+      {key:`client-activity/${seatingEventId}/2026-10-20T12:00:00Z-one`,value:{id:"one",eventId:seatingEventId,action:"guest_added",summary:"Client added Sam Doe",createdAt:"2026-10-20T12:00:00Z"}},
+    ],
   };
   return {rows,from(table) {
-    let filters=[],operation="read",value;
+    let filters=[],operation="read",value,sort=null,window=null;
     const query = {
       select(){return this;},eq(key,expected){filters.push(row=>row[key]===expected);return this;},
+      like(key,pattern){const prefix=pattern.slice(0,-1);filters.push(row=>String(row[key]).startsWith(prefix));return this;},
+      order(key,{ascending=true}={}){sort={key,ascending};return this;},
+      range(start,end){window={start,end};return this;},
       insert(payload){operation="insert";value=payload;return this;},
       update(payload){operation="update";value=payload;return this;},
       run(single=false){
         let found=rows[table].filter(row=>filters.every(filter=>filter(row)));
+        if(sort) found.sort((left,right)=>sort.ascending
+          ? String(left[sort.key]).localeCompare(String(right[sort.key]))
+          : String(right[sort.key]).localeCompare(String(left[sort.key])));
+        if(window) found=found.slice(window.start,window.end+1);
         if(operation==="insert") {
           if(rows[table].some(row=>row.id===value.id)) return {data:null,error:{code:"23505"}};
           rows[table].push(value);found=[value];
@@ -59,37 +73,29 @@ test("client hub groups messages, proposals, invoices, contracts, forms, and Gue
 
 test("Admin links only a verified matching Guest Seating event to one client hub", async () => {
   const db = database();
-  const url = `https://seating.hmpeds.com/client/naija-gala/${"a".repeat(48)}`;
+  const url = `https://seating.hmpeds.com/client/naija-gala/${seatingToken}`;
   const seatBody = {action:"share-seating",conversationId,url};
-  let eventDate = "2026-10-20";
-  const fetchFn = async (requested, options) => {
-    assert.match(requested, /^https:\/\/seating\.hmpeds\.com\/api\/seating\/client\/[a-z0-9-]+\/[a-f0-9]{48}$/);
-    assert.equal(options.redirect, "error");
-    return Response.json({event:{name:"Naija Gala",date:eventDate}});
-  };
-  const h = handler(db,undefined,fetchFn);
-  assert.equal((await handler(db,null,fetchFn)(request(seatBody))).status,401);
+  const h = handler(db);
+  assert.equal((await handler(db,null)(request(seatBody))).status,401);
   assert.equal((await h(request(seatBody,"https://other.test"))).status,403);
   assert.equal((await h(request({...seatBody,url:"https://attacker.test/client/naija-gala/"+"a".repeat(48)}))).status,400);
-  eventDate = "2026-10-21";
+  db.rows.hmp_seating_records[1].value.date = "2026-10-21";
   assert.equal((await h(request(seatBody))).status,409);
-  eventDate = "2026-10-20";
+  db.rows.hmp_seating_records[1].value.date = "2026-10-20";
+  assert.equal((await h(request({...seatBody,url:`https://seating.hmpeds.com/client/naija-gala/${"b".repeat(48)}`}))).status,400);
   assert.equal((await h(request(seatBody))).status,200);
   assert.equal(db.rows.hmp_client_messages[0].document.kind,"seating");
   assert.equal(db.rows.hmp_client_messages[0].document.url,url);
   assert.equal((await h(request(seatBody))).status,200);
   assert.equal(db.rows.hmp_client_messages.length,1);
-  assert.equal((await h(request({...seatBody,url:`https://seating.hmpeds.com/client/other/${"b".repeat(48)}`}))).status,409);
-  const activityHandler = handler(db,undefined,async (requested, options) => {
-    assert.equal(requested, `${url.replace("/client/", "/api/seating/client/")}/activity`);
-    assert.equal(options.redirect,"error");
-    return Response.json({activity:[{id:"1",kind:"guest_added",detail:"Sam Doe · Table 2",at:"2026-10-20T12:00:00Z"}]});
-  });
-  const activity = await activityHandler(request({action:"seating-activity",conversationId}));
+  assert.equal((await h(request({...seatBody,url:`https://seating.hmpeds.com/client/other/${"b".repeat(48)}`}))).status,400);
+  const activity = await h(request({action:"seating-activity",conversationId}));
   assert.equal(activity.status,200);
   assert.deepEqual((await activity.json()).activity.map((item) => item.kind),["guest_added"]);
+  assert.equal((await handler(db,null)(request({action:"seating-activity",conversationId}))).status,401);
+  assert.equal((await h(request({action:"seating-activity",conversationId},"https://other.test"))).status,403);
   db.rows.hmp_client_messages[0].deleted_at="2026-10-20T13:00:00Z";
-  const removed = await activityHandler(request({action:"seating-activity",conversationId}));
+  const removed = await h(request({action:"seating-activity",conversationId}));
   assert.deepEqual((await removed.json()).activity,[]);
 });
 
