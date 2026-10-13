@@ -6,7 +6,7 @@ export function fieldsHTML(fields, values = {}, prefix = "answer", required = tr
     let input;
     if (field.options) input = `<select ${attrs}><option value="">Choose an option</option>${field.options.map(option => `<option ${value === option ? "selected" : ""}>${escape(option)}</option>`).join("")}</select>`;
     else if (field.type === "textarea") input = `<textarea ${attrs} rows="3" maxlength="5000">${escape(value)}</textarea>`;
-    else input = `<input ${attrs} type="${field.type === "money" ? "number" : field.type}" ${["number", "money"].includes(field.type) ? `min="0" max="10000000" step="${field.type === "money" ? "0.01" : "1"}"` : 'maxlength="500"'} value="${escape(value)}">`;
+    else input = `<input ${attrs} type="${["money", "decimal"].includes(field.type) ? "number" : field.type}" ${["number", "money", "decimal"].includes(field.type) ? `min="${field.id === "serviceHours" ? "4" : "0"}" max="10000000" step="${field.type === "number" ? "1" : "0.01"}"` : 'maxlength="500"'} value="${escape(value)}">`;
     return `<label class="agreement-field ${field.type === "textarea" ? "agreement-wide" : ""}" for="${id}"><span>${escape(field.label)}${field.required ? " *" : " (optional)"}</span>${field.help ? `<small>${escape(field.help)}</small>` : ""}${input}</label>`;
   }).join("");
 }
@@ -18,7 +18,7 @@ export function answersHTML(fields, values = {}) {
   }).join("")}</dl>`;
 }
 export const termsHTML = snapshot => snapshot.pages.map((page, i) => `<section class="agreement-terms-page"><h3>Agreement text · ${i + 1} / ${snapshot.pages.length}</h3><div>${escape(page)}</div></section>`).join("");
-export const completionHTML = agreement => `<section class="agreement-panel"><h2>Completed client details</h2>${answersHTML(agreement.snapshot.clientFields, agreement.clientAnswers)}<h3>Electronic signature</h3><p class="agreement-signature">${escape(agreement.signature?.name)}</p><p>${escape(agreement.signature?.consent)}</p><p>Signed: ${escape(agreement.completedAt)}<br>HMP signed: ${escape(agreement.adminAnswers.hmpSignedAt)}</p><p class="agreement-fingerprint">Record ID: ${escape(agreement.id)}<br>SHA-256 record fingerprint: ${escape(agreement.recordHash)}</p></section>`;
+export const completionHTML = agreement => `<section class="agreement-panel"><h2>Completed client details</h2>${answersHTML(agreement.snapshot.clientFields, agreement.clientAnswers)}<h3>${agreement.snapshot.signatureMode === "on-site-three-signatures" ? "HMP attendant electronic signature" : "Electronic signature"}</h3><p class="agreement-signature">${escape(agreement.signature?.name)}</p><p>${escape(agreement.signature?.consent)}</p><p>Signed: ${escape(agreement.completedAt)}${agreement.adminAnswers.hmpSignedAt ? `<br>HMP signed: ${escape(agreement.adminAnswers.hmpSignedAt)}` : ""}</p><p class="agreement-fingerprint">Record ID: ${escape(agreement.id)}<br>SHA-256 record fingerprint: ${escape(agreement.recordHash)}</p></section>`;
 export function printAgreement(agreement) {
   document.querySelector("#agreement-print")?.remove();
   const section = document.createElement("section");

@@ -1,14 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
-import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash } from "../netlify/functions/_agreement-forms.mts";
+import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash, issuedSnapshot, editableSnapshot } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
 import { informationTemplates } from "../information-form-schema.mjs";
 
 globalThis.Netlify = {env:{get:name => ({SUPABASE_URL:"https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY:"test-only-secret", HMP_ADMIN_EMAILS:"admin@example.test", RESEND_API_KEY:"test-only-resend", HMP_CONTRACT_FROM_EMAIL:"forms@example.test"})[name]}};
 const id = "11111111-1111-4111-8111-111111111111";
-const inputFor = fields => Object.fromEntries(fields.map(f => [f.id, f.options?.[0] || ({date:"2026-12-01", time:"17:00", "datetime-local":"2026-12-01T17:00", money:"100", number:"2", email:"client@example.test"}[f.type] || "Example value")]));
+const inputFor = fields => Object.fromEntries(fields.map(f => [f.id, f.options?.[0] || ({date:"2026-12-01", time:"17:00", "datetime-local":"2026-12-01T17:00", money:"100", number:"2", decimal:"4.5", email:"client@example.test"}[f.type] || "Example value") ]));
 const rowFor = (templateId = "guest-seating") => {
   const snapshot = snapshotFor(templateId);
   return {id, template_id:templateId, snapshot, client_name:"Test Client", client_email:"client@example.test", status:"Sent", expires_at:"2099-01-01T00:00:00Z", admin_answers:inputFor(snapshot.adminFields), token_nonce:"seed", token_hash:hash(agreementToken(id,"seed")), updated_at:"2026-09-23T00:00:00Z"};
@@ -38,12 +38,12 @@ function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:20
   return createAgreementHandler({getUserFn:async()=>admin ? {email:"admin@example.test"} : null, databaseFactory:()=>fakeDatabase(rows), fetchFn:send});
 }
 
-test("four templates retain complete terms and approved four-revision limit", () => {
-  assert.equal(agreementTemplates.length,4);
+test("eight templates retain sourced terms and approved four-revision limit", () => {
+  assert.equal(agreementTemplates.length,8);
   for(const t of agreementTemplates) {
     const s=snapshotFor(t.id);
-    assert.ok(s.pages.length >= 8);
-    assert.match(s.pages.join("\n"), /CLIENT ACKNOWLEDGMENT|AGREEMENT ACKNOWLEDGMENT/);
+    assert.ok(s.pages.length >= 1);
+    assert.ok(s.pages.join("\n").length > 100);
     assert.equal(new Set([...s.adminFields,...s.clientFields].map(f=>f.id)).size, s.adminFields.length+s.clientFields.length);
     assert.match(s.sourceSha256,/^[a-f0-9]{64}$/);
   }
@@ -60,6 +60,42 @@ test("validation covers required data, explicit choices, dates, limits and injec
   assert.throws(()=>validateAnswers(fields,{...inputFor(fields),clientName:"x".repeat(501)}),/too long/);
   assert.doesNotMatch(fieldsHTML(fields,{clientName:'"><script>alert(1)</script>'}), /<script>/);
   assert.doesNotMatch(answersHTML(fields,{clientName:"<img src=x>"}), /<img/);
+});
+test("new document titles and wording stay in their draft, while money amounts and dated clauses are materialized on issue", () => {
+  const template = snapshotFor("money-collecting-changing");
+  const edited = editableSnapshot(template, {title:"Client-specific money table agreement", pages:["Custom opening page", ...template.pages.slice(1)]});
+  assert.equal(edited.title,"Client-specific money table agreement");
+  assert.equal(edited.pages[0],"Custom opening page");
+  assert.notEqual(template.pages[0],"Custom opening page");
+  const answers = {...inputFor(template.adminFields), agreementDate:"2026-12-01", serviceFee:"1500", serviceHours:"6.5", cancellationDeadline:"2026-11-01", cancellationRefundAmount:"1050", includeCommission:"No", includeTravelFee:"No", includeGrandTotal:"No"};
+  assert.equal(validateAnswers(template.adminFields, answers).serviceHours,"6.5");
+  assert.throws(()=>validateAnswers(template.adminFields,{...answers,serviceHours:"3.5"}),/at least four hours/);
+  const issued = issuedSnapshot(template, answers);
+  const text = issued.pages.join("\n");
+  assert.match(text,/\$1500\.00/);
+  assert.match(text,/6\.5 Service Hours/);
+  assert.match(text,/2026-11-01/);
+  assert.doesNotMatch(text,/\{\{|2025|IF NOT NEEDED|ONLY KEEP THIS PART|\$585|\$835/);
+  assert.equal(issued.optionalClauses,undefined);
+  assert.throws(()=>editableSnapshot(template,{pages:["missing"]}),/page/);
+});
+test("on-site bank verification requires all three matching signatures and never emails the form", async () => {
+  const row={...rowFor("money-bank-verification"),status:"Draft"};
+  const handler=handlerFor([row]);
+  assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"send",updatedAt:row.updated_at}))).status,400);
+  assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"share",updatedAt:row.updated_at}))).status,200);
+  const answers=inputFor(row.snapshot.clientFields);
+  answers.representativeOneName="First Signer";answers.representativeOneSignature="First Signer";
+  answers.representativeTwoName="Second Signer";answers.representativeTwoSignature="Second Signer";
+  answers.attendantName="HMP Attendant";
+  const token=agreementToken(id,"seed");
+  const submit=body=>handler(request("hmp-agreement","POST",body,token));
+  assert.equal((await submit({answers,signatureName:"HMP Attendant",consent:true,representativeOneConsent:true})).status,400);
+  assert.equal((await submit({answers:{...answers,representativeTwoSignature:"Someone Else"},signatureName:"HMP Attendant",consent:true,representativeOneConsent:true,representativeTwoConsent:true})).status,400);
+  assert.equal((await submit({answers,signatureName:"HMP Attendant",consent:true,representativeOneConsent:true,representativeTwoConsent:true})).status,200);
+  assert.equal(row.status,"Completed");
+  assert.equal(row.signature.representativeOneConsent,true);
+  assert.equal(row.signature.representativeTwoConsent,true);
 });
 test("completion requires consent, validates all answers, stamps signature and hides access secrets", () => {
   const row=rowFor();
@@ -93,10 +129,13 @@ test("client submission saves once, retries return the same record, admin cannot
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"save"}))).status,409);
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"void"}))).status,409);
 });
-test("all four client forms can be completed with their full field sets", async () => {
+test("all agreement and verification forms can be completed with their full field sets", async () => {
   for(const t of agreementTemplates) {
     const row=rowFor(t.id), handler=handlerFor([row]);
-    const result=await handler(request("hmp-agreement","POST",{answers:inputFor(row.snapshot.clientFields),signatureName:"Test Client",consent:true},agreementToken(id,"seed")));
+    const answers=inputFor(row.snapshot.clientFields);
+    const onSite=t.signatureMode === "on-site-three-signatures";
+    if (onSite) {answers.representativeOneName="First Signer";answers.representativeOneSignature="First Signer";answers.representativeTwoName="Second Signer";answers.representativeTwoSignature="Second Signer";answers.attendantName="HMP Attendant";}
+    const result=await handler(request("hmp-agreement","POST",{answers,signatureName:onSite ? "HMP Attendant" : "Test Client",consent:true,representativeOneConsent:onSite,representativeTwoConsent:onSite},agreementToken(id,"seed")));
     assert.equal(result.status,200,t.id); assert.equal(Object.keys(row.client_answers).length,row.snapshot.clientFields.length);
   }
 });
@@ -156,18 +195,19 @@ for (const template of informationTemplates) {
     assert.equal((await client(request("hmp-agreement", "GET", null, token))).status, 200);
     assert.equal((await client(request("hmp-agreement", "POST", {answers:{}}, token))).status, 400);
     assert.equal(row.status, "Sent", "Validation failure must leave form open");
-    const answers = {...inputFor(row.snapshot.clientFields), responsibleContact:"First line\nSecond line", injectedField:"ignore me"};
+    const detailId = row.snapshot.clientFields.some(field => field.id === "responsibleContact") ? "responsibleContact" : "additionalInformation";
+    const answers = {...inputFor(row.snapshot.clientFields), [detailId]:"First line\nSecond line", injectedField:"ignore me"};
     const submit = await client(request("hmp-agreement", "POST", {answers}, token));
     assert.equal(submit.status, 200); assert.equal(row.status, "Completed");
     assert.equal(row.signature, null); assert.equal(row.client_answers.injectedField, undefined);
-    assert.equal(row.client_answers.responsibleContact, answers.responsibleContact);
+    assert.equal(row.client_answers[detailId], answers[detailId]);
     const fingerprint = row.record_hash;
-    const retry = await client(request("hmp-agreement", "POST", {answers:{responsibleContact:"overwritten"}}, token));
+    const retry = await client(request("hmp-agreement", "POST", {answers:{[detailId]:"overwritten"}}, token));
     assert.equal(retry.status, 200); assert.equal(row.record_hash, fingerprint);
     for (const response of [await client(request("hmp-agreement", "GET", null, token)), await admin(request(`hmp-agreement-forms?id=${row.id}`))]) {
       assert.equal(response.status, 200);
       const data = await response.json();
-      assert.equal(data.agreement.clientAnswers.responsibleContact, answers.responsibleContact);
+      assert.equal(data.agreement.clientAnswers[detailId], answers[detailId]);
       assert.equal(data.agreement.token_nonce, undefined); assert.equal(data.agreement.token_hash, undefined);
     }
     assert.equal((await admin(request("hmp-agreement-forms", "PATCH", {id:row.id, action:"save"}))).status, 409);

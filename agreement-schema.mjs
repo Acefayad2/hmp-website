@@ -17,6 +17,21 @@ const payment = [
 ];
 const setup = [field("setupTime", "Scheduled setup time"), field("removalTime", "Scheduled removal time")];
 const representative = [field("representative", "HMP authorized representative"), field("hmpSignature", "HMP representative signature (type full name)")];
+const moneyTableDetails = [
+  field("agreementDate", "Agreement date", "date"),
+  field("serviceFee", "HMP service fee", "money"),
+  field("serviceHours", "Service hours", "decimal"),
+  field("retainerDue", "30% retainer due date", "date"),
+  field("finalPaymentDue", "Final payment due date", "date"),
+  field("serviceEndTime", "Scheduled service end time", "time"),
+  field("cancellationDeadline", "Cancellation deadline", "date"),
+  field("cancellationRefundAmount", "Refund of final payment before deadline", "money"),
+  field("includeCommission", "Include commission-on-large-collections clause?", "select", true, ["No", "Yes"]),
+  field("includeTravelFee", "Include travel-fee clause?", "select", true, ["No", "Yes"]),
+  field("includeGrandTotal", "Is the Grand Total service booked?", "select", true, ["No", "Yes"]),
+  ...representative,
+];
+const moneyTableClient = [...eventFields, field("guestCount", "Estimated number of guests", "number"), field("vendorAccess", "Venue vendor access time"), field("moneyBank", "Recommended money bank", "money", false), marketing];
 export const agreementTemplates = [
   {
     id: "guest-seating", title: "Guest Seating Experience Services Agreement",
@@ -57,6 +72,38 @@ export const agreementTemplates = [
       field("customizationSignature", "Customization decision signature (type full name)"),
     ],
   },
+  {
+    id: "customization-approval", title: "Customization Approval",
+    signatureMode:"client-only",
+    adminFields:[field("requestedCustomization", "Requested customization", "textarea"), field("approvalFee", "Additional fee", "money")],
+    clientFields:[field("clientName", "Client name"), field("email", "Email address", "email"), field("customizationApproval", "Client approval", "select", true, ["I approve the customization and associated additional fee", "I decline the additional customization"])],
+  },
+  {
+    id: "money-collecting", title: "Money Table Service Agreement — Money Collecting",
+    adminFields:moneyTableDetails,
+    clientFields:moneyTableClient,
+  },
+  {
+    id: "money-collecting-changing", title: "Money Table Service Agreement — Collecting & Changing",
+    adminFields:moneyTableDetails,
+    clientFields:moneyTableClient,
+  },
+  {
+    id:"money-bank-verification", title:"Money Table Service: Money Bank Verification",
+    signatureMode:"on-site-three-signatures",
+    adminFields:[],
+    clientFields:[
+      field("clientName", "Client name"), field("eventDate", "Event date", "date"), field("eventType", "Event type"),
+      field("recommendedBank", "Recommended money bank", "money"), field("actualBank", "Actual money bank received", "money"),
+      field("receivedInitials", "Initials at receipt"),
+      field("reconciledBank", "Money bank reconciliation at service conclusion", "money"), field("reconciledInitials", "Initials at reconciliation"),
+      field("representativeOneName", "First designated representative name"), field("representativeOneSignature", "First representative signature (type full name)"),
+      field("representativeOneDate", "First representative signing date", "date"),
+      field("representativeTwoName", "Second designated representative name"), field("representativeTwoSignature", "Second representative signature (type full name)"),
+      field("representativeTwoDate", "Second representative signing date", "date"),
+      field("attendantName", "HMP money attendant name"), field("attendantDate", "HMP attendant signing date", "date"),
+    ],
+  },
 ];
 export const getAgreementTemplate = (id) => [...agreementTemplates, ...informationTemplates].find((item) => item.id === id);
 
@@ -68,7 +115,8 @@ export function validateAnswers(fields, values, requireAll = true) {
     if (requireAll && field.required && !value) throw new Error(`${field.label} is required.`);
     if (value && field.options && !field.options.includes(value)) throw new Error(`${field.label} is invalid.`);
     if (value && field.type === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new Error(`${field.label} is invalid.`);
-    if (value && ["number", "money"].includes(field.type) && (!/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000 || (field.type === "number" && !Number.isInteger(Number(value))))) throw new Error(`${field.label} is invalid.`);
+    if (value && ["number", "money", "decimal"].includes(field.type) && (!/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000 || (field.type === "number" && !Number.isInteger(Number(value))))) throw new Error(`${field.label} is invalid.`);
+    if (value && field.id === "serviceHours" && Number(value) < 4) throw new Error("Money Table service requires at least four hours.");
     if (value && field.type === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0,10) !== value)) throw new Error(`${field.label} is invalid.`);
     if (value && field.type === "time" && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) throw new Error(`${field.label} is invalid.`);
     if (value && field.type === "datetime-local" && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)))) throw new Error(`${field.label} is invalid.`);

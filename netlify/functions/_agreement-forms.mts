@@ -18,6 +18,43 @@ export const snapshotFor = (id: string) => {
   if (!template || !source) throw new Error("Choose an agreement template.");
   return { ...template, ...source, signingConsent };
 };
+export function editableSnapshot(snapshot: any, body: any) {
+  const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
+  if (!title || title.length > 200) throw new Error("Document title is required (maximum 200 characters).");
+  if (snapshot.kind === "information") {
+    const description = typeof body.description === "string" ? body.description.trim() : snapshot.description;
+    if (!description || description.length > 5000) throw new Error("Form introduction is required (maximum 5,000 characters).");
+    return {...snapshot, title, description};
+  }
+  const pages = body.pages === undefined ? snapshot.pages : body.pages;
+  if (!Array.isArray(pages) || pages.length !== snapshot.pages.length ||
+      pages.some((page: unknown) => typeof page !== "string" || !page.trim() || page.length > 15000) ||
+      pages.join("").length > 85000) throw new Error("Review every agreement page; one or more pages are missing or too long.");
+  return {...snapshot, title, pages:pages.map((page: string) => page.trim())};
+}
+export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, string>) {
+  if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return snapshot;
+  const {optionalClauses = {}, ...issued} = snapshot;
+  const replacements: Record<string, string> = {
+    agreementDate:adminAnswers.agreementDate,
+    serviceFee:`$${Number(adminAnswers.serviceFee).toFixed(2)}`,
+    serviceHours:adminAnswers.serviceHours,
+    retainerDue:adminAnswers.retainerDue,
+    finalPaymentDue:adminAnswers.finalPaymentDue,
+    serviceEndTime:adminAnswers.serviceEndTime,
+    cancellationDeadline:adminAnswers.cancellationDeadline,
+    cancellationRefundAmount:`$${Number(adminAnswers.cancellationRefundAmount).toFixed(2)}`,
+    commissionClause:adminAnswers.includeCommission === "Yes" ? optionalClauses.commissionClause : "",
+    travelClause:adminAnswers.includeTravelFee === "Yes" ? optionalClauses.travelClause : "",
+    grandTotalClause:adminAnswers.includeGrandTotal === "Yes" ? "The final total will be presented to the Client at the conclusion of the service." : "",
+  };
+  const pages = snapshot.pages.map((page: string) => page.replace(/\{\{([A-Za-z]+)\}\}/g, (_: string, key: string) => {
+    if (typeof replacements[key] !== "string") throw new Error(`Unrecognized agreement field: ${key}`);
+    return replacements[key];
+  }));
+  if (pages.some((page: string) => /\{\{/.test(page))) throw new Error("Agreement text has an unfinished placeholder.");
+  return {...issued, pages};
+}
 export const cleanContact = (body: any) => {
   const name = typeof body.clientName === "string" ? body.clientName.trim() : "";
   const email = typeof body.clientEmail === "string" ? body.clientEmail.trim().toLowerCase() : "";
@@ -36,7 +73,14 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
   const name = typeof body.signatureName === "string" ? body.signatureName.trim() : "";
   if (name.length < 2 || name.length > 200) throw new Error("Type your full name to sign.");
   const answers = validateAnswers(row.snapshot.clientFields, body.answers);
-  const signature = { name, consent: row.snapshot.signingConsent, signedAt: now, userAgent: userAgent.slice(0, 500), method: "typed-name-private-link" };
+  if (row.snapshot.signatureMode === "on-site-three-signatures") {
+    if (body.representativeOneConsent !== true || body.representativeTwoConsent !== true) throw new Error("Both designated representatives must consent to their typed signatures.");
+    if (answers.representativeOneName.toLocaleLowerCase() !== answers.representativeOneSignature.toLocaleLowerCase() ||
+        answers.representativeTwoName.toLocaleLowerCase() !== answers.representativeTwoSignature.toLocaleLowerCase() ||
+        answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) throw new Error("Each typed signature must match the corresponding signer name.");
+  }
+  const signature = { name, consent: row.snapshot.signingConsent, signedAt: now, userAgent: userAgent.slice(0, 500), method: "typed-name-private-link",
+    ...(row.snapshot.signatureMode === "on-site-three-signatures" ? {representativeOneConsent:true, representativeTwoConsent:true} : {}) };
   const recordHash = hash(JSON.stringify({ id: row.id, snapshot: row.snapshot, adminAnswers: row.admin_answers, clientAnswers: answers, signature }));
   return { client_answers: answers, signature, record_hash: recordHash, completed_at: now, updated_at: now, status: "Completed" };
 }

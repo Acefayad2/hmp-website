@@ -1,17 +1,59 @@
-// One-time source import. No legal language is rewritten except the approved revision count.
+// Import source PDFs without paraphrasing legal terms. The source directory is
+// local-only; generated text and fingerprints are committed, not the PDFs.
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const sourceDir = process.argv[2];
+if (!sourceDir) throw new Error("Usage: node scripts/import-agreement-terms.mjs <source-pdf-directory>");
 const sources = [
-  ["guest-seating", "/Users/ace/Library/Messages/Attachments/03/03/E1EF2E12-8744-468A-8C95-115534500DA0/GUEST SEATING EXPERIENCE SERVICES AGREEMENT.pdf"],
-  ["accessories", "/Users/ace/Library/Messages/Attachments/76/06/2D1BF900-3F94-4A6C-BDA1-42A3B545C1F6/CELEBRATION ACCESSORIES RENTAL AGREEMENT.pdf"],
-  ["welcome-sign", "/Users/ace/Library/Messages/Attachments/88/08/17BAA769-776D-47B5-A895-072DD860BC36/WELCOME SIGN SERVICES AGREEMENT.pdf"],
-  ["led-customization", "/Users/ace/Library/Messages/Attachments/65/05/BF81FDA1-CAA6-4631-A484-E71D46036E94/LED SIGNAGE CUSTOMIZATION & APPROVAL AGREEMENT.pdf"],
+  ["guest-seating", "gse-agreement.pdf"],
+  ["accessories", "accessories-rental-agreement.pdf"],
+  ["welcome-sign", "led-welcome-sign-agreement.pdf"],
+  ["led-customization", "led-customization-addendum.pdf"],
+  ["customization-approval", "customization-approval.pdf"],
+  ["money-collecting", "money-collecting-agreement.pdf"],
+  ["money-collecting-changing", "money-collecting-changing-agreement.pdf"],
+  ["money-bank-verification", "money-bank-verification.pdf"],
 ];
-mkdirSync("data", {recursive:true});
-const records = Object.fromEntries(sources.map(([id, path]) => {
-  let text = execFileSync("pdftotext", ["-layout", path, "-"], {encoding:"utf8"});
-  if (id === "led-customization") text = text.replaceAll("six (6)", "four (4)").replaceAll("six\n(6)", "four\n(4)");
-  return [id, {version:"2026-09-23.1", sourceFile:path.split("/").pop(), sourceSha256:createHash("sha256").update(readFileSync(path)).digest("hex"), pages:text.split("\f").map(p => p.replaceAll("\u200b", "").trim()).filter(Boolean)}];
+
+const records = Object.fromEntries(sources.map(([id, filename]) => {
+  const path = join(sourceDir, filename);
+  let sourceText = execFileSync("pdftotext", ["-layout", path, "-"], {encoding:"utf8"});
+  const optionalClauses = {};
+  if (id === "led-customization") {
+    // HMP previously approved four included revisions; the PDF contradicts itself.
+    sourceText = sourceText.replaceAll("six (6) included revisions", "four (4) included revisions")
+      .replaceAll("six (6) revisions", "four (4) revisions");
+  }
+  if (["money-collecting", "money-collecting-changing"].includes(id)) {
+    // These are reusable templates: old prices, dates and preparer's notes must
+    // not appear as fixed terms in a new client's copy.
+    const takeClause = (key, start, end) => {
+      const match = sourceText.match(new RegExp(`${start}[\\s\\S]*?(?=${end})`, "m"));
+      if (!match) throw new Error(`Missing ${key} clause in ${filename}`);
+      optionalClauses[key] = match[0].replace(/\( IF NOT NEEDED REMOVE\)|\( remove if not NEEDED\)/g, "").trim();
+      sourceText = sourceText.replace(match[0], `{{${key}}}\n${"\f".repeat((match[0].match(/\f/g) || []).length)}`);
+    };
+    takeClause("commissionClause", "^[ \\t]*Commission on Large Collections \\( IF NOT NEEDED REMOVE\\)", "^[ \\t]*Independent Contractor Status");
+    takeClause("travelClause", "^[ \\t]*Travel Fee \\( remove if not NEEDED\\)", "^[ \\t]*Trust & Responsibility Clause");
+    sourceText = sourceText.replace("(INSERT DATE )", "{{agreementDate}}")
+      .replace(/HMP Service Fee: \$[\d,.]+/, "HMP Service Fee: {{serviceFee}}")
+      .replace(/\b\d+(?:\.\d+)? Service Hours\b/, "{{serviceHours}} Service Hours")
+      .replace(/30% Non-Refundable Retainer due by[^\n]*/, "30% Non-Refundable Retainer due by: {{retainerDue}}")
+      .replace(/Final Payment due by[^\n]*/, "Final Payment due by: {{finalPaymentDue}}")
+      .replace("(INSERT TIME)", "{{serviceEndTime}}")
+      .replace(/\[10\/06\/2025\]/g, "{{cancellationDeadline}}")
+      .replace("($409.50)", "({{cancellationRefundAmount}})")
+      .replace("(The final total will be presented to the Client at the\nconclusion of the service.) ONLY KEEP THIS PART THEY BOOKED GRAND TOTAL\nSERVICE IF NOT REMOVE IT!!!!!", "{{grandTotalClause}}");
+  }
+  return [id, {
+    version:"2026-10-12.1",
+    sourceFile:filename,
+    sourceSha256:createHash("sha256").update(readFileSync(path)).digest("hex"),
+    ...(["money-collecting", "money-collecting-changing"].includes(id) ? {optionalClauses} : {}),
+    pages:sourceText.split("\f").map(page => page.replaceAll("\u200b", "").trim()).filter(Boolean),
+  }];
 }));
 writeFileSync("data/agreement-terms.json", JSON.stringify(records, null, 2) + "\n");

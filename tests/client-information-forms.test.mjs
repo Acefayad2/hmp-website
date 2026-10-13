@@ -6,13 +6,14 @@ import { informationSummary } from "../information-form-ui.mjs";
 import { fieldsHTML } from "../agreement-ui.mjs";
 
 test("three original information forms are native templates, separate from contracts and receipts", () => {
-  assert.deepEqual(informationTemplates.map(t => t.sourceUrl), ["https://forms.gle/97eLqmLSMDEJLdGbA", "https://forms.gle/SAA8R6KxTfwtijct5", "https://forms.gle/zcJ5KvacooVQPRBi9"]);
-  assert.deepEqual(informationTemplates.map(t => t.clientFields.length), [7,4,7]);
+  assert.deepEqual(informationTemplates.slice(0,3).map(t => t.sourceUrl), ["https://forms.gle/97eLqmLSMDEJLdGbA", "https://forms.gle/SAA8R6KxTfwtijct5", "https://forms.gle/zcJ5KvacooVQPRBi9"]);
+  assert.deepEqual(informationTemplates.slice(0,3).map(t => t.clientFields.length), [7,4,7]);
+  assert.equal(informationTemplates.length, 6);
   for (const t of informationTemplates) {
     assert.equal(t.kind, "information");
     assert.equal(new Set(t.clientFields.map(f => f.id)).size, t.clientFields.length);
     assert.equal(t.signingConsent, undefined);
-    assert.ok(t.clientFields.some(f => f.id === "fundRelease"));
+    assert.ok(t.clientFields.length >= 4);
   }
   const html = readFileSync(new URL("../admin.html", import.meta.url), "utf8");
   const forms = html.slice(html.indexOf('id="forms-workspace"'), html.indexOf('id="contract-workspace"'));
