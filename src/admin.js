@@ -639,6 +639,16 @@ const proposalPayload = () => Object.fromEntries(
   Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
 );
 
+const validProposalServiceHours = () => {
+  const input = $("#proposal-service-hours");
+  const value = input.value.trim();
+  const hours = Number(value);
+  const valid = !value || /^n\/?a$/i.test(value)
+    || (/^\d+(?:\.[05])?$/.test(value) && hours <= 240);
+  input.setCustomValidity(valid ? "" : "Enter 0–240 hours in half-hour increments, or N/A.");
+  return valid;
+};
+
 const proposalDirtyState = createProposalDirtyState({
   read: proposalPayload,
   isOpen: () => $("#proposal-editor-dialog").open,
@@ -702,6 +712,7 @@ const openProposalDraft = (draft) => {
 
 const saveProposalDraft = async () => {
   if (!activeThreadId) return;
+  if (!validProposalServiceHours()) { $("#proposal-service-hours").reportValidity(); return; }
   const payload = proposalPayload();
   if (payload.calendarUrl && !normalizeCalendarUrl(payload.calendarUrl)) {
     setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");
@@ -792,6 +803,7 @@ const createManualInquiry = async (event) => {
 
 const sendProposal = async (event) => {
   event.preventDefault();
+  validProposalServiceHours();
   if (!activeThreadId || !event.currentTarget.reportValidity()) return;
   const conversationId = activeThreadId;
   const proposal = proposalPayload();
@@ -2291,6 +2303,8 @@ $("#proposal-workspace-create").addEventListener("click", () => {
 $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-dialog").close());
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => closeProposalEditor());
+$("#close-proposal-editor-bottom").addEventListener("click", () => closeProposalEditor());
+$("#proposal-service-hours").addEventListener("input", validProposalServiceHours);
 $("#proposal-form").addEventListener("submit", sendProposal);
 $("#save-proposal-draft").addEventListener("click", saveProposalDraft);
 window.addEventListener("hmp-drafts-changed", () => {
@@ -2322,7 +2336,10 @@ $("#insert-calendar-link").addEventListener("click", () => {
   if (insertCalendarLink(calendarInput.value, "Calendar link")) calendarInput.value = "";
   else calendarInput.focus();
 });
-$("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
+$("#print-proposal").addEventListener("click", () => {
+  if (!validProposalServiceHours()) { $("#proposal-service-hours").reportValidity(); return; }
+  printProposal(proposalPayload());
+});
 $("#proposal-editor-dialog").addEventListener("click", (event) => {
   if (event.target === $("#proposal-editor-dialog")) closeProposalEditor();
 });

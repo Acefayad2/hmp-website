@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { normalizeServiceHours } from "../../proposal-ui.js";
 import { timingSafeEqual } from "node:crypto";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -91,7 +92,7 @@ const normalizeAdminMessage = (value: unknown) => {
     eventTime: cleanText(proposal.eventTime, 100),
     eventLocation: cleanText(proposal.eventLocation, 500),
     guestCount: number(proposal.guestCount, 100_000),
-    serviceHours: number(proposal.serviceHours, 240),
+    serviceHours: normalizeServiceHours(proposal.serviceHours),
     associates: number(proposal.associates, 100),
     machines: number(proposal.machines, 100),
     serviceDetails: cleanText(proposal.serviceDetails, 1400),

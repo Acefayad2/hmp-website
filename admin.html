@@ -558,7 +558,7 @@
             <label><span>Event time</span><input id="proposal-event-time" type="text" maxlength="100" placeholder="7:30 PM–9:00 PM" /></label>
             <label class="proposal-wide"><span>Event location</span><input id="proposal-event-location" type="text" maxlength="500" placeholder="Venue and city" /></label>
             <label><span>Guest count</span><input id="proposal-guest-count" type="number" min="0" max="100000" step="1" /></label>
-            <label><span>Service hours</span><input id="proposal-service-hours" type="number" min="0" max="240" step="0.5" /></label>
+            <label><span>Service hours</span><input id="proposal-service-hours" type="text" inputmode="decimal" maxlength="6" placeholder="4 or N/A" /></label>
             <label><span>Money Associates</span><input id="proposal-associates" type="number" min="0" max="100" step="1" /></label>
             <label><span>Counting machines</span><input id="proposal-machines" type="number" min="0" max="100" step="1" /></label>
             <label class="proposal-wide"><span>Service details <small>one item per line</small></span><textarea id="proposal-service-details" rows="6" maxlength="1400"></textarea></label>
@@ -572,6 +572,7 @@
           <div class="proposal-form-actions">
             <p class="form-message" id="proposal-editor-message" role="status"></p>
             <div>
+              <button class="secondary-button" id="close-proposal-editor-bottom" type="button">Close</button>
               <button class="secondary-button" id="print-proposal" type="button">Preview / PDF</button>
               <button class="secondary-button" id="save-proposal-draft" type="button">Save draft</button>
               <button class="primary-button" type="submit">Send to client portal</button>

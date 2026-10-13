@@ -8,6 +8,9 @@ const number = (value, max = 1_000_000) => {
   return Number.isFinite(parsed) ? Math.min(max, Math.max(0, parsed)) : 0;
 };
 
+export const normalizeServiceHours = (value) =>
+  typeof value === "string" && /^n\/?a$/i.test(value.trim()) ? "N/A" : number(value, 240);
+
 export const normalizeProposal = (value = {}) => ({
   title: text(value.title, 160) || "Service Proposal",
   clientName: text(value.clientName, 200),
@@ -16,7 +19,7 @@ export const normalizeProposal = (value = {}) => ({
   eventTime: text(value.eventTime, 100),
   eventLocation: text(value.eventLocation, 500),
   guestCount: number(value.guestCount, 100_000),
-  serviceHours: number(value.serviceHours, 240),
+  serviceHours: normalizeServiceHours(value.serviceHours),
   associates: number(value.associates, 100),
   machines: number(value.machines, 100),
   serviceDetails: text(value.serviceDetails, 1400),

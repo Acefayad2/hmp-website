@@ -104,6 +104,14 @@ test("sent proposals retain additional information for the client", async () => 
   assert.equal(parseProposal(messages[0].body).additionalInformation, "Parking is behind the venue.\nPlease use the side entrance.");
 });
 
+test("sent proposals retain NA service hours for the client", async () => {
+  const messages = [];
+  const proposal = serializeProposal({ clientName: "Test Client", serviceFee: 900, serviceHours: "NA" });
+  const response = await handler(fakeDatabase(messages), async () => new Response("{}"))(request({ ...sendBody, message: proposal }));
+  assert.equal(response.status, 200);
+  assert.equal(parseProposal(messages[0].body).serviceHours, "N/A");
+});
+
 test("database read failures cannot look like empty conversations or missing proposals", async () => {
   for (const failedTable of ["hmp_admin_inquiries", "hmp_client_messages"]) {
     const database = fakeDatabase([]);
