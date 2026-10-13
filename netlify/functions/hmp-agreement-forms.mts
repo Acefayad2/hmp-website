@@ -59,9 +59,14 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
           if (!data) return json({error:"Agreement not found."}, 404);
           return json({agreement:publicAgreement(data), link:["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
         }
-        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at").order("created_at", {ascending:false}).limit(500);
+        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,expires_at,snapshot,admin_answers").order("created_at", {ascending:false}).limit(500);
         if (error) return json({error:"Client forms are unavailable. The agreement database migration may still be pending."}, 502);
-        return json({agreements:data || []});
+        return json({agreements:(data || []).map((row: any) => ({
+          id:row.id,template_id:row.template_id,client_name:row.client_name,client_email:row.client_email,
+          status:row.status,created_at:row.created_at,completed_at:row.completed_at,email_delivered_at:row.email_delivered_at,
+          expires_at:row.expires_at,snapshot:{title:row.snapshot?.title || "Client form"},
+          admin_answers:{eventName:row.admin_answers?.eventName || ""},
+        }))});
       }
       if (request.method === "POST") {
         const snapshot = snapshotFor(body.templateId);

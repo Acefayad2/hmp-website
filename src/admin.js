@@ -5,6 +5,7 @@ import { loadInformationForms, openInformationDraft } from "./client-forms.js";
 import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
+import { hubMessages, renderHubTabs } from "../client-hub.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import "./admin-search.js";
@@ -74,6 +75,8 @@ let proposalDrafts = [];
 let activeProposalDraftId = "";
 let savedFormDrafts = [];
 let activeThreadId = "";
+let activeHubSection = "all";
+let availableHubForms = [];
 let activeConversationUrl = "";
 let messageSignature = "";
 let messageSignatureLoaded = false;
@@ -386,7 +389,7 @@ const openInquiry = (id) => {
   $("#copy-conversation-link").hidden = !thread;
   $("#open-conversation").hidden = !thread;
   setMessage($("#conversation-link-message"), thread
-    ? "A secure conversation link is active for this inquiry."
+    ? "A secure client hub link is active for this inquiry."
     : "");
   dialog.showModal();
 };
@@ -453,13 +456,22 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
 ]));
 
 const renderAdminMessages = (thread) => {
-  const signature = getMessageSignature(thread.messages);
+  const allMessages = thread.messages || [];
+  const signature = `${activeHubSection}:${getMessageSignature(allMessages)}`;
   if (thread.id === renderedAdminThreadId && signature === renderedAdminMessageSignature) return;
   renderedAdminThreadId = thread.id;
   renderedAdminMessageSignature = signature;
+  const focusedTab = document.activeElement?.classList?.contains("hub-tab")
+    ? [...$("#admin-hub-tabs").children].indexOf(document.activeElement) : -1;
+  renderHubTabs($("#admin-hub-tabs"), allMessages, activeHubSection, (section) => {
+    activeHubSection = section;
+    renderAdminMessages(thread);
+  });
+  if (focusedTab >= 0) $("#admin-hub-tabs").children[focusedTab]?.focus();
+  const visible = hubMessages(allMessages, activeHubSection);
   const list = $("#admin-message-list");
   list.replaceChildren();
-  (thread.messages || []).forEach((message) => {
+  visible.forEach((message) => {
     const article = document.createElement("article");
     article.className = `admin-message ${message.sender === "admin" ? "admin" : "client"}`;
     const meta = document.createElement("div");
@@ -521,8 +533,9 @@ const renderAdminMessages = (thread) => {
     }
     list.append(article);
   });
-  $("#admin-message-empty").hidden = (thread.messages || []).length > 0;
-  list.hidden = (thread.messages || []).length === 0;
+  $("#admin-message-empty").textContent = activeHubSection === "all" ? "No messages yet. Send a welcome note to begin the conversation." : `No ${activeHubSection} in this event hub yet.`;
+  $("#admin-message-empty").hidden = visible.length > 0;
+  list.hidden = visible.length === 0;
   if (!list.hidden) list.scrollTop = list.scrollHeight;
 };
 
@@ -813,6 +826,56 @@ const sendProposal = async (event) => {
   }
 };
 
+const loadHubForms = async (thread) => {
+  const select = $("#hub-form-select");
+  select.dataset.threadId = thread.id;
+  select.replaceChildren(new Option("Loading client forms…", ""));
+  $("#hub-share-form").disabled = true;
+  setMessage($("#hub-form-status"), "");
+  try {
+    const response = await fetch("/api/hmp-agreement-forms", {credentials:"same-origin",cache:"no-store"});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Client forms could not be loaded.");
+    if (activeThreadId !== thread.id) return;
+    const shared = new Set((thread.messages || []).filter((message) => message.document?.kind === "form").map((message) => message.document.id));
+    availableHubForms = (data.agreements || []).filter((form) =>
+      String(form.client_email || "").trim().toLowerCase() === String(thread.clientEmail || "").trim().toLowerCase()
+      && ["Sent", "Completed"].includes(form.status) && Date.parse(form.expires_at) > Date.now() && !shared.has(form.id));
+    select.replaceChildren(new Option(availableHubForms.length ? "Choose a form for this event" : "No unshared sent forms for this client", ""));
+    for (const form of availableHubForms) {
+      const title = form.snapshot?.title || form.template_id || "Client form";
+      const event = form.admin_answers?.eventName || form.admin_answers?.event_name || "";
+      select.add(new Option(`${title}${event ? ` · ${event}` : ""} · ${form.status}`, form.id));
+    }
+  } catch (error) {
+    if (activeThreadId !== thread.id) return;
+    select.replaceChildren(new Option("Forms unavailable", ""));
+    setMessage($("#hub-form-status"), error.message || "Client forms could not be loaded.");
+  }
+};
+
+const shareHubForm = async () => {
+  const form = availableHubForms.find((item) => item.id === $("#hub-form-select").value);
+  const thread = messageThreads.find((item) => item.id === activeThreadId);
+  if (!form || !thread) return;
+  const title = form.snapshot?.title || form.template_id || "Client form";
+  if (!window.confirm(`Add “${title}” to ${thread.clientName}'s ${thread.service} hub? Check that this form belongs to this event.`)) return;
+  const button = $("#hub-share-form");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"share-form",conversationId:thread.id,formId:form.id})});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Form could not be added.");
+    $("#hub-form-select").dataset.threadId = "";
+    await loadMessages();
+    setMessage($("#hub-form-status"), data.alreadyShared ? "This form is already in the hub." : "Form added to this event hub. Send the client link if needed.", true);
+  } catch (error) {
+    setMessage($("#hub-form-status"), error.message || "Form could not be added.");
+  } finally {
+    button.disabled = !$("#hub-form-select").value;
+  }
+};
+
 const openMessageThread = (threadId) => {
   const thread = messageThreads.find((candidate) => candidate.id === threadId);
   if (!thread) return;
@@ -821,6 +884,7 @@ const openMessageThread = (threadId) => {
     if (attachmentInput.disabled) return;
     if ((pendingFiles(attachmentInput).length || $("#admin-message-input").value.trim())
       && !window.confirm("Discard your unsent reply and attachments before opening another conversation?")) return;
+    activeHubSection = "all";
     clearStagedAttachments(attachmentInput);
     $("#admin-message-input").value = "";
     renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
@@ -836,6 +900,7 @@ const openMessageThread = (threadId) => {
   $("#copy-active-link").disabled = !thread.active;
   setMessage($("#admin-message-status"), "");
   renderAdminMessages(thread);
+  if (threadId !== $("#hub-form-select").dataset.threadId) loadHubForms(thread);
   document.querySelectorAll("[data-thread-id]").forEach((button) => {
     button.classList.toggle("active", button.dataset.threadId === threadId);
   });
@@ -1985,6 +2050,10 @@ $("#thread-list").addEventListener("click", (event) => {
   const row = event.target.closest("[data-thread-id]");
   if (row) openMessageThread(row.dataset.threadId);
 });
+$("#hub-form-select").addEventListener("change", () => {
+  $("#hub-share-form").disabled = !$("#hub-form-select").value;
+});
+$("#hub-share-form").addEventListener("click", shareHubForm);
 $("#message-conversations-tab").addEventListener("click", () => selectMessageTab("conversations"));
 $("#message-signature-tab").addEventListener("click", () => selectMessageTab("signature"));
 $("#message-signature-form").addEventListener("submit", saveMessageSignature);

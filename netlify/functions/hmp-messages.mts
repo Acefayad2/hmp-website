@@ -2,6 +2,8 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
+import { privateLink } from "./_agreement-forms.mts";
+import { stableId } from "./_document-messages.mts";
 import {
   clientConversationUrl,
   conversationToken,
@@ -269,6 +271,42 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (action === "share-form") {
+    const conversationId = cleanText(body.conversationId, 36);
+    const formId = cleanText(body.formId, 36);
+    if (!uuidPattern.test(conversationId) || !uuidPattern.test(formId)) return json({error:"Invalid form or conversation"}, 400);
+    const {data: conversation, error: conversationError} = await client.from("hmp_client_conversations")
+      .select("id,inquiry_id,revoked_at,token_expires_at").eq("id", conversationId).maybeSingle();
+    if (conversationError) return json({error:"Client hub could not be checked"}, 502);
+    if (!conversation || conversation.revoked_at || Date.parse(conversation.token_expires_at) <= Date.now()) return json({error:"Create an active client link before adding a form"}, 409);
+    const [{data: inquiry, error: inquiryError}, {data: form, error: formError}] = await Promise.all([
+      client.from("hmp_admin_inquiries").select("email").eq("submission_id", conversation.inquiry_id).maybeSingle(),
+      client.from("hmp_client_agreements").select("id,client_email,status,expires_at,token_nonce,snapshot").eq("id", formId).maybeSingle(),
+    ]);
+    if (inquiryError || formError) return json({error:"Client form could not be checked"}, 502);
+    if (!inquiry || !form || String(inquiry.email || "").trim().toLowerCase() !== String(form.client_email || "").trim().toLowerCase()) return json({error:"This form does not belong to the selected client's event"}, 403);
+    if (!["Sent", "Completed"].includes(form.status) || !form.expires_at || Date.parse(form.expires_at) <= Date.now()) return json({error:"Only active sent forms can be added"}, 409);
+    const id = stableId(`shared-form/${conversationId}/${formId}`);
+    const now = new Date().toISOString();
+    const {error: insertError} = await client.from("hmp_client_messages").insert({
+      id, conversation_id:conversationId, sender:"admin", sender_name:user.name || "HMP representative",
+      body:"", document:{kind:"form",id:form.id,title:cleanText(form.snapshot?.title,160) || "Client form",status:form.status,url:privateLink(form)},
+    });
+    if (insertError && insertError.code !== "23505") return json({error:"Form could not be added to the client hub"}, 502);
+    let restored = false;
+    if (insertError) {
+      const {data:existing, error:readError} = await client.from("hmp_client_messages").select("deleted_at").eq("id",id).eq("conversation_id",conversationId).maybeSingle();
+      if (readError || !existing) return json({error:"Form share could not be checked"}, 502);
+      if (existing.deleted_at) {
+        const {error:restoreError} = await client.from("hmp_client_messages").update({deleted_at:null,document:{kind:"form",id:form.id,title:cleanText(form.snapshot?.title,160) || "Client form",status:form.status,url:privateLink(form)}}).eq("id",id).eq("conversation_id",conversationId);
+        if (restoreError) return json({error:"Form could not be restored to the client hub"}, 502);
+        restored = true;
+      }
+    }
+    if (!insertError || restored) await client.from("hmp_client_conversations").update({last_message_at:now,last_sender:"admin",updated_at:now}).eq("id", conversationId);
+    return json({ok:true,alreadyShared:Boolean(insertError && !restored)});
+  }
 
   if (action === "edit-message" || action === "delete-message") {
     const conversationId = cleanText(body.conversationId, 36);

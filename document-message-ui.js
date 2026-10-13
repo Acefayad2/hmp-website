@@ -9,7 +9,18 @@ const fieldLabels = {
 };
 
 export function renderDocumentCard(copy) {
-  if (!copy || !["invoice","contract"].includes(copy.kind)) return null;
+  if (!copy || !["invoice","contract","form"].includes(copy.kind)) return null;
+  if (copy.kind === "form") {
+    const card=document.createElement("section");card.className="sent-document";
+    const heading=document.createElement("h3");heading.textContent=String(copy.title || "Client form");
+    const status=document.createElement("p");status.textContent=`Status when shared: ${copy.status || "Sent"}`;
+    card.append(heading,status);
+    if (typeof copy.url === "string" && /^https:\/\/hmpeds\.com\/agreement#token=[A-Za-z0-9_-]+$/.test(copy.url)) {
+      const link=document.createElement("a");link.href=copy.url;link.textContent="Open form";
+      link.target="_blank";link.rel="noopener noreferrer";card.append(link);
+    }
+    return card;
+  }
   const kind=copy.kind === "invoice" ? "Invoice" : "Contract";
   const card=document.createElement("section");card.className="sent-document";
   const heading=document.createElement("h3");heading.textContent=`${kind} ${copy.number || ""}`;

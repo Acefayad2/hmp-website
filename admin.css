@@ -227,6 +227,15 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-conversation-placeholder h3 { margin: 13px 0 5px; font: 600 30px var(--serif); }
 .admin-conversation-placeholder p { margin: 0; color: var(--muted); }
 .admin-conversation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 28px; border-bottom: 1px solid var(--line); }
+.admin-hub-tabs { display:flex; gap:8px; overflow-x:auto; padding:14px 28px; border-bottom:1px solid var(--line); }
+.admin-hub-tabs .hub-tab { flex:none; padding:9px 13px; border:1px solid var(--line); border-radius:999px; color:var(--plum); background:var(--ivory); font:700 12px/1.2 var(--serif); cursor:pointer; }
+.admin-hub-tabs .hub-tab[aria-pressed="true"] { border-color:var(--plum); color:#fff; background:var(--plum); }
+.admin-hub-tabs .hub-tab:focus-visible { outline:3px solid var(--gold); outline-offset:2px; }
+.hub-form-share { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:13px 28px; border-bottom:1px solid var(--line); }
+.hub-form-share label { width:100%; color:var(--muted); font-size:12px; font-weight:700; }
+.hub-form-share select { min-width:180px; max-width:100%; flex:1; padding:10px; border:1px solid var(--line); border-radius:8px; background:#fff; }
+.hub-form-share .secondary-button { min-height:40px; }
+.hub-form-share .form-message { width:100%; margin:0; }
 .admin-conversation-heading .kicker { margin: 0 0 7px; color: var(--gold); }
 .admin-conversation-heading h3 { margin: 0; font: 600 31px/1 var(--serif); }
 .admin-conversation-heading p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
