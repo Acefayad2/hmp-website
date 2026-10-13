@@ -477,10 +477,9 @@
         <div class="management-grid">
           <label>
             <span>Status</span>
-            <select id="manage-status" name="status">
+            <select id="manage-status" name="status" required>
+              <option id="manage-legacy-status" value="" disabled hidden></option>
               <option>New</option>
-              <option>Contacted</option>
-              <option>Quoted</option>
               <option>Booked</option>
               <option>Closed</option>
             </select>

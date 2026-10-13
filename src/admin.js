@@ -390,7 +390,11 @@ const openInquiry = (id) => {
   const note = $("#detail-note");
   note.hidden = !item.additionalInformation;
   note.querySelector("p").textContent = item.additionalInformation || "";
-  $("#manage-status").value = item.status || "New";
+  const legacyStatus = $("#manage-legacy-status");
+  const status = item.status || "New";
+  legacyStatus.hidden = ["New", "Booked", "Closed"].includes(status);
+  legacyStatus.textContent = legacyStatus.hidden ? "" : `Previous status: ${status} — choose a new status`;
+  $("#manage-status").value = legacyStatus.hidden ? status : "";
   $("#manage-priority").value = item.priority || "Normal";
   $("#manage-follow-up").value = item.followUpDate || "";
   $("#manage-owner").value = item.owner || "";
@@ -437,7 +441,19 @@ const saveInquiry = async (event) => {
     renderServiceMix();
     renderInquiries();
     renderDetailGrid(data.inquiry);
-    setMessage($("#management-message"), "Changes saved securely.", true);
+    if (data.inquiry.status === "Booked") {
+      let hubLoadFailed = false;
+      try { await loadMessages(); } catch { hubLoadFailed = true; }
+      const thread = messageThreads.find((item) => item.inquiryId === data.inquiry.id);
+      activeConversationUrl = thread?.clientUrl || "";
+      $("#create-conversation-link").textContent = thread ? "Renew private link" : "Create private link";
+      $("#copy-conversation-link").hidden = !thread;
+      $("#open-conversation").hidden = !thread;
+      setMessage($("#conversation-link-message"), thread && !hubLoadFailed
+        ? "Client hub is ready in Messages. Share the private link when ready; add Guest Seating there if included."
+        : "Booking saved, but the client hub could not be loaded. Refresh Messages to check it.");
+    }
+    setMessage($("#management-message"), data.hubWarning || "Changes saved securely.", !data.hubWarning);
   } catch (error) {
     setMessage($("#management-message"), error.message || "Changes could not be saved.");
   } finally {
