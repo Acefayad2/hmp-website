@@ -6,7 +6,7 @@ import { createContractHandler } from "../netlify/functions/hmp-contracts.mts";
 globalThis.Netlify = {env:{get:(name) => ({HMP_ADMIN_EMAILS:"admin@example.test",SUPABASE_URL:"https://example.supabase.co",SUPABASE_SERVICE_ROLE_KEY:"test-secret"})[name] || ""}};
 const originalId = "11111111-1111-4111-8111-111111111111";
 const request = (path, method, body) => new Request(`https://hmpeds.com/api/${path}`, {
-  method, headers:{"Content-Type":"application/json"}, body:JSON.stringify(body),
+  method, headers:{"Content-Type":"application/json", Origin:"https://hmpeds.com"}, body:JSON.stringify(body),
 });
 
 function database(rows) {
@@ -80,4 +80,18 @@ test("signed contract revision clears signatures without altering the signed ori
   assert.equal(original.client_signature_name,"Test Client");
   const overwrite=await handler(request("hmp-contracts","PATCH",{...revision,id:originalId}));
   assert.equal(overwrite.status,409);
+});
+
+test("revision actions reject cross-origin requests", async () => {
+  const invoiceRows={hmp_admin_invoices:[invoice()]};
+  const contractRows={hmp_admin_contracts:[contract()]};
+  const auth={getUserFn:async()=>({email:"admin@example.test"})};
+  const invoiceHandler=createInvoiceHandler({...auth,databaseFactory:()=>database(invoiceRows)});
+  const contractHandler=createContractHandler({...auth,databaseFactory:()=>database(contractRows)});
+  for (const [handler,path] of [[invoiceHandler,"hmp-invoices"],[contractHandler,"hmp-contracts"]]) {
+    const bad=new Request(`https://hmpeds.com/api/${path}`, {method:"POST",headers:{Origin:"https://elsewhere.test","Content-Type":"application/json"},body:JSON.stringify({action:"revise",id:originalId})});
+    assert.equal((await handler(bad)).status,403);
+  }
+  assert.equal(invoiceRows.hmp_admin_invoices.length,1);
+  assert.equal(contractRows.hmp_admin_contracts.length,1);
 });

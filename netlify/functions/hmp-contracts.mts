@@ -2,6 +2,7 @@ import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { documentGroupId, nextRevision } from "./_document-revisions.mts";
+import { isSameOriginMutation } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -139,6 +140,7 @@ export const createContractHandler = ({ getUserFn = getUser, databaseFactory = g
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "Invalid request" }, 400); }
   if (request.method === "PATCH" && body.action === "mark-signed") {
+    if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
     const id = text(body.id, 36);
     const name = text(body.clientSignatureName, 200);
     const signedAt = text(body.clientSignedAt, 10);
@@ -151,6 +153,7 @@ export const createContractHandler = ({ getUserFn = getUser, databaseFactory = g
     return json({ ok: true, contract: normalizeContract(data) });
   }
   if (request.method === "POST" && body.action === "revise") {
+    if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
     const sourceId = text(body.id, 36);
     if (!uuidPattern.test(sourceId)) return json({ error: "Invalid contract" }, 400);
     const { data: source, error: sourceError } = await client.from("hmp_admin_contracts")

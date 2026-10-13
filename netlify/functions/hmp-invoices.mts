@@ -2,6 +2,7 @@ import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { documentGroupId, nextRevision } from "./_document-revisions.mts";
+import { isSameOriginMutation } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -192,6 +193,7 @@ export const createInvoiceHandler = ({ getUserFn = getUser, databaseFactory = ge
       if (!uuidPattern.test(id) || !["archive", "delete", "restore", "mark-paid"].includes(action)) {
         return json({ error: "Invalid invoice action" }, 400);
       }
+      if (action === "mark-paid" && !isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
       if (action === "mark-paid") {
         const { data, error } = await client.from("hmp_admin_invoices")
           .update({ status: "Paid", updated_at: new Date().toISOString() })
@@ -216,6 +218,7 @@ export const createInvoiceHandler = ({ getUserFn = getUser, databaseFactory = ge
     }
 
     if (request.method === "POST" && body.action === "revise") {
+      if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
       const sourceId = text(body.id, 36);
       if (!uuidPattern.test(sourceId)) return json({ error: "Invalid invoice" }, 400);
       const { data: source, error: sourceError } = await client.from("hmp_admin_invoices")
