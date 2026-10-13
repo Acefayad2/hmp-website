@@ -48,6 +48,7 @@ const escapeHtml = (value: unknown) =>
     .replaceAll("'", "&#039;");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const proposalPrefix = "HMP_PROPOSAL_V1:";
+const seatingLinkPattern = /^https:\/\/seating\.hmpeds\.com\/client\/([a-z0-9-]+)\/([a-f0-9]{48})$/i;
 
 const normalizeAdminMessage = (value: unknown) => {
   const message = cleanText(value, 4000);
@@ -271,6 +272,86 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (action === "seating-activity") {
+    const conversationId = cleanText(body.conversationId, 36);
+    if (!uuidPattern.test(conversationId)) return json({ error: "Invalid client hub" }, 400);
+    const id = stableId(`shared-seating/${conversationId}`);
+    const { data: shared, error: readError } = await client.from("hmp_client_messages")
+      .select("document,deleted_at").eq("id", id).eq("conversation_id", conversationId).maybeSingle();
+    if (readError) return json({ error: "Guest Seating link could not be checked" }, 502);
+    const match = !shared?.deleted_at && seatingLinkPattern.exec(String(shared?.document?.url || ""));
+    if (shared?.document?.kind !== "seating" || !match) return json({ activity: [] });
+    try {
+      const response = await fetchFn(`https://seating.hmpeds.com/api/seating/client/${match[1]}/${match[2]}/activity`, {
+        redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) return json({ error: "Guest Seating activity is unavailable. Check that its private link is still active." }, 502);
+      const data = await response.json();
+      const allowedKinds = new Set(["portal_opened", "guest_added", "guest_updated", "guest_list_uploaded"]);
+      const activity = (Array.isArray(data.activity) ? data.activity : [])
+        .filter((item: any) => allowedKinds.has(item?.kind) && !Number.isNaN(Date.parse(item?.at || "")))
+        .map((item: any) => ({
+          id: cleanText(item.id, 100), kind: item.kind, detail: cleanText(item.detail, 300), at: item.at,
+        }));
+      return json({ activity });
+    } catch {
+      return json({ error: "Guest Seating activity is unavailable. Please try again later." }, 502);
+    }
+  }
+
+  if (action === "share-seating") {
+    const conversationId = cleanText(body.conversationId, 36);
+    const url = cleanText(body.url, 300);
+    const match = seatingLinkPattern.exec(url);
+    if (!uuidPattern.test(conversationId) || !match) return json({ error: "Enter a valid private Guest Seating client link" }, 400);
+    const { data: conversation, error: conversationError } = await client.from("hmp_client_conversations")
+      .select("id,inquiry_id,revoked_at,token_expires_at").eq("id", conversationId).maybeSingle();
+    if (conversationError) return json({ error: "Client hub could not be checked" }, 502);
+    if (!conversation || conversation.revoked_at || Date.parse(conversation.token_expires_at) <= Date.now())
+      return json({ error: "Create an active client link before adding Guest Seating" }, 409);
+    const { data: inquiry, error: inquiryError } = await client.from("hmp_admin_inquiries")
+      .select("celebration_date").eq("submission_id", conversation.inquiry_id).maybeSingle();
+    if (inquiryError || !inquiry) return json({ error: "The inquiry could not be checked" }, 502);
+    let seatingEvent: { name?: string; date?: string };
+    try {
+      const response = await fetchFn(`https://seating.hmpeds.com/api/seating/client/${match[1]}/${match[2]}`, {
+        redirect: "error", cache: "no-store", signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) return json({ error: "Guest Seating could not verify that private link" }, 400);
+      const data = await response.json();
+      seatingEvent = data.event || {};
+    } catch {
+      return json({ error: "Guest Seating could not verify that private link. Try again later." }, 502);
+    }
+    const inquiryDate = String(inquiry.celebration_date || "").slice(0, 10);
+    const seatingDate = String(seatingEvent.date || "").slice(0, 10);
+    if (inquiryDate && seatingDate && inquiryDate !== seatingDate)
+      return json({ error: "The Guest Seating event date does not match this inquiry. Check the selected client and event." }, 409);
+    const id = stableId(`shared-seating/${conversationId}`);
+    const document = { kind: "seating", title: cleanText(seatingEvent.name, 160) || "Guest Seating Experience", url };
+    const { error: insertError } = await client.from("hmp_client_messages").insert({
+      id, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: "", document,
+    });
+    if (insertError && insertError.code !== "23505") return json({ error: "Guest Seating could not be added to this hub" }, 502);
+    if (insertError) {
+      const { data: existing, error: readError } = await client.from("hmp_client_messages")
+        .select("document,deleted_at").eq("id", id).eq("conversation_id", conversationId).maybeSingle();
+      if (readError || !existing) return json({ error: "Guest Seating share could not be checked" }, 502);
+      if (!existing.deleted_at) {
+        if (existing.document?.url !== url)
+          return json({ error: "Remove the old Guest Seating link from this hub before adding a different one" }, 409);
+        return json({ ok: true, alreadyShared: true, eventName: document.title });
+      }
+      const { error: restoreError } = await client.from("hmp_client_messages")
+        .update({ deleted_at: null, document }).eq("id", id).eq("conversation_id", conversationId);
+      if (restoreError) return json({ error: "Guest Seating could not be restored to this hub" }, 502);
+    }
+    const now = new Date().toISOString();
+    await client.from("hmp_client_conversations")
+      .update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
+    return json({ ok: true, alreadyShared: false, eventName: document.title });
+  }
 
   if (action === "share-form") {
     const conversationId = cleanText(body.conversationId, 36);

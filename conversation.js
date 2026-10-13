@@ -9,9 +9,9 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-2";
-import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20261012-calendar";
-import { renderDocumentCard } from "./document-message-ui.js?v=20261013-client-hub";
-import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261013-client-hub";
+import { parseProposal, renderProposalPreview } from "./proposal-ui.js?v=20261013-client-activity";
+import { renderDocumentCard } from "./document-message-ui.js?v=20261013-client-activity";
+import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261013-client-activity";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
 
@@ -24,7 +24,7 @@ let authBusy = false;
 let loadVersion = 0;
 let pinMode = "login";
 let renderedMessageSignature = "";
-let activeHubSection = "all";
+let activeHubSection = "messages";
 
 const getMessageSignature = (messages = []) => JSON.stringify(messages.map((message) => [
   message.id,
@@ -128,7 +128,7 @@ const renderMessages = (messages) => {
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
-      article.append(renderProposalCard(proposal));
+      article.append(renderProposalPreview(proposal));
     }
     else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);

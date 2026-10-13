@@ -2,6 +2,7 @@ import { installPageSearch } from "../page-search.js";
 
 const sections = [
   ["messages", "Search messages", "Client, email, message text, filename…", ".thread-row", ["thread-list"]],
+  ["activity", "Search client activity", "Client, email, event, service…", ".activity-client", ["activity-clients"]],
   ["drafts", "Search drafts", "Client, document, event, category…", ".draft-row", ["drafts-groups"]],
   ["proposals", "Search proposals", "Client, email, proposal, service, amount…", ".proposal-record", ["proposal-workspace-list"]],
   ["forms", "Search forms", "Form name, client, email, status…", ".client-form-card, #receipt-template, #information-list .agreement-row", ["client-google-forms", "information-list"]],

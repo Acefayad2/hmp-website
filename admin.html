@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261013-client-hub" />
+    <link rel="stylesheet" href="admin.css?v=20261013-client-activity" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
@@ -73,6 +73,7 @@
             <a class="rail-link" href="/dashboard">Dashboard hub</a>
             <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
             <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Messages</a>
+            <a class="rail-link" href="/admin?view=activity" data-workspace-view="activity">Client activity</a>
             <a class="rail-link" href="/admin?view=drafts" data-workspace-view="drafts">Drafts</a>
             <a class="rail-link" href="/admin?view=proposals" data-workspace-view="proposals">Proposals</a>
             <a class="rail-link" href="/admin?view=forms" data-workspace-view="forms">Forms</a>
@@ -112,6 +113,24 @@
             <button type="button" class="metric" data-inquiry-filter="largest" aria-pressed="false" aria-controls="inquiry-list">
               <span>Largest event</span><strong id="metric-guests">—</strong><small>Guests in one inquiry</small>
             </button>
+          </section>
+
+          <section class="messages-workspace" id="activity-workspace" hidden>
+            <div class="workspace-section-header">
+              <div><p class="kicker">Client care</p><h2>Client activity</h2><p>See each event’s shared documents, completed forms, client messages, and linked Guest Seating activity in one timeline.</p></div>
+            </div>
+            <p class="form-message" id="activity-status" role="status"></p>
+            <div class="activity-layout">
+              <div class="activity-clients" id="activity-clients" aria-label="Clients and events"></div>
+              <div class="activity-detail">
+                <h3 id="activity-client-title">Select a client</h3>
+                <p id="activity-client-event"></p>
+                <button class="secondary-button" id="activity-open-hub" type="button" hidden>Open client hub</button>
+                <p class="form-message" id="activity-seating-status" role="status"></p>
+                <ol id="activity-timeline"></ol>
+                <p id="activity-empty">Choose a client to see their event activity.</p>
+              </div>
+            </div>
           </section>
 
           <section class="dashboard-grid">
@@ -197,6 +216,12 @@
                     <button class="secondary-button" id="hub-share-form" type="button" disabled>Add form</button>
                     <p class="form-message" id="hub-form-status" role="status"></p>
                   </div>
+                  <form class="hub-form-share" id="hub-seating-share">
+                    <label for="hub-seating-url">Add this event’s private Guest Seating portal</label>
+                    <input id="hub-seating-url" type="url" inputmode="url" maxlength="300" placeholder="https://seating.hmpeds.com/client/…" required />
+                    <button class="secondary-button" type="submit">Add Guest Seating</button>
+                    <p class="form-message" id="hub-seating-status" role="status"></p>
+                  </form>
                   <div class="admin-message-list" id="admin-message-list"></div>
                   <div class="admin-message-empty" id="admin-message-empty" hidden>No messages yet. Send a welcome note to begin the conversation.</div>
                   <form class="admin-message-composer" id="admin-message-form">
@@ -785,6 +810,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261012-drafts"></script>
+    <script type="module" src="assets/admin.js?v=20261013-client-activity"></script>
   </body>
 </html>

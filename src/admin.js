@@ -6,6 +6,7 @@ import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { hubMessages, renderHubTabs } from "../client-hub.js";
+import { clientActivityItems } from "../client-activity.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
 import "./admin-search.js";
@@ -41,6 +42,7 @@ import {
   parseProposal,
   printProposal,
   renderProposalCard,
+  renderProposalPreview,
   serializeProposal,
 } from "../proposal-ui.js";
 
@@ -75,7 +77,11 @@ let proposalDrafts = [];
 let activeProposalDraftId = "";
 let savedFormDrafts = [];
 let activeThreadId = "";
-let activeHubSection = "all";
+let activeHubSection = "messages";
+let activeActivityThreadId = "";
+let activityFormsById = new Map();
+let activitySeatingByThreadId = new Map();
+let activitySeatingRequest = 0;
 let availableHubForms = [];
 let activeConversationUrl = "";
 let messageSignature = "";
@@ -104,6 +110,9 @@ const workspaceViews = {
   },
   messages: {
     title: "Client messages",
+  },
+  activity: {
+    title: "Client activity",
   },
   drafts: {
     title: "Drafts",
@@ -157,6 +166,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const config = workspaceViews[view];
   const isInquiries = view === "inquiries";
   const isMessages = view === "messages";
+  const isActivity = view === "activity";
   const isDrafts = view === "drafts";
   const isProposals = view === "proposals";
   const isInvoices = view === "invoices";
@@ -170,6 +180,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $(".metrics").hidden = !isInquiries;
   $(".dashboard-grid").hidden = !isInquiries;
   $("#messages-workspace").hidden = !isMessages;
+  $("#activity-workspace").hidden = !isActivity;
   $("#drafts-workspace").hidden = !isDrafts;
   $("#proposals-workspace").hidden = !isProposals;
   $("#document-tabs").hidden = !isDocuments;
@@ -182,8 +193,8 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $("#contract-workspace").hidden = !isContracts;
   $("#forms-workspace").hidden = !isForms;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews;
-  if (!isInquiries && !isMessages && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
+  $("#workspace-empty").hidden = isInquiries || isMessages || isActivity || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews;
+  if (!isInquiries && !isMessages && !isActivity && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
@@ -191,6 +202,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   if (isContracts) loadAgreementForms();
   if (isForms) loadInformationForms();
   if (isMessages) loadMessageSignature().catch((error) => setMessage($("#message-signature-status"), error.message));
+  if (isActivity) loadClientActivity().catch((error) => setMessage($("#activity-status"), error.message));
   if (isDrafts) loadDrafts().catch((error) => setMessage($("#drafts-status"), error.message));
   if (isProposals) {
     setMessage($("#proposal-workspace-status"), "Loading proposals…");
@@ -496,7 +508,7 @@ const renderAdminMessages = (thread) => {
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
-      article.append(renderProposalCard(proposal));
+      article.append(renderProposalPreview(proposal));
     } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
     if (message.sender === "admin") {
@@ -876,6 +888,37 @@ const shareHubForm = async () => {
   }
 };
 
+const shareHubSeating = async (event) => {
+  event.preventDefault();
+  const thread = messageThreads.find((item) => item.id === activeThreadId);
+  const form = event.currentTarget;
+  const url = $("#hub-seating-url").value.trim();
+  if (!thread || !form.reportValidity()) return;
+  if (!window.confirm(`Add this private Guest Seating link to ${thread.clientName}'s ${thread.service} hub? Check that the event and client match.`)) return;
+  const button = form.querySelector("button[type=submit]");
+  button.disabled = true;
+  setMessage($("#hub-seating-status"), "Checking the event…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "share-seating", conversationId: thread.id, url }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Guest Seating could not be added.");
+    if (activeThreadId === thread.id) {
+      $("#hub-seating-url").value = "";
+      activeHubSection = "seating";
+    }
+    await loadMessages();
+    if (activeThreadId === thread.id)
+      setMessage($("#hub-seating-status"), data.alreadyShared ? "This Guest Seating link is already in the hub." : `${data.eventName} added to this client hub.`, true);
+  } catch (error) {
+    if (activeThreadId === thread.id) setMessage($("#hub-seating-status"), error.message || "Guest Seating could not be added.");
+  } finally {
+    button.disabled = false;
+  }
+};
+
 const openMessageThread = (threadId) => {
   const thread = messageThreads.find((candidate) => candidate.id === threadId);
   if (!thread) return;
@@ -884,7 +927,7 @@ const openMessageThread = (threadId) => {
     if (attachmentInput.disabled) return;
     if ((pendingFiles(attachmentInput).length || $("#admin-message-input").value.trim())
       && !window.confirm("Discard your unsent reply and attachments before opening another conversation?")) return;
-    activeHubSection = "all";
+    activeHubSection = "messages";
     clearStagedAttachments(attachmentInput);
     $("#admin-message-input").value = "";
     renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
@@ -899,6 +942,8 @@ const openMessageThread = (threadId) => {
   $("#copy-active-link").textContent = thread.active ? "Copy client link" : "Link expired";
   $("#copy-active-link").disabled = !thread.active;
   setMessage($("#admin-message-status"), "");
+  $("#hub-seating-url").value = "";
+  setMessage($("#hub-seating-status"), "");
   renderAdminMessages(thread);
   if (threadId !== $("#hub-form-select").dataset.threadId) loadHubForms(thread);
   document.querySelectorAll("[data-thread-id]").forEach((button) => {
@@ -937,12 +982,99 @@ const renderMessageThreads = () => {
   });
 };
 
+const renderClientActivity = () => {
+  const clients = $("#activity-clients");
+  clients.replaceChildren();
+  if (!messageThreads.some((thread) => thread.id === activeActivityThreadId)) {
+    activeActivityThreadId = messageThreads[0]?.id || "";
+  }
+  for (const thread of messageThreads) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "activity-client";
+    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.service, thread.celebrationDate);
+    button.setAttribute("aria-pressed", String(thread.id === activeActivityThreadId));
+    const name = document.createElement("strong");
+    name.textContent = thread.clientName;
+    const service = document.createElement("small");
+    service.textContent = eventServiceLabel(thread.service);
+    button.append(name, service);
+    button.addEventListener("click", () => {
+      activeActivityThreadId = thread.id;
+      renderClientActivity();
+      void loadSeatingActivityForThread(thread);
+    });
+    clients.append(button);
+  }
+  const thread = messageThreads.find((item) => item.id === activeActivityThreadId);
+  $("#activity-client-title").textContent = thread?.clientName || "No client hubs yet";
+  $("#activity-client-event").textContent = thread
+    ? `${eventServiceLabel(thread.service)} · ${formatDate(thread.celebrationDate)}` : "";
+  $("#activity-open-hub").hidden = !thread;
+  const timeline = $("#activity-timeline");
+  timeline.replaceChildren();
+  const items = clientActivityItems(thread, activityFormsById, activitySeatingByThreadId.get(thread?.id) || []);
+  for (const item of items) {
+    const row = document.createElement("li");
+    const date = document.createElement("time");
+    date.dateTime = item.at || "";
+    date.textContent = formatDate(item.at, true);
+    const title = document.createElement("strong");
+    title.textContent = item.title;
+    const detail = document.createElement("span");
+    detail.textContent = item.detail;
+    row.append(date, title, detail);
+    timeline.append(row);
+  }
+  $("#activity-empty").hidden = items.length > 0;
+  $("#activity-empty").textContent = thread
+    ? "No shared documents or client activity for this event yet." : "Create a client hub from an inquiry to see its activity here.";
+};
+
+const loadSeatingActivityForThread = async (thread) => {
+  const requestId = ++activitySeatingRequest;
+  if (!thread) return;
+  const hasSeating = thread?.messages?.some((message) => message.sender === "admin" && message.document?.kind === "seating");
+  if (!hasSeating) {
+    if (activitySeatingByThreadId.delete(thread.id)) renderClientActivity();
+    setMessage($("#activity-seating-status"), "");
+    return;
+  }
+  setMessage($("#activity-seating-status"), "Loading Guest Seating activity…");
+  try {
+    const response = await fetch("/api/hmp-messages", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "seating-activity", conversationId: thread.id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Guest Seating activity is unavailable.");
+    const titles = {
+      portal_opened: "Guest Seating portal opened", guest_added: "Guest added",
+      guest_updated: "Guest updated", guest_list_uploaded: "Guest list uploaded",
+    };
+    activitySeatingByThreadId.set(thread.id, (data.activity || []).map((item) => ({
+      id: item.id, at: item.at, title: titles[item.kind] || "Guest Seating activity", detail: item.detail,
+    })));
+    if (requestId === activitySeatingRequest && activeActivityThreadId === thread.id) {
+      setMessage($("#activity-seating-status"), "");
+      renderClientActivity();
+    }
+  } catch (error) {
+    activitySeatingByThreadId.delete(thread.id);
+    if (requestId === activitySeatingRequest && activeActivityThreadId === thread.id) {
+      setMessage($("#activity-seating-status"), error.message || "Guest Seating activity is unavailable.");
+      renderClientActivity();
+    }
+  }
+};
+
 const loadMessages = async () => {
   const response = await fetch("/api/hmp-messages", { credentials: "same-origin", cache: "no-store" });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Messages are unavailable.");
   messageThreads = data.threads || [];
   renderMessageThreads();
+  if (activeWorkspaceView === "activity") renderClientActivity();
   renderProposalsWorkspace(messageThreads, (threadId) => {
     openMessageThread(threadId);
     if (activeThreadId === threadId) setWorkspaceView("messages", true);
@@ -951,6 +1083,30 @@ const loadMessages = async () => {
     openMessageThread(activeThreadId);
   }
 };
+
+const loadClientActivity = async () => {
+  setMessage($("#activity-status"), "Loading client activity…");
+  await loadMessages();
+  try {
+    const response = await fetch("/api/hmp-agreement-forms", { credentials: "same-origin", cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Form statuses are unavailable.");
+    activityFormsById = new Map((data.agreements || []).map((form) => [form.id, form]));
+    setMessage($("#activity-status"), "");
+  } catch {
+    activityFormsById = new Map();
+    setMessage($("#activity-status"), "Shared documents are shown, but completed-form statuses could not be refreshed.");
+  }
+  renderClientActivity();
+  const selected = messageThreads.find((thread) => thread.id === activeActivityThreadId);
+  if (selected) await loadSeatingActivityForThread(selected);
+};
+
+$("#activity-open-hub").addEventListener("click", () => {
+  if (!activeActivityThreadId) return;
+  openMessageThread(activeActivityThreadId);
+  if (activeThreadId === activeActivityThreadId) setWorkspaceView("messages", true);
+});
 
 const loadMessageSignature = () => {
   if (messageSignatureLoaded) return Promise.resolve();
@@ -2054,6 +2210,7 @@ $("#hub-form-select").addEventListener("change", () => {
   $("#hub-share-form").disabled = !$("#hub-form-select").value;
 });
 $("#hub-share-form").addEventListener("click", shareHubForm);
+$("#hub-seating-share").addEventListener("submit", shareHubSeating);
 $("#message-conversations-tab").addEventListener("click", () => selectMessageTab("conversations"));
 $("#message-signature-tab").addEventListener("click", () => selectMessageTab("signature"));
 $("#message-signature-form").addEventListener("submit", saveMessageSignature);

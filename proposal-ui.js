@@ -194,3 +194,33 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
   }
   return article;
 };
+
+export const renderProposalPreview = (proposal) => {
+  const value = normalizeProposal(proposal);
+  const preview = document.createElement("section");
+  preview.className = "proposal-preview";
+  const copy = document.createElement("div");
+  const label = document.createElement("span");
+  label.textContent = "Service proposal";
+  const title = document.createElement("h3");
+  title.textContent = value.title;
+  copy.append(label, title);
+  const open = document.createElement("button");
+  open.type = "button";
+  open.textContent = "View proposal";
+  const dialog = document.createElement("dialog");
+  dialog.className = "proposal-preview-dialog";
+  dialog.setAttribute("aria-label", value.title);
+  const close = document.createElement("button");
+  close.type = "button";
+  close.className = "proposal-preview-close";
+  close.textContent = "Close proposal";
+  close.addEventListener("click", () => dialog.close());
+  dialog.append(close, renderProposalCard(value));
+  dialog.addEventListener("click", (event) => {
+    if (event.target === dialog) dialog.close();
+  });
+  open.addEventListener("click", () => dialog.showModal());
+  preview.append(copy, open, dialog);
+  return preview;
+};
