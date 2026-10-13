@@ -10,6 +10,9 @@ export const clientActivityItems = (thread, formsById = new Map(), seatingItems 
         : kind === "seating" ? "Guest Seating portal"
         : `${kind === "invoice" ? "Invoice" : "Contract"} ${document.number || ""}`.trim();
       items.push({ id: message.id, at: message.createdAt, title, detail: "Shared with client", kind });
+      if (kind === "contract" && document.client_signed_at && !Number.isNaN(Date.parse(document.client_signed_at))) {
+        items.push({ id: `${message.id}-signed`, at: document.client_signed_at, title, detail: "Signed by client", kind });
+      }
       if (kind === "form") {
         const form = formsById.get(document.id);
         if (form?.status === "Completed" && form.completed_at) {

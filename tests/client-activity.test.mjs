@@ -8,13 +8,14 @@ test("activity stays within one inquiry and includes shared and completed docume
     { id: "proposal", sender: "admin", body: 'HMP_PROPOSAL_V1:{"title":"Guest Seating Experience"}', createdAt: "2026-10-01T10:00:00Z" },
     { id: "form", sender: "admin", document: { kind: "form", id: "form-1", title: "Event details" }, createdAt: "2026-10-02T10:00:00Z" },
     { id: "invoice", sender: "admin", document: { kind: "invoice", number: "HMP-42" }, createdAt: "2026-10-03T10:00:00Z" },
+    { id: "contract", sender: "admin", document: { kind: "contract", number: "HMP-C1", client_signed_at: "2026-10-05T12:00:00Z" }, createdAt: "2026-10-03T11:00:00Z" },
     { id: "client", sender: "client", body: "Thanks", createdAt: "2026-10-04T10:00:00Z" },
     { id: "seating", sender: "admin", document: { kind: "seating" }, createdAt: "2026-10-06T10:00:00Z" },
   ] };
   const forms = new Map([["form-1", { status: "Completed", completed_at: "2026-10-05T10:00:00Z" }]]);
   const items = clientActivityItems(thread, forms, [{id:"seat-change",at:"2026-10-07T10:00:00Z",title:"Guest added",detail:"Jane Doe · Table 2"}]);
   assert.deepEqual(items.map((item) => item.detail), [
-    "Jane Doe · Table 2", "Shared with client", "Completed by client", "Sent to HMP", "Shared with client", "Shared with client", "Proposal shared with client",
+    "Jane Doe · Table 2", "Shared with client", "Signed by client", "Completed by client", "Sent to HMP", "Shared with client", "Shared with client", "Shared with client", "Proposal shared with client",
   ]);
   assert.equal(items.some((item) => item.title === "Invoice HMP-42"), true);
   assert.deepEqual(clientActivityItems({ messages: [] }, forms), []);
