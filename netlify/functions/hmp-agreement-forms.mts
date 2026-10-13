@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
-import { agreementToken, cleanContact, completionPayload, hash, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
+import { agreementToken, cleanContact, completionPayload, hash, informationSigningConsent, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
@@ -34,7 +34,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       let body: any = {};
       if (request.method !== "GET") {
         const raw = await request.text();
-        if (raw.length > 100000) return json({error:"Form is too large."}, 413);
+        if (raw.length > (clientRoute ? 200000 : 100000)) return json({error:"Form is too large."}, 413);
         try { body = JSON.parse(raw); } catch { return json({error:"Invalid request"}, 400); }
         if (!body || Array.isArray(body) || typeof body !== "object") return json({error:"Invalid request"}, 400);
       }
@@ -69,7 +69,9 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         }))});
       }
       if (request.method === "POST") {
-        const snapshot = snapshotFor(body.templateId);
+        const template = snapshotFor(body.templateId);
+        const snapshot = template.kind === "information" ? {...template, signatureRequired:body.requireSignature === true,
+          signingConsent:informationSigningConsent} : template;
         const contact = cleanContact(body);
         const id = crypto.randomUUID(), seed = nonce();
         const {data, error} = await db.from(table).insert({id, ...contact, template_id:snapshot.id, snapshot,
@@ -90,7 +92,9 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       }
       if (body.action === "save") {
         if (row.status !== "Draft") return json({error:"Sent agreements cannot be edited. Void this form and create a new one."}, 409);
-        const {data, error} = await db.from(table).update({...cleanContact(body), admin_answers:validateAnswers(row.snapshot.adminFields, body.answers, false), updated_at:new Date().toISOString()})
+        const snapshot = row.snapshot.kind === "information" ? {...row.snapshot, signatureRequired:body.requireSignature === true,
+          signingConsent:informationSigningConsent} : row.snapshot;
+        const {data, error} = await db.from(table).update({...cleanContact(body), snapshot, admin_answers:validateAnswers(row.snapshot.adminFields, body.answers, false), updated_at:new Date().toISOString()})
           .eq("id", row.id).eq("status", "Draft").eq("updated_at", body.updatedAt || "").select("*").maybeSingle();
         if (error || !data) return json({error:"The draft changed elsewhere. Close and reopen it before saving."}, 409);
         return json({agreement:publicAgreement(data)});
@@ -120,7 +124,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       // A stable key prevents duplicate email if a network request is retried.
       const response = await fetchFn("https://api.resend.com/emails", {method:"POST", headers:{Authorization:`Bearer ${resendKey}`, "Content-Type":"application/json", "Idempotency-Key":`hmp-agreement/${issued.id}`},
         body:JSON.stringify({from, to:[issued.client_email], reply_to:"info@hmpeds.com", subject:`Complete your ${issued.snapshot.title} — HMP`,
-          html:`<div style="font-family:Georgia,serif;background:#fff8f1;color:#5f3f41;padding:32px"><h1>Ready for your review</h1><p>Hello ${escape(issued.client_name)},</p><p>Please ${information ? "complete" : "review, complete, and sign"} your ${escape(issued.snapshot.title)} online.</p><p><a style="display:inline-block;padding:16px 24px;background:#5f3f41;color:#fff8f1;border-radius:28px" href="${escape(link)}">${information ? "Complete your form" : "Complete and sign form"}</a></p><p>This private link expires in 90 days. Please do not forward it. You can save or print your completed form.</p><p>Questions? Reply to connect with an event specialist.</p></div>`})});
+          html:`<div style="font-family:Georgia,serif;background:#fff8f1;color:#5f3f41;padding:32px"><h1>Ready for your review</h1><p>Hello ${escape(issued.client_name)},</p><p>Please ${information && !issued.snapshot.signatureRequired ? "complete" : "review, complete, and sign"} your ${escape(issued.snapshot.title)} online.</p><p><a style="display:inline-block;padding:16px 24px;background:#5f3f41;color:#fff8f1;border-radius:28px" href="${escape(link)}">${information && !issued.snapshot.signatureRequired ? "Complete your form" : "Complete and sign form"}</a></p><p>This private link expires in 90 days. Please do not forward it. You can save or print your completed form.</p><p>Questions? Reply to connect with an event specialist.</p></div>`})});
       if (!response.ok) return json({error:"The form is ready, but email delivery failed. Reopen it to retry or copy its private link.", agreement:publicAgreement(issued), link}, 502);
       const {error: emailUpdateError} = await db.from(table).update({email_delivered_at:new Date().toISOString()}).eq("id", issued.id).eq("status", "Sent");
       return json({agreement:publicAgreement(issued), link, ...(emailUpdateError ? {warning:"Email sent; delivery status could not be recorded."} : {})});

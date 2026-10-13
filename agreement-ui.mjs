@@ -18,7 +18,13 @@ export function answersHTML(fields, values = {}) {
   }).join("")}</dl>`;
 }
 export const termsHTML = snapshot => snapshot.pages.map((page, i) => `<section class="agreement-terms-page"><h3>Agreement text · ${i + 1} / ${snapshot.pages.length}</h3><div>${escape(page)}</div></section>`).join("");
-export const completionHTML = agreement => `<section class="agreement-panel"><h2>Completed client details</h2>${answersHTML(agreement.snapshot.clientFields, agreement.clientAnswers)}<h3>Electronic signature</h3><p class="agreement-signature">${escape(agreement.signature?.name)}</p><p>${escape(agreement.signature?.consent)}</p><p>Signed: ${escape(agreement.completedAt)}<br>HMP signed: ${escape(agreement.adminAnswers.hmpSignedAt)}</p><p class="agreement-fingerprint">Record ID: ${escape(agreement.id)}<br>SHA-256 record fingerprint: ${escape(agreement.recordHash)}</p></section>`;
+export const signatureDisplayHTML = signature => {
+  if (!signature) return "";
+  const image = signature.method === "drawn" && /^data:image\/png;base64,[A-Za-z0-9+/]+={0,2}$/.test(signature.image || "")
+    ? `<img class="agreement-signature-image" src="${escape(signature.image)}" alt="Hand-drawn signature">` : "";
+  return `<h3>Electronic signature</h3>${image}<p class="agreement-signature${image ? " agreement-signature-name" : ""}">${escape(signature.name)}</p><p>${escape(signature.consent)}</p><p>Signed: ${escape(signature.signedAt)}</p>`;
+};
+export const completionHTML = agreement => `<section class="agreement-panel"><h2>Completed client details</h2>${answersHTML(agreement.snapshot.clientFields, agreement.clientAnswers)}${signatureDisplayHTML(agreement.signature)}<p>HMP signed: ${escape(agreement.adminAnswers.hmpSignedAt)}</p><p class="agreement-fingerprint">Record ID: ${escape(agreement.id)}<br>SHA-256 record fingerprint: ${escape(agreement.recordHash)}</p></section>`;
 export function printAgreement(agreement) {
   document.querySelector("#agreement-print")?.remove();
   const section = document.createElement("section");

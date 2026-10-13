@@ -7,7 +7,7 @@ const payment = text("digitalPayments", "Digital payment information for signs",
 const release = text("fundRelease", "Who should receive the collected money at the end of the event?", "Provide the recipient’s name, relationship to the client(s), and phone number, including when funds should be released to someone other than the couple.");
 const notes = text("additionalInformation", "Additional information", "Anything else you would like HMP to know?", false);
 const make = (id, title, sourceUrl, fields) => ({
-  id, title, kind:"information", version:"2026-09-30.1", sourceUrl, pages:[],
+  id, title, kind:"information", version:"2026-10-13.1", sourceUrl, pages:[],
   description:"Thank you for choosing HMP. Complete these event details so our team can prepare your Money Table service. Your answers are saved privately for HMP when you submit.",
   adminFields:[{id:"eventName",label:"Event name / reference",type:"text",required:false}],
   clientFields:[{id:"email",label:"Email address",type:"email",required:true}, ...fields],
