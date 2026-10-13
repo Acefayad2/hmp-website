@@ -514,7 +514,7 @@
           <div>
             <p class="kicker">Client portal proposal</p>
             <h2>Service proposal</h2>
-            <p>Start with the Money Changing sample, adjust the details, then send it securely to this client.</p>
+            <p>Review the suggested details for this service, then send the proposal securely to this client.</p>
           </div>
           <button id="close-proposal-editor" type="button">Close</button>
         </div>
@@ -527,9 +527,9 @@
             <label><span>Event time</span><input id="proposal-event-time" type="text" maxlength="100" placeholder="7:30 PM–9:00 PM" /></label>
             <label class="proposal-wide"><span>Event location</span><input id="proposal-event-location" type="text" maxlength="500" placeholder="Venue and city" /></label>
             <label><span>Guest count</span><input id="proposal-guest-count" type="number" min="0" max="100000" step="1" /></label>
-            <label><span>Service hours</span><input id="proposal-service-hours" type="number" min="0" max="240" step="0.5" /></label>
-            <label><span>Money Associates</span><input id="proposal-associates" type="number" min="0" max="100" step="1" /></label>
-            <label><span>Counting machines</span><input id="proposal-machines" type="number" min="0" max="100" step="1" /></label>
+            <label><span>Service hours <small>or N/A</small></span><input id="proposal-service-hours" type="text" maxlength="5" pattern="(?:[0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-3][0-9])(?:\.0|\.5)?|240(?:\.0)?|[Nn]/?[Aa]" title="Enter a number of hours up to 240, in half-hour increments, or N/A" placeholder="4 or N/A" /></label>
+            <label><span>Money Associates <small>0 hides this line</small></span><input id="proposal-associates" type="number" min="0" max="100" step="1" /></label>
+            <label><span>Counting machines <small>0 hides this line</small></span><input id="proposal-machines" type="number" min="0" max="100" step="1" /></label>
             <label class="proposal-wide"><span>Service details <small>one item per line</small></span><textarea id="proposal-service-details" rows="6" maxlength="1400"></textarea></label>
             <label class="proposal-wide"><span>Please note <small>one item per line</small></span><textarea id="proposal-notes" rows="7" maxlength="1600"></textarea></label>
             <label class="proposal-wide"><span>Additional information</span><textarea id="proposal-additional-information" rows="4" maxlength="600"></textarea></label>
@@ -779,6 +779,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261013-booking"></script>
+    <script type="module" src="assets/admin.js?v=20261013-proposal-na"></script>
   </body>
 </html>
