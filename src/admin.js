@@ -56,7 +56,7 @@ const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
 
 let inquiries = [];
-let activeInquiryFilter = "all";
+let activeInquiryFilter = "inquiries";
 let invoices = [];
 let invoiceView = "active";
 let invoiceItems = [];
@@ -247,10 +247,9 @@ const showPasswordForm = (message) => {
 
 const renderMetrics = () => {
   const groups = inquiryGroups(inquiries);
-  $("#metric-total").textContent = inquiries.length;
-  $("#metric-new").textContent = groups.new.length;
-  $("#metric-upcoming").textContent = groups.upcoming.length;
-  $("#metric-guests").textContent = groups.largest[0]?.guestCount || "—";
+  for (const group of ["inquiries", "booked", "closed", "archived"]) {
+    $(`#metric-${group}`).textContent = groups[group].length;
+  }
 };
 
 const renderServiceFilter = () => {
@@ -264,7 +263,7 @@ const renderServiceFilter = () => {
 };
 
 const renderServiceMix = () => {
-  const counts = inquiries.reduce((result, item) => {
+  const counts = inquiries.filter((item) => String(item.status).toLowerCase() !== "deleted").reduce((result, item) => {
     const service = eventServiceLabel(item.service) || "Not specified";
     result[service] = (result[service] || 0) + 1;
     return result;
@@ -298,12 +297,15 @@ const renderInquiries = () => {
   const filtered = filteredInquiries();
   $("#clear-inquiry-search").disabled = !$("#search-input").value;
   $("#inquiry-list-title").textContent = inquiryFilterTitles[activeInquiryFilter];
+  const deletedToggle = $("#deleted-inquiries-toggle");
+  deletedToggle.hidden = !["archived", "deleted"].includes(activeInquiryFilter);
+  deletedToggle.textContent = activeInquiryFilter === "deleted" ? "Back to archived inquiries" : `View deleted inquiries (${inquiryGroups(inquiries).deleted.length})`;
   document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
-    const selected = button.dataset.inquiryFilter === activeInquiryFilter;
+    const selected = button.dataset.inquiryFilter === activeInquiryFilter || (activeInquiryFilter === "deleted" && button.dataset.inquiryFilter === "archived");
     button.classList.toggle("metric-featured", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
-  $("#result-count").textContent = `${filtered.length} of ${inquiries.length} inquiries`;
+  $("#result-count").textContent = `${filtered.length} of ${inquiryGroups(inquiries)[activeInquiryFilter].length} ${activeInquiryFilter === "inquiries" ? "inquiries" : activeInquiryFilter + " inquiries"}`;
   emptyState.hidden = filtered.length > 0;
   inquiryList.hidden = filtered.length === 0;
   inquiryList.innerHTML = filtered.length
@@ -361,6 +363,20 @@ const renderDetailGrid = (item) => {
     .join("");
 };
 
+const showInquiryStatus = (status) => {
+  const select = $("#manage-status");
+  select.querySelector(".legacy-status-option")?.remove();
+  if (![...select.options].some((option) => option.value === status)) {
+    const option = new Option(status, status);
+    option.className = "legacy-status-option";
+    select.add(option);
+  }
+  select.value = status;
+  $("#archive-inquiry").hidden = status === "Archived" || status === "Deleted";
+  $("#delete-inquiry").hidden = status === "Deleted";
+  $("#restore-inquiry").hidden = status !== "Archived" && status !== "Deleted";
+};
+
 const openInquiry = (id) => {
   const item = inquiries.find((inquiry) => inquiry.id === id);
   if (!item) return;
@@ -375,7 +391,7 @@ const openInquiry = (id) => {
   const note = $("#detail-note");
   note.hidden = !item.additionalInformation;
   note.querySelector("p").textContent = item.additionalInformation || "";
-  $("#manage-status").value = item.status || "New";
+  showInquiryStatus(item.status || "New");
   $("#manage-priority").value = item.priority || "Normal";
   $("#manage-follow-up").value = item.followUpDate || "";
   $("#manage-owner").value = item.owner || "";
@@ -392,42 +408,73 @@ const openInquiry = (id) => {
   dialog.showModal();
 };
 
-const saveInquiry = async (event) => {
-  event.preventDefault();
+const updateInquiry = async (status, fields, successMessage) => {
   if (!activeInquiryId) return;
-  const form = event.currentTarget;
-  const button = form.querySelector("button[type=submit]");
-  button.disabled = true;
+  const inquiryId = activeInquiryId;
+  const buttons = [...$("#inquiry-management-form").querySelectorAll("button")];
+  buttons.forEach((button) => { button.disabled = true; });
   setMessage($("#management-message"), "Saving changes…");
-
   try {
     const response = await fetch("/api/hmp-dashboard", {
       method: "PATCH",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        id: activeInquiryId,
-        status: $("#manage-status").value,
-        priority: $("#manage-priority").value,
-        followUpDate: $("#manage-follow-up").value,
-        owner: $("#manage-owner").value,
-        internalNotes: $("#manage-notes").value,
+        id: inquiryId,
+        status,
+        ...fields,
       }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Changes could not be saved.");
 
-    inquiries = inquiries.map((item) => item.id === activeInquiryId ? data.inquiry : item);
+    inquiries = inquiries.map((item) => item.id === inquiryId ? data.inquiry : item);
     renderMetrics();
     renderServiceMix();
     renderInquiries();
-    renderDetailGrid(data.inquiry);
-    setMessage($("#management-message"), "Changes saved securely.", true);
+    if (activeInquiryId === inquiryId && dialog.open) {
+      renderDetailGrid(data.inquiry);
+      showInquiryStatus(data.inquiry.status || "New");
+      $("#manage-priority").value = data.inquiry.priority || "Normal";
+      $("#manage-follow-up").value = data.inquiry.followUpDate || "";
+      $("#manage-owner").value = data.inquiry.owner || "";
+      $("#manage-notes").value = data.inquiry.internalNotes || "";
+      setMessage($("#management-message"), successMessage, true);
+    }
   } catch (error) {
-    setMessage($("#management-message"), error.message || "Changes could not be saved.");
+    if (activeInquiryId === inquiryId && dialog.open) setMessage($("#management-message"), error.message || "Changes could not be saved.");
   } finally {
-    button.disabled = false;
+    buttons.forEach((button) => { button.disabled = false; });
   }
+};
+
+const savedInquiryFields = (item) => ({
+  priority: item.priority || "Normal",
+  followUpDate: item.followUpDate || "",
+  owner: item.owner || "",
+  internalNotes: item.internalNotes || "",
+});
+
+const saveInquiry = (event) => {
+  event.preventDefault();
+  return updateInquiry($("#manage-status").value, {
+    priority: $("#manage-priority").value,
+    followUpDate: $("#manage-follow-up").value,
+    owner: $("#manage-owner").value,
+    internalNotes: $("#manage-notes").value,
+  }, "Changes saved securely.");
+};
+
+const changeInquiryRecordStatus = (status) => {
+  const item = inquiries.find((inquiry) => inquiry.id === activeInquiryId);
+  if (!item) return;
+  const details = status === "Deleted"
+    ? "Move this inquiry to Deleted? It will be hidden from the other views and can be restored later."
+    : status === "Archived"
+      ? "Archive this inquiry? It can be restored later."
+      : "Restore this inquiry to Inquiries?";
+  if (!window.confirm(`${details} Any unsaved edits in this window will be discarded.`)) return;
+  updateInquiry(status, savedInquiryFields(item), status === "Deleted" ? "Moved to Deleted. You can restore it from Archived → View deleted inquiries." : status === "Archived" ? "Inquiry archived. You can restore it later." : "Inquiry restored to Inquiries.");
 };
 
 const copyText = async (value) => {
@@ -1919,12 +1966,16 @@ $("#service-filter").addEventListener("change", renderInquiries);
 document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
   button.addEventListener("click", () => {
     activeInquiryFilter = button.dataset.inquiryFilter;
-    if (activeInquiryFilter === "all") {
-      $("#search-input").value = "";
-      $("#service-filter").value = "";
-    }
+    $("#search-input").value = "";
+    $("#service-filter").value = "";
     renderInquiries();
   });
+});
+$("#deleted-inquiries-toggle").addEventListener("click", () => {
+  activeInquiryFilter = activeInquiryFilter === "deleted" ? "archived" : "deleted";
+  $("#search-input").value = "";
+  $("#service-filter").value = "";
+  renderInquiries();
 });
 document.querySelectorAll("[data-workspace-view]").forEach((link) => {
   link.addEventListener("click", (event) => {
@@ -1959,6 +2010,9 @@ inquiryList.addEventListener("click", (event) => {
 });
 $("#dialog-close").addEventListener("click", () => dialog.close());
 $("#inquiry-management-form").addEventListener("submit", saveInquiry);
+$("#archive-inquiry").addEventListener("click", () => changeInquiryRecordStatus("Archived"));
+$("#delete-inquiry").addEventListener("click", () => changeInquiryRecordStatus("Deleted"));
+$("#restore-inquiry").addEventListener("click", () => changeInquiryRecordStatus("New"));
 $("#create-conversation-link").addEventListener("click", createConversationLink);
 $("#copy-conversation-link").addEventListener("click", async () => {
   try {

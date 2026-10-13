@@ -2,33 +2,39 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { inquiryGroups, inquiryFilterTitles } from "../src/inquiry-filters.mjs";
 
-const now = new Date(2026, 8, 23, 19);
 const entries = [
-  { id: "a", status: "New", celebrationDate: "2026-09-23", guestCount: 400 },
-  { id: "b", status: "Contacted", celebrationDate: "2026-09-24", guestCount: "400" },
-  { id: "c", status: "NEW", celebrationDate: "2026-09-22", guestCount: 100 },
-  { id: "d", status: "Booked", celebrationDate: "bad-date", guestCount: "unknown" },
-  { id: "e", status: "Closed", celebrationDate: "", guestCount: 0 },
+  { id: "a", status: "New" },
+  { id: "b", status: "Contacted" },
+  { id: "c", status: "Quoted" },
+  { id: "d", status: "Booked" },
+  { id: "e", status: "Closed" },
+  { id: "f", status: "Archived" },
+  { id: "g", status: "Deleted" },
+  { id: "h", status: "BOOKED" },
 ];
 const ids = (items) => items.map(({ id }) => id);
 
-test("summary filters include new, today's and future events, and all largest ties", () => {
-  const groups = inquiryGroups(entries, now);
-  assert.equal(groups.all, entries);
-  assert.deepEqual(ids(groups.new), ["a", "c"]);
-  assert.deepEqual(ids(groups.upcoming), ["a", "b"]);
-  assert.deepEqual(ids(groups.largest), ["a", "b"]);
-  assert.deepEqual(Object.keys(inquiryFilterTitles), Object.keys(groups));
+test("each inquiry appears in exactly one visible or recoverable group", () => {
+  const groups = inquiryGroups(entries);
+  assert.deepEqual(ids(groups.inquiries), ["a", "b", "c"]);
+  assert.deepEqual(ids(groups.booked), ["d", "h"]);
+  assert.deepEqual(ids(groups.closed), ["e"]);
+  assert.deepEqual(ids(groups.archived), ["f"]);
+  assert.deepEqual(ids(groups.deleted), ["g"]);
+  assert.deepEqual(Object.keys(groups), Object.keys(inquiryFilterTitles));
+  assert.deepEqual(Object.values(groups).flat().map(({ id }) => id).sort(), ids(entries).sort());
 });
 
-test("empty or unknown guest counts do not produce a largest event", () => {
-  assert.deepEqual(inquiryGroups([], now), { all: [], new: [], upcoming: [], largest: [] });
-  assert.deepEqual(inquiryGroups([{ guestCount: null }, { guestCount: "" }, { guestCount: Infinity }], now).largest, []);
+test("empty and old statuses stay in Inquiries without changing saved data", () => {
+  const old = [{ id: "x" }, { id: "y", status: "Pending" }];
+  assert.deepEqual(ids(inquiryGroups(old).inquiries), ["x", "y"]);
+  assert.deepEqual(inquiryGroups([]), { inquiries: [], booked: [], closed: [], archived: [], deleted: [] });
+  assert.equal(old[1].status, "Pending");
 });
 
-test("fresh data updates the selected group without mutating the original list", () => {
-  const updated = entries.map((item) => item.id === "a" ? { ...item, status: "Booked", guestCount: 500 } : item);
-  assert.deepEqual(ids(inquiryGroups(updated, now).new), ["c"]);
-  assert.deepEqual(ids(inquiryGroups(updated, now).largest), ["a"]);
+test("status changes move a record between groups without mutating the original list", () => {
+  const updated = entries.map((item) => item.id === "a" ? { ...item, status: "Closed" } : item);
+  assert.deepEqual(ids(inquiryGroups(updated).inquiries), ["b", "c"]);
+  assert.deepEqual(ids(inquiryGroups(updated).closed), ["a", "e"]);
   assert.equal(entries[0].status, "New");
 });
