@@ -40,7 +40,8 @@ test("every saved admin reply emails the server-selected client using a private 
   assert.equal(messages.length,1);assert.ok(messages[0].email_notified_at);assert.equal(messages[0].email_notification_error,null);
   const mail=JSON.parse(emails[0].body);
   assert.deepEqual(mail.to,["client@example.test"]);assert.match(mail.html,/Test &lt;Client&gt;/);
-  assert.match(mail.html,/conversation#token=/);assert.match(mail.html,/Connect with an Event Specialist/);
+  assert.match(mail.html,/conversation#token=/);assert.match(mail.html,/An HMP Event Concierge team member replied/);
+  assert.match(mail.html,/Open Client Portal/);
   await h(request(sendBody));assert.equal(emails.length,1);assert.equal(messages.length,1);
 });
 test("email failure keeps the message and persistent warning; retry sends only email and clears the warning",async()=>{
