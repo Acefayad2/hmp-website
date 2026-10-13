@@ -1,6 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { documentGroupId, nextRevision } from "./_document-revisions.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -58,6 +59,8 @@ const normalizeContract = (record: Record<string, unknown>) => ({
   createdBy: record.created_by || "",
   createdAt: record.created_at || "",
   updatedAt: record.updated_at || "",
+  revisionGroupId: documentGroupId(record as {id:string;revision_group_id?:string|null}),
+  revisionNumber: Number(record.revision_number) || 1,
 });
 
 const cleanPayload = (body: Record<string, unknown>) => {
@@ -111,11 +114,11 @@ const cleanPayload = (body: Record<string, unknown>) => {
 
 const newContractNumber = () => `HMP-C-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
-export default async (request: Request, _context: Context) => {
-  const user = await getUser();
+export const createContractHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request, _context?: Context) => {
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Contract data is unavailable" }, 503);
 
   if (request.method === "GET") {
@@ -135,8 +138,40 @@ export default async (request: Request, _context: Context) => {
   if (request.method !== "POST" && request.method !== "PATCH") return json({ error: "Method not allowed" }, 405);
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "Invalid request" }, 400); }
+  if (request.method === "PATCH" && body.action === "mark-signed") {
+    const id = text(body.id, 36);
+    const name = text(body.clientSignatureName, 200);
+    const signedAt = text(body.clientSignedAt, 10);
+    if (!uuidPattern.test(id) || !name || !datePattern.test(signedAt)) return json({ error: "Enter the signing name and date" }, 400);
+    const { data, error } = await client.from("hmp_admin_contracts")
+      .update({ status: "Signed", client_signature_name: name, client_signed_at: signedAt, updated_at: new Date().toISOString() })
+      .eq("id", id).eq("status", "Sent").select("*").maybeSingle();
+    if (error) return json({ error: "Contract could not be marked signed" }, 502);
+    if (!data) return json({ error: "Only a sent contract can be marked signed" }, 409);
+    return json({ ok: true, contract: normalizeContract(data) });
+  }
+  if (request.method === "POST" && body.action === "revise") {
+    const sourceId = text(body.id, 36);
+    if (!uuidPattern.test(sourceId)) return json({ error: "Invalid contract" }, 400);
+    const { data: source, error: sourceError } = await client.from("hmp_admin_contracts")
+      .select("*").eq("id", sourceId).maybeSingle();
+    if (sourceError) return json({ error: "Contract could not be loaded" }, 502);
+    if (!source) return json({ error: "Contract not found" }, 404);
+    if (source.status === "Void") return json({ error: "Void contracts cannot be revised" }, 409);
+    try {
+      const revision = await nextRevision(client, "hmp_admin_contracts", source);
+      const copy = cleanPayload({ ...normalizeContract(source), status: "Draft",
+        clientSignatureName: "", clientSignedAt: "", hmpSignedAt: "" });
+      const { data, error } = await client.from("hmp_admin_contracts")
+        .insert({ ...copy, status: "Draft", contract_number: newContractNumber(),
+          revision_group_id: revision.groupId, revision_number: revision.number,
+          created_by: user?.email || email }).select("*").single();
+      if (error) return json({ error: error.code === "23505" ? "A newer version was created. Refresh and try again." : "Contract revision could not be created" }, error.code === "23505" ? 409 : 502);
+      return json({ ok: true, contract: normalizeContract(data) }, 201);
+    } catch { return json({ error: "Version history is unavailable" }, 502); }
+  }
   let payload: ReturnType<typeof cleanPayload>;
-  try { payload = cleanPayload(body); } catch (error) {
+  try { payload = cleanPayload(body); payload.status = "Draft"; } catch (error) {
     return json({ error: error instanceof Error ? error.message : "Contract details are invalid" }, 400);
   }
 
@@ -153,13 +188,20 @@ export default async (request: Request, _context: Context) => {
 
   const id = text(body.id, 36);
   if (!uuidPattern.test(id)) return json({ error: "Invalid contract" }, 400);
+  const { data: current, error: currentError } = await client.from("hmp_admin_contracts")
+    .select("status").eq("id", id).maybeSingle();
+  if (currentError) return json({ error: "Contract could not be loaded" }, 502);
+  if (!current) return json({ error: "Contract not found" }, 404);
+  if (current.status !== "Draft") return json({ error: "This contract is locked. Create a revision to edit and resend it." }, 409);
   const { data, error } = await client.from("hmp_admin_contracts").update(payload)
-    .eq("id", id).select("*").single();
-  if (error) {
-    console.error("Supabase contract update failed", error.code);
-    return json({ error: error.code === "PGRST116" ? "Contract not found" : "Contract could not be saved" }, error.code === "PGRST116" ? 404 : 502);
+    .eq("id", id).eq("status", "Draft").select("*").single();
+  if (error || !data) {
+    console.error("Supabase contract update failed", error?.code);
+    return json({ error: error?.code === "PGRST116" ? "Contract not found" : "Contract could not be saved" }, error?.code === "PGRST116" ? 404 : 502);
   }
   return json({ ok: true, contract: normalizeContract(data) });
 };
+
+export default createContractHandler();
 
 export const config: Config = { path: "/api/hmp-contracts" };

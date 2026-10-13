@@ -61,6 +61,7 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
 }
 export const publicAgreement = (row: any) => ({
   id: row.id, snapshot: row.snapshot, clientName: row.client_name, clientEmail: row.client_email,
+  revisionGroupId: row.revision_group_id || row.id, revisionNumber: Number(row.revision_number) || 1,
   adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
   sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
   recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,

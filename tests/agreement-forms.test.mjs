@@ -94,6 +94,24 @@ test("client submission saves once, retries return the same record, admin cannot
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"save"}))).status,409);
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"void"}))).status,409);
 });
+test("revising a completed form creates a linked draft without changing its signed record", async () => {
+  const original = rowFor();
+  original.status = "Completed";
+  original.signature = {name:"Test Client"};
+  original.record_hash = "signed-fingerprint";
+  const rows = [original], handler = handlerFor(rows);
+  const response = await handler(request("hmp-agreement-forms", "POST", {action:"revise", id}));
+  assert.equal(response.status, 201);
+  const {agreement} = await response.json();
+  assert.equal(agreement.status, "Draft");
+  assert.equal(agreement.revisionGroupId, id);
+  assert.equal(agreement.revisionNumber, 2);
+  assert.notEqual(agreement.id, id);
+  assert.equal(agreement.signature, undefined);
+  assert.equal(original.status, "Completed");
+  assert.equal(original.record_hash, "signed-fingerprint");
+  assert.equal(rows.length, 2);
+});
 test("all four client forms can be completed with their full field sets", async () => {
   for(const t of agreementTemplates) {
     const row=rowFor(t.id), handler=handlerFor([row]);

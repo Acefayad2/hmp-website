@@ -12,6 +12,8 @@ export const normalizeServiceHours = (value) =>
   typeof value === "string" && /^n\/?a$/i.test(value.trim()) ? "N/A" : number(value, 240);
 
 export const normalizeProposal = (value = {}) => ({
+  lineageId: typeof value.lineageId === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value.lineageId) ? value.lineageId : "",
+  version: Number.isSafeInteger(Number(value.version)) && Number(value.version) > 0 ? Math.min(10000, Number(value.version)) : 1,
   title: text(value.title, 160) || "Service Proposal",
   clientName: text(value.clientName, 200),
   celebrationType: text(value.celebrationType, 200),

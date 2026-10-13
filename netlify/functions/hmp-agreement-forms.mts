@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
 import { agreementToken, cleanContact, completionPayload, hash, informationSigningConsent, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
+import { nextRevision } from "./_document-revisions.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]!);
@@ -59,16 +60,38 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
           if (!data) return json({error:"Agreement not found."}, 404);
           return json({agreement:publicAgreement(data), link:["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
         }
-        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,expires_at,snapshot,admin_answers").order("created_at", {ascending:false}).limit(500);
+        let {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,expires_at,snapshot,admin_answers,revision_group_id,revision_number").order("created_at", {ascending:false}).limit(500);
+        if (error?.code === "42703" || error?.code === "PGRST204") {
+          ({data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,expires_at,snapshot,admin_answers").order("created_at", {ascending:false}).limit(500));
+        }
         if (error) return json({error:"Client forms are unavailable. The agreement database migration may still be pending."}, 502);
         return json({agreements:(data || []).map((row: any) => ({
           id:row.id,template_id:row.template_id,client_name:row.client_name,client_email:row.client_email,
           status:row.status,created_at:row.created_at,completed_at:row.completed_at,email_delivered_at:row.email_delivered_at,
           expires_at:row.expires_at,snapshot:{title:row.snapshot?.title || "Client form"},
           admin_answers:{eventName:row.admin_answers?.eventName || ""},
+          revision_group_id:row.revision_group_id || row.id, revision_number:Number(row.revision_number) || 1,
         }))});
       }
       if (request.method === "POST") {
+        if (body.action === "revise") {
+          if (!uuidPattern.test(body.id || "")) return json({error:"Invalid form"}, 400);
+          const {data: source, error: sourceError} = await db.from(table).select("*").eq("id", body.id).maybeSingle();
+          if (sourceError) return json({error:"Form could not be loaded"}, 502);
+          if (!source) return json({error:"Form not found"}, 404);
+          const revision = await nextRevision(db, table, source);
+          const id = crypto.randomUUID(), seed = nonce();
+          const answers = {...source.admin_answers};
+          delete answers.hmpSignedAt;
+          delete answers.hmpConsent;
+          const {data, error} = await db.from(table).insert({id, template_id:source.template_id,
+            snapshot:source.snapshot, client_name:source.client_name, client_email:source.client_email,
+            admin_answers:answers, client_answers:{}, status:"Draft", token_nonce:seed,
+            token_hash:hash(agreementToken(id, seed)), created_by:adminEmail,
+            revision_group_id:revision.groupId, revision_number:revision.number}).select("*").single();
+          if (error) return json({error:error.code === "23505" ? "A newer version was created. Refresh and try again." : "Form revision could not be created"}, error.code === "23505" ? 409 : 502);
+          return json({agreement:publicAgreement(data)}, 201);
+        }
         const template = snapshotFor(body.templateId);
         const snapshot = template.kind === "information" ? {...template, signatureRequired:body.requireSignature === true,
           signingConsent:informationSigningConsent} : template;

@@ -138,6 +138,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .invoice-list-entry { border-bottom:1px solid var(--line); }
 .invoice-list-entry:last-child { border-bottom:0; }
 .invoice-list-entry .invoice-list-row { border-bottom:0; }
+.contract-list-entry { border-bottom:1px solid var(--line); }
+.contract-list-entry:last-child { border-bottom:0; }
+.contract-list-entry > .invoice-list-row { border-bottom:0; }
 .invoice-row-actions { display:flex; align-items:center; justify-content:flex-end; flex-wrap:wrap; gap:7px; padding:0 24px 12px; }
 .invoice-row-actions button { padding:8px 10px; border:1px solid var(--line); border-radius:999px; color:var(--plum); background:#fff; cursor:pointer; font-size:11px; }
 .invoice-row-actions button:hover { background:var(--rose); }
@@ -376,6 +379,13 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .proposal-record .portal-proposal > header { flex-wrap:wrap; }
 .proposal-record .portal-proposal > header div { flex:1 1 170px; text-align:left; overflow-wrap:anywhere; }
 .proposal-record-content > .text-button { margin-top:18px; }
+.proposal-version-history,.document-version-history { margin-top:18px; border:1px solid var(--line); border-radius:12px; background:rgba(232,217,213,.18); }
+.proposal-version-history summary,.document-version-history summary { display:block; padding:11px 14px; color:var(--ink); font-size:12px; font-weight:700; cursor:pointer; }
+.proposal-record .proposal-version-history summary { display:block; padding:11px 14px; }
+.proposal-version-history > div,.proposal-version-history > details > div { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; padding:9px 14px; border-top:1px solid var(--line); font-size:12px; }
+.document-version-history { margin:0 16px 14px; }
+.document-version-history > button,.document-version-history > details > button { display:flex; width:100%; justify-content:space-between; gap:12px; padding:10px 14px; border:0; border-top:1px solid var(--line); background:transparent; color:var(--ink); text-align:left; cursor:pointer; }
+.document-version-history > button:hover,.document-version-history > details > button:hover { background:rgba(232,217,213,.35); }
 .proposal-record summary:focus-visible, .proposal-client-picker select:focus-visible { outline:3px solid var(--gold); outline-offset:-3px; }
 .form-list-heading,.form-list-panel .agreement-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) minmax(130px,.7fr); gap:18px; align-items:center; }
 .form-list-heading { padding:13px 24px; color:var(--muted); background:rgba(232,217,213,.35); font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }
@@ -383,6 +393,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .form-list-panel .agreement-row { width:100%; padding:18px 24px; border:0; border-bottom:1px solid var(--line); border-radius:0; background:#fff; }
 .form-list-panel .agreement-row:last-child { border-bottom:0; }
 .form-list-panel .agreement-row:hover { background:rgba(232,217,213,.28); }
+.agreement-version-entry { border-bottom:1px solid var(--line); }
+.agreement-version-entry > .agreement-row { border-bottom:0; }
+.agreement-version-entry > .document-version-history { margin:0 24px 14px; }
 .proposal-form-body { padding:28px 30px 30px; }
 .proposal-form-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:16px; }
 .proposal-form-grid label > span:first-child { display:block; margin-bottom:7px; color:var(--muted); font-size:9px; font-weight:600; letter-spacing:.1em; text-transform:uppercase; }

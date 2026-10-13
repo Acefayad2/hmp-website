@@ -1,6 +1,7 @@
 import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
 import terms from "../data/agreement-terms.json";
 import { searchText } from "../page-search.js";
+import { groupDocumentVersions } from "./document-versions.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "../agreement-ui.mjs";
 
 const $ = selector => document.querySelector(selector);
@@ -31,8 +32,13 @@ export async function loadAgreementForms() {
     const data = await agreementRequest(endpoint);
     const agreements = data.agreements.filter(row => agreementTemplates.some(t => t.id === row.template_id));
     message.classList.add("neutral");
-    message.textContent = agreements.length ? "" : "No agreement records yet. Choose a template above to get started.";
-    $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");
+    const groups = groupDocumentVersions(agreements);
+    message.textContent = groups.length ? "" : "No agreement records yet. Choose a template above to get started.";
+    $("#agreement-list").innerHTML = groups.map(versions => {
+      const row = versions[0];
+      const history = versions.length > 1 ? `<details class="document-version-history"><summary>Version history (${versions.length})</summary>${versions.slice(1, 5).map(old => `<button type="button" data-agreement-id="${escape(old.id)}">Version ${escape(old.revision_number)} · ${escape(old.status)}</button>`).join("")}${versions.length > 5 ? `<details><summary>${versions.length - 5} older archived versions</summary>${versions.slice(5).map(old => `<button type="button" data-agreement-id="${escape(old.id)}">Version ${escape(old.revision_number)} · ${escape(old.status)}</button>`).join("")}</details>` : ""}</details>` : "";
+      return `<div class="agreement-version-entry"><button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")} · Version ${escape(row.revision_number)}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>${history}</div>`;
+    }).join("");
   } catch (error) { message.classList.remove("neutral"); message.textContent = error.message; }
 }
 export async function openAgreementDraft(id) {
@@ -50,12 +56,12 @@ $("#agreement-list").addEventListener("click", event => {
 function renderEditor() {
   const draft = active.status === "Draft";
   dialog.innerHTML = `<header><div><p>CLIENT FORM · ${escape(active.status)}</p><h2 id="agreement-editor-title">${escape(active.snapshot.title)}</h2></div><button class="agreement-button secondary" type="button" id="agreement-close">Close</button></header>
-    <form id="agreement-admin-form"><p>Prepare the service details, then send a private form for the client to complete and sign. Sent forms are locked; void and recreate one if its terms need to change.</p>
+    <form id="agreement-admin-form"><p>Prepare the service details, then send a private form for the client to complete and sign. Sent and completed copies stay unchanged; create a revised draft to update one.</p>
     ${draft ? `<div class="agreement-grid"><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label></div><h3>HMP service details</h3><p>All starred fields must be completed before sending. You can save an incomplete draft.</p><div id="agreement-admin-fields" class="agreement-grid">${fieldsHTML(active.snapshot.adminFields, active.adminAnswers, "admin-answer", false)}</div>` : `<p>Prepared for ${escape(active.clientName)} · ${escape(active.clientEmail)}</p>${answersHTML(active.snapshot.adminFields, active.adminAnswers)}`}
     <details class="agreement-panel"><summary>Review full agreement text</summary><p>Client answers and HMP service details supply the matching blanks in this agreement. The event date supplied by the client fills event-date placeholders.</p>${termsHTML(active.snapshot)}</details>
     ${active.status === "Completed" ? completionHTML(active) : ""}
     ${draft ? `<label class="agreement-checkbox"><input id="agreement-hmp-consent" type="checkbox"><span>I authorize my typed name as my electronic signature for HMP on this agreement when I send it.</span></label>` : ""}
-    <div class="agreement-actions">${draft ? '<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button secondary" type="button" id="agreement-share">Create private link</button><button class="agreement-button" type="button" id="agreement-send">Send client form</button>' : ""}${active.status === "Sent" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}${active.status === "Sent" && link ? `<a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open for in-person signing</a>` : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div>${active.status === "Sent" && link ? `<p>Open the client-only form on the device they will use to sign. Keep the Admin portal private. After signing, review the completed form here, then add it to the matching client hub in Messages.</p>` : ""}${active.status === "Completed" ? `<p>To share this completed copy, add it to the matching client hub in Messages.</p>` : ""}<p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
+    <div class="agreement-actions">${draft ? '<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button secondary" type="button" id="agreement-share">Create private link</button><button class="agreement-button" type="button" id="agreement-send">Send client form</button>' : '<button class="agreement-button" type="button" id="agreement-revise">Create revised draft</button>'}${active.status === "Sent" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}${active.status === "Sent" && link ? `<a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open for in-person signing</a>` : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div>${active.status === "Sent" && link ? `<p>Open the client-only form on the device they will use to sign. Keep the Admin portal private. After signing, review the completed form here, then add it to the matching client hub in Messages.</p>` : ""}${active.status === "Completed" ? `<p>To share this completed copy, add it to the matching client hub in Messages.</p>` : ""}<p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
   $("#agreement-close").onclick = () => { if (!busy && (!dirty || confirm("Discard unsaved changes to this form?"))) {dirty = false; dialog.close();} };
   const form = $("#agreement-admin-form");
   form.oninput = () => {dirty = true;};
@@ -63,6 +69,19 @@ function renderEditor() {
   $("#agreement-send")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("send"); });
   $("#agreement-share")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("share"); });
   $("#agreement-void")?.addEventListener("click", () => { if (!busy && confirm("Void this form? Its private link will stop working. Existing signed forms are never deleted.")) perform("void"); });
+  $("#agreement-revise")?.addEventListener("click", async () => {
+    if (busy) return;
+    busy = true;
+    $("#agreement-editor-status").textContent = "Creating a linked draft…";
+    try {
+      const data = await agreementRequest(endpoint, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({action:"revise", id:active.id})});
+      active = data.agreement; link = ""; dirty = false;
+      renderEditor();
+      $("#agreement-editor-status").textContent = `Version ${active.revisionNumber} is a private draft. The earlier form is unchanged.`;
+      await loadAgreementForms();
+    } catch(error) {$("#agreement-editor-status").textContent = error.message;}
+    finally {busy = false;}
+  });
   $("#agreement-print-button").onclick = () => printAgreement(draft ? {...active, ...formValues()} : active);
   $("#agreement-copy")?.addEventListener("click", async () => {
     try {await navigator.clipboard.writeText(link); $("#agreement-editor-status").textContent = "Private link copied. Share it only with this client.";}

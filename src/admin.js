@@ -4,6 +4,7 @@ import "./receipt-admin.js";
 import { loadInformationForms, openInformationDraft } from "./client-forms.js";
 import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
+import { groupDocumentVersions } from "./document-versions.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { hubMessages, renderHubTabs } from "../client-hub.js";
 import { clientActivityItems } from "../client-activity.js";
@@ -74,6 +75,8 @@ let reviews = [];
 let activeReviewId = "";
 let messageThreads = [];
 let proposalDrafts = [];
+let activeProposalLineageId = "";
+let activeProposalVersion = 1;
 let activeProposalDraftId = "";
 let savedFormDrafts = [];
 let activeThreadId = "";
@@ -635,9 +638,11 @@ const proposalFormFields = {
   calendarUrl: "#proposal-calendar-url",
 };
 
-const proposalPayload = () => Object.fromEntries(
-  Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
-);
+const proposalPayload = () => ({
+  ...Object.fromEntries(Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value])),
+  lineageId: activeProposalLineageId,
+  version: activeProposalVersion,
+});
 
 const validProposalServiceHours = () => {
   const input = $("#proposal-service-hours");
@@ -667,6 +672,8 @@ const openProposalEditor = () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (!thread) return;
   activeProposalDraftId = "";
+  activeProposalLineageId = crypto.randomUUID();
+  activeProposalVersion = 1;
   const inquiry = inquiries.find((candidate) => candidate.id === thread.inquiryId) || {};
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 14);
@@ -693,8 +700,21 @@ const openProposalEditor = () => {
     $(selector).value = values[key] ?? "";
   });
   setMessage($("#proposal-editor-message"), "");
+  $("#proposal-editor-dialog .dialog-heading > div > p:last-child").textContent = "Adjust the details, then send this version securely to your client.";
   proposalDirtyState.begin();
   $("#proposal-editor-dialog").showModal();
+};
+
+const openProposalRevision = (selected, versions) => {
+  activeThreadId = selected.thread.id;
+  openProposalEditor();
+  activeProposalLineageId = selected.proposal.lineageId || selected.message.id;
+  activeProposalVersion = Math.max(...versions.map(({ proposal }) => proposal.version)) + 1;
+  Object.entries(proposalFormFields).forEach(([key, selector]) => {
+    $(selector).value = selected.proposal[key] ?? "";
+  });
+  $("#proposal-editor-dialog .dialog-heading > div > p:last-child").textContent = `Version ${activeProposalVersion} will replace the current proposal in the Admin list. Earlier sent versions stay in its history.`;
+  proposalDirtyState.begin();
 };
 
 const openProposalDraft = (draft) => {
@@ -706,6 +726,8 @@ const openProposalDraft = (draft) => {
   activeThreadId = draft.conversationId;
   openProposalEditor();
   activeProposalDraftId = draft.id;
+  activeProposalLineageId = draft.payload?.lineageId || crypto.randomUUID();
+  activeProposalVersion = draft.payload?.version || 1;
   Object.entries(proposalFormFields).forEach(([key, selector]) => { $(selector).value = draft.payload?.[key] ?? ""; });
   proposalDirtyState.begin();
 };
@@ -1108,7 +1130,7 @@ const loadMessages = async () => {
   renderProposalsWorkspace(messageThreads, (threadId) => {
     openMessageThread(threadId);
     if (activeThreadId === threadId) setWorkspaceView("messages", true);
-  });
+  }, openProposalRevision);
   if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
     openMessageThread(activeThreadId);
   }
@@ -1482,10 +1504,15 @@ const openInvoiceEditor = (invoice = null) => {
   setMessage($("#invoice-editor-message"), "");
   renderInvoiceItems();
   const inactive = Boolean(invoice?.archivedAt || invoice?.deletedAt);
+  const locked = Boolean(invoice && invoice.status !== "Draft");
+  $("#revise-invoice").hidden = !locked || inactive;
+  $("#mark-invoice-paid").hidden = invoice?.status !== "Sent" || inactive;
   $("#invoice-form").querySelectorAll("input, textarea, select, button").forEach((control) => {
-    if (control.id !== "close-invoice-editor" && control.id !== "print-invoice") control.disabled = inactive;
+    control.disabled = (inactive || locked) && !["close-invoice-editor", "print-invoice", "revise-invoice", "mark-invoice-paid"].includes(control.id);
   });
+  $("#invoice-status").disabled = true;
   if (inactive) setMessage($("#invoice-editor-message"), "Restore this invoice before editing or sending it.");
+  else if (locked) setMessage($("#invoice-editor-message"), "This sent record is preserved. Create a revised draft to change and resend it.");
   $("#invoice-editor-dialog").showModal();
   resizeInvoiceTextareas();
 };
@@ -1498,24 +1525,35 @@ const invoicePayload = () => ({
   items: invoiceItems,
 });
 
+const documentVersionHistory = (versions, kind) => {
+  if (versions.length < 2) return "";
+  const attr = kind === "invoice" ? "data-invoice-id" : "data-contract-id";
+  const row = (document) => `<button type="button" ${attr}="${escapeHTML(document.id)}"><span>Version ${escapeHTML(document.revisionNumber || 1)} · ${escapeHTML(document.status)}</span><span>${escapeHTML(document.invoiceNumber || document.contractNumber || "")}</span></button>`;
+  return `<details class="document-version-history"><summary>Version history (${versions.length})</summary>
+    ${versions.slice(1, 5).map(row).join("")}
+    ${versions.length > 5 ? `<details><summary>${versions.length - 5} older archived versions</summary>${versions.slice(5).map(row).join("")}</details>` : ""}
+    </details>`;
+};
+
 const renderInvoices = () => {
   const list = $("#invoice-list");
   const empty = $("#invoice-empty");
   const visible = invoices.filter((invoice) => invoiceView === "deleted" ? invoice.deletedAt : invoiceView === "archived" ? invoice.archivedAt : !invoice.archivedAt && !invoice.deletedAt);
+  const groups = groupDocumentVersions(visible);
   document.querySelectorAll("[data-invoice-view]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.invoiceView === invoiceView));
   });
-  empty.hidden = visible.length > 0;
-  list.hidden = visible.length === 0;
+  empty.hidden = groups.length > 0;
+  list.hidden = groups.length === 0;
   $("#invoice-empty h3").textContent = invoiceView === "active" ? "No invoices yet" : invoiceView === "archived" ? "No archived invoices" : "No deleted invoices";
   $("#invoice-empty p").textContent = invoiceView === "active" ? "Create the first branded invoice for an HMP client." : invoiceView === "archived" ? "Archived invoices can be restored here." : "Deleted invoices are kept here and can be restored.";
   $("#empty-create-invoice").hidden = invoiceView !== "active";
-  list.innerHTML = visible
+  list.innerHTML = groups
     .map(
-      (invoice) => `
+      (versions) => { const invoice = versions[0]; return `
       <div class="invoice-list-entry" data-search-text="${escapeHTML(searchText(invoice.eventName, invoice.eventAddress, invoice.eventDate, invoice.clientPhone, invoice.notes, invoice.paymentTerms, invoice.total, (invoice.items || []).map(item => item.description)))}">
         <button class="invoice-list-row" type="button" data-invoice-id="${escapeHTML(invoice.id)}">
-          <span><strong>${escapeHTML(invoice.invoiceNumber)}</strong><small>${escapeHTML(formatDate(invoice.issueDate))}</small></span>
+          <span><strong>${escapeHTML(invoice.invoiceNumber)}</strong><small>Version ${escapeHTML(invoice.revisionNumber || 1)} · ${escapeHTML(formatDate(invoice.issueDate))}</small></span>
           <span><strong>${escapeHTML(invoice.clientName)}</strong><small>${escapeHTML(invoice.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(invoice.dueDate))}</span>
           <span class="invoice-list-total">${formatMoney(invoice.total)}</span>
@@ -1524,7 +1562,8 @@ const renderInvoices = () => {
         <div class="invoice-row-actions">
           ${invoiceView === "active" ? `<button type="button" data-invoice-action="archive" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Archive invoice ${escapeHTML(invoice.invoiceNumber)}">Archive</button><button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : `<button type="button" data-invoice-action="restore" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Restore invoice ${escapeHTML(invoice.invoiceNumber)}">Restore</button>${invoiceView === "archived" ? `<button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : ""}`}
         </div>
-      </div>`,
+        ${documentVersionHistory(versions, "invoice")}
+      </div>`; },
     )
     .join("");
 };
@@ -1600,6 +1639,14 @@ const openContractEditor = (contract = null) => {
   $("#contract-number-display").textContent = contract?.contractNumber || "Draft";
   $("#send-contract").textContent = contract?.status === "Sent" ? "Send again" : "Send contract";
   setMessage($("#contract-editor-message"), "");
+  const locked = Boolean(contract && contract.status !== "Draft");
+  $("#revise-contract").hidden = !locked || contract?.status === "Void";
+  $("#mark-contract-signed").hidden = contract?.status !== "Sent";
+  $("#contract-form").querySelectorAll("input, textarea, select, button").forEach((control) => {
+    control.disabled = locked && !["close-contract-editor", "print-contract", "revise-contract", "mark-contract-signed", "contract-client-signature-name", "contract-client-signed-at"].includes(control.id);
+  });
+  $("#contract-status").disabled = true;
+  if (locked) setMessage($("#contract-editor-message"), "This sent record is preserved. Create a revised draft to change and resend it.");
   $("#contract-editor-dialog").showModal();
 };
 
@@ -1613,18 +1660,19 @@ const contractPayload = () => ({
 const renderContracts = () => {
   const list = $("#contract-list");
   const empty = $("#contract-empty");
-  empty.hidden = contracts.length > 0;
-  list.hidden = contracts.length === 0;
-  list.innerHTML = contracts
+  const groups = groupDocumentVersions(contracts);
+  empty.hidden = groups.length > 0;
+  list.hidden = groups.length === 0;
+  list.innerHTML = groups
     .map(
-      (contract) => `
+      (versions) => { const contract = versions[0]; return `<div class="contract-list-entry">
         <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
-          <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
+          <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>Version ${escapeHTML(contract.revisionNumber || 1)} · ${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
           <span><strong>${escapeHTML(contract.clientName)}</strong><small>${escapeHTML(contract.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(contract.eventDate))}</span>
           <span class="invoice-list-total">${formatMoney(contract.totalAmount)}</span>
           <span class="status-pill">${escapeHTML(contract.status)}</span>
-        </button>`,
+        </button>${documentVersionHistory(versions, "contract")}</div>`; },
     )
     .join("");
 };
@@ -1700,6 +1748,75 @@ const saveContract = async ({ quiet = false } = {}) => {
   }
 };
 
+const reviseSavedDocument = async (kind) => {
+  const invoice = kind === "invoice";
+  const id = invoice ? activeInvoiceId : activeContractId;
+  const status = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
+  const button = $(invoice ? "#revise-invoice" : "#revise-contract");
+  if (!id) return;
+  button.disabled = true;
+  setMessage(status, "Creating a linked draft…");
+  try {
+    const response = await fetch(invoice ? "/api/hmp-invoices" : "/api/hmp-contracts", {
+      method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "revise", id }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "A revised draft could not be created.");
+    const document = invoice ? data.invoice : data.contract;
+    if (invoice) {
+      invoices = [document, ...invoices];
+      $("#invoice-editor-dialog").close();
+      renderInvoices();
+      openInvoiceEditor(document);
+      setMessage($("#invoice-editor-message"), `Version ${document.revisionNumber} is a private draft. The previous invoice remains unchanged.`, true);
+    } else {
+      contracts = [document, ...contracts];
+      $("#contract-editor-dialog").close();
+      renderContracts();
+      openContractEditor(document);
+      setMessage($("#contract-editor-message"), `Version ${document.revisionNumber} is a private draft. The previous contract remains unchanged.`, true);
+    }
+  } catch (error) { setMessage(status, error.message || "A revised draft could not be created."); }
+  finally { button.disabled = false; }
+};
+
+const markDocumentComplete = async (kind) => {
+  const invoice = kind === "invoice";
+  const id = invoice ? activeInvoiceId : activeContractId;
+  const status = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
+  const button = $(invoice ? "#mark-invoice-paid" : "#mark-contract-signed");
+  if (!id) return;
+  const signatureName = invoice ? "" : $("#contract-client-signature-name").value.trim();
+  const signedAt = invoice ? "" : $("#contract-client-signed-at").value;
+  if (!invoice && (!signatureName || !signedAt)) {
+    setMessage(status, "Enter the client's signing name and date before marking this contract signed.");
+    return;
+  }
+  if (!window.confirm(invoice ? "Mark this invoice paid?" : "Mark this contract signed?")) return;
+  button.disabled = true;
+  try {
+    const response = await fetch(invoice ? "/api/hmp-invoices" : "/api/hmp-contracts", {
+      method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: invoice ? "mark-paid" : "mark-signed", clientSignatureName: signatureName, clientSignedAt: signedAt }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Status could not be updated.");
+    if (invoice) {
+      invoices = invoices.map((item) => item.id === id ? data.invoice : item);
+      $("#invoice-status").value = "Paid";
+      renderInvoices();
+    } else {
+      contracts = contracts.map((item) => item.id === id ? data.contract : item);
+      $("#contract-status").value = "Signed";
+      renderContracts();
+    }
+    button.hidden = true;
+    setMessage(status, invoice ? "Invoice marked paid. Its contents remain locked." : "Contract marked signed. Its contents remain locked.", true);
+  } catch (error) { setMessage(status, error.message || "Status could not be updated."); }
+  finally { button.disabled = false; }
+};
+
 const copyDocumentLink = async (kind) => {
   const invoice = kind === "invoice";
   const message = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
@@ -1758,13 +1875,13 @@ const sendContract = async () => {
     documentSendRequests.delete(sendRequest.key);
     await loadContracts();
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
-    $("#contract-status").value = "Sent";
-    $("#send-contract").textContent = "Send again";
+    const sent = contracts.find((item) => item.id === saved.id);
+    if (sent) { $("#contract-editor-dialog").close(); openContractEditor(sent); }
     setMessage($("#contract-editor-message"), `Contract sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {
     setMessage($("#contract-editor-message"), error.message || "Contract email could not be sent.");
   } finally {
-    button.disabled = false;
+    button.disabled = contracts.find((item) => item.id === saved.id)?.status !== "Draft";
   }
 };
 
@@ -2018,13 +2135,13 @@ const sendInvoice = async () => {
     documentSendRequests.delete(sendRequest.key);
     await loadInvoices();
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
-    $("#invoice-status").value = "Sent";
-    $("#send-invoice").textContent = "Send again";
+    const sent = invoices.find((item) => item.id === saved.id);
+    if (sent) { $("#invoice-editor-dialog").close(); openInvoiceEditor(sent); }
     setMessage($("#invoice-editor-message"), `Invoice sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {
     setMessage($("#invoice-editor-message"), error.message || "Invoice email could not be sent.");
   } finally {
-    button.disabled = false;
+    button.disabled = invoices.find((item) => item.id === saved.id)?.status !== "Draft";
   }
 };
 
@@ -2368,6 +2485,8 @@ window.addEventListener("afterprint", () => {
   document.querySelectorAll("#invoice-sheet .invoice-print-text").forEach((node) => node.remove());
 });
 $("#send-invoice").addEventListener("click", sendInvoice);
+$("#revise-invoice").addEventListener("click", () => reviseSavedDocument("invoice"));
+$("#mark-invoice-paid").addEventListener("click", () => markDocumentComplete("invoice"));
 $("#copy-invoice-link").addEventListener("click", () => copyDocumentLink("invoice"));
 $("#invoice-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2426,6 +2545,8 @@ $("#print-contract").addEventListener("click", () => {
   document.body.classList.remove("printing-contract");
 });
 $("#send-contract").addEventListener("click", sendContract);
+$("#revise-contract").addEventListener("click", () => reviseSavedDocument("contract"));
+$("#mark-contract-signed").addEventListener("click", () => markDocumentComplete("contract"));
 $("#copy-contract-link").addEventListener("click", () => copyDocumentLink("contract"));
 $("#contract-form").addEventListener("submit", async (event) => {
   event.preventDefault();
