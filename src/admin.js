@@ -85,6 +85,7 @@ let dashboardSyncInProgress = false;
 let dashboardSyncTimer = 0;
 
 const DASHBOARD_SYNC_INTERVAL = 10_000;
+const HMP_BOOKING_CALENDAR_URL = "https://calendar.app.google/CJn7HCVgHaqHM2fK6";
 
 const syncSharedSession = async () => {
   const response = await fetch("/api/hmp-sso", {
@@ -2052,25 +2053,31 @@ $("#save-proposal-draft").addEventListener("click", saveProposalDraft);
 window.addEventListener("hmp-drafts-changed", () => {
   if (activeWorkspaceView === "drafts") loadDrafts().catch((error) => setMessage($("#drafts-status"), error.message));
 });
-$("#insert-calendar-link").addEventListener("click", () => {
-  const calendarInput = $("#admin-calendar-url");
-  const url = normalizeCalendarUrl(calendarInput.value);
+const insertCalendarLink = (value, label) => {
+  const url = normalizeCalendarUrl(value);
   if (!url) {
     setMessage($("#admin-message-status"), "Enter a valid https:// calendar link first.");
-    calendarInput.focus();
-    return;
+    return false;
   }
   const messageInput = $("#admin-message-input");
   const prefix = messageInput.value.trim() ? "\n\n" : "";
-  const addition = `${prefix}Calendar link: ${url}`;
+  const addition = `${prefix}${label}: ${url}`;
   if (messageInput.value.length + addition.length > messageInput.maxLength) {
     setMessage($("#admin-message-status"), "Shorten your reply before adding the calendar link.");
-    return;
+    return false;
   }
   messageInput.value += addition;
-  calendarInput.value = "";
   messageInput.focus();
   setMessage($("#admin-message-status"), "Calendar link added to the reply. Click Send reply to share it.");
+  return true;
+};
+$("#insert-hmp-calendar-link").addEventListener("click", () => {
+  insertCalendarLink(HMP_BOOKING_CALENDAR_URL, "Book an appointment");
+});
+$("#insert-calendar-link").addEventListener("click", () => {
+  const calendarInput = $("#admin-calendar-url");
+  if (insertCalendarLink(calendarInput.value, "Calendar link")) calendarInput.value = "";
+  else calendarInput.focus();
 });
 $("#print-proposal").addEventListener("click", () => printProposal(proposalPayload()));
 $("#proposal-editor-dialog").addEventListener("click", (event) => {
