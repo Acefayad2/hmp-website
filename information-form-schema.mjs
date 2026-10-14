@@ -1,4 +1,4 @@
-// Native versions of the three client-supplied Money Table information forms.
+// Retired templates remain available for saved records and existing private links.
 const text = (id, label, help = "", required = true) => ({id, label, help, type:"textarea", required});
 const contact = text("responsibleContact", "Responsible point of contact(s)", "Provide each person’s name and phone number. Choose someone other than the client(s) for HMP to contact about incidentals. Let your loved ones know HMP will handle money-table services at your event.");
 const bank = text("changeBank", "Confirm the change-bank amount", "The change bank must contain only $1 bills. Please request batches of 100 or 50 from your bank and include any additional bank instructions. Do not provide bank account numbers.");
@@ -28,7 +28,7 @@ const pdfForm = (id, title, sourceFile, sourceSha256, fields) => ({
   clientFields:[{id:"email",label:"Email address",type:"email",required:true}, ...fields],
 });
 const make = (id, title, sourceUrl, fields) => ({
-  id, title, kind:"information", version:"2026-09-30.1", sourceUrl, pages:[],
+  id, title, kind:"information", retired:true, version:"2026-09-30.1", sourceUrl, pages:[],
   description:"Thank you for choosing HMP. Complete these event details so our team can prepare your Money Table service. Your answers are saved privately for HMP when you submit.",
   adminFields:[{id:"eventName",label:"Event name / reference",type:"text",required:false}],
   clientFields:[{id:"email",label:"Email address",type:"email",required:true}, ...fields],
@@ -37,18 +37,19 @@ export const informationTemplates = [
   make("money-event-information", "Money Table Service — Event Information", "https://forms.gle/97eLqmLSMDEJLdGbA", [contact,bank,delivery,payment,release,notes]),
   make("money-collection-contacts", "Money Table Service — Collection Contacts", "https://forms.gle/SAA8R6KxTfwtijct5", [contact,release,notes]),
   make("money-bank-payment", "Money Table Service — Bank & Payment Details", "https://forms.gle/zcJ5KvacooVQPRBi9", [contact,bank,delivery,payment,release,notes]),
-  pdfForm("money-collecting-details", "Money Collecting Event Details Form", "Money Collecting Event Details Form.pdf", "4b2ca243ac936a5093a6767e30963fd21ee1da999655f95fd066a0a8ccac21d3", [
+  {...pdfForm("money-collecting-details", "Money Table Intake Form", "Money Collecting Event Details Form.pdf", "4b2ca243ac936a5093a6767e30963fd21ee1da999655f95fd066a0a8ccac21d3", [
     ...representative, ...alternateRecipient, notes,
-  ]),
-  pdfForm("money-changing-details", "Money Changing Event Details Form", "Money Changing Event Details Form.pdf", "d1290c04ffd21864ec5fdad400c8daa5db7f8449c0faa4c0a7d451b0ff23df5c", [
+  ]), subtitle:"For Collecting", version:"2026-10-13.1"},
+  {...pdfForm("money-changing-details", "Money Table Intake Form", "Money Changing Event Details Form.pdf", "d1290c04ffd21864ec5fdad400c8daa5db7f8449c0faa4c0a7d451b0ff23df5c", [
     {id:"bankAmount",label:"Confirmation of the money bank amount being provided",type:"money",required:true},
     ...representative, ...alternateRecipient, ...digitalTransfer,
     text("qrCodeInstructions", "QR-code delivery details", "Send QR-code screenshots through your HMP message thread or by text to 301-471-0990. Never provide passwords or login codes.", false), notes,
-  ]),
-  pdfForm("money-collecting-changing-details", "Money Collecting & Changing Event Details Form", "Money Collecting & Changing Event Detail Form.pdf", "df2ccc32b994b3435f4a217651b1bbf0f2fbf4b634897f00427f571c9f5426be", [
+  ]), subtitle:"For Changing", version:"2026-10-13.1"},
+  {...pdfForm("money-collecting-changing-details", "Money Collecting & Changing Event Details Form", "Money Collecting & Changing Event Detail Form.pdf", "df2ccc32b994b3435f4a217651b1bbf0f2fbf4b634897f00427f571c9f5426be", [
     {id:"bankAmount",label:"Confirmation of the money bank amount being provided",type:"money",required:true},
     ...representative, ...alternateRecipient, ...digitalTransfer,
     text("qrCodeInstructions", "QR-code delivery details", "Send QR-code screenshots through your HMP message thread or by text to 301-471-0990. Never provide passwords or login codes.", false), notes,
-  ]),
+  ]), retired:true},
 ];
+export const activeInformationTemplates = informationTemplates.filter(template => !template.retired);
 export const isInformationForm = snapshot => snapshot?.kind === "information";
