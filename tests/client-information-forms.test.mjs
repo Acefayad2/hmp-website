@@ -1,9 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { informationTemplates } from "../information-form-schema.mjs";
+import { activeInformationTemplates, informationTemplates } from "../information-form-schema.mjs";
 import { informationSummary } from "../information-form-ui.mjs";
 import { fieldsHTML } from "../agreement-ui.mjs";
+
+test("only the two renamed intake forms are offered; retired records remain supported", () => {
+  assert.deepEqual(activeInformationTemplates.map(t => [t.id, t.title, t.subtitle]), [
+    ["money-collecting-details", "Money Table Intake Form", "For Collecting"],
+    ["money-changing-details", "Money Table Intake Form", "For Changing"],
+  ]);
+  assert.equal(informationTemplates.filter(t => t.retired).length, 4);
+  for (const template of activeInformationTemplates) {
+    assert.match(template.description, /fill out our Money Table Intake Form/);
+    assert.doesNotMatch(template.description, /Event Details Form/);
+    const summary = informationSummary({snapshot:template, clientName:"Client",clientEmail:"client@example.test",adminAnswers:{},clientAnswers:{}});
+    assert.ok(summary.includes(`<h2>Money Table Intake Form</h2><p>${template.subtitle}</p>`));
+  }
+  const admin = readFileSync(new URL("../src/client-forms.js", import.meta.url), "utf8");
+  assert.match(admin, /innerHTML = activeInformationTemplates\.map/);
+  assert.match(admin, /rows = data\.agreements\.filter\(row => informationTemplates\.some/);
+});
 
 test("three original information forms are native templates, separate from contracts and receipts", () => {
   assert.deepEqual(informationTemplates.slice(0,3).map(t => t.sourceUrl), ["https://forms.gle/97eLqmLSMDEJLdGbA", "https://forms.gle/SAA8R6KxTfwtijct5", "https://forms.gle/zcJ5KvacooVQPRBi9"]);

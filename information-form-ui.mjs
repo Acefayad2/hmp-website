@@ -1,6 +1,6 @@
 import { answersHTML, escape } from "./agreement-ui.mjs";
 export function informationSummary(record, showTitle = true) {
-  return `${showTitle ? `<h2>${escape(record.snapshot.title)}</h2>` : ""}<p>${escape(record.clientName)} · ${escape(record.clientEmail)}</p>${answersHTML(record.snapshot.adminFields, record.adminAnswers)}<h3>Client responses</h3>${record.completedAt ? answersHTML(record.snapshot.clientFields, record.clientAnswers) : "<p>Awaiting the client’s submission.</p>"}<p>${record.completedAt ? `Submitted: ${escape(new Date(record.completedAt).toLocaleString())}` : "Not submitted yet"}</p>`;
+  return `${showTitle ? `<h2>${escape(record.snapshot.title)}</h2>${record.snapshot.subtitle ? `<p>${escape(record.snapshot.subtitle)}</p>` : ""}` : ""}<p>${escape(record.clientName)} · ${escape(record.clientEmail)}</p>${answersHTML(record.snapshot.adminFields, record.adminAnswers)}<h3>Client responses</h3>${record.completedAt ? answersHTML(record.snapshot.clientFields, record.clientAnswers) : "<p>Awaiting the client’s submission.</p>"}<p>${record.completedAt ? `Submitted: ${escape(new Date(record.completedAt).toLocaleString())}` : "Not submitted yet"}</p>`;
 }
 export function printInformation(record) {
   document.querySelector("#agreement-print")?.remove();
