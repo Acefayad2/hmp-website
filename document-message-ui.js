@@ -8,7 +8,20 @@ const fieldLabels = {
   client_signature_name:"Client signature",client_signed_at:"Client signature date",
 };
 
-export function renderDocumentCard(copy) {
+export function printDocumentCopy(copy) {
+  const card = renderDocumentCard(copy, { showActions: false, expanded: true });
+  if (!card) return false;
+  const popup = window.open("", "_blank", "popup");
+  if (!popup) return false;
+  const container = document.createElement("div");
+  container.append(card);
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>HMP Document Copy</title><link rel="stylesheet" href="${location.origin}/document-message.css?v=20261016-document-cards"></head><body class="document-print-body">${container.innerHTML}</body></html>`);
+  popup.document.close();
+  window.setTimeout(() => { popup.focus(); popup.print(); }, 700);
+  return true;
+}
+
+export function renderDocumentCard(copy, { showActions = true, expanded = false } = {}) {
   if (!copy || !["invoice","contract"].includes(copy.kind)) return null;
   const kind=copy.kind === "invoice" ? "Invoice" : "Contract";
   const card=document.createElement("section");card.className="sent-document";
@@ -16,6 +29,7 @@ export function renderDocumentCard(copy) {
   const amount=document.createElement("p");amount.className="sent-document-total";
   amount.textContent=`${copy.kind === "invoice" ? "Total" : "Agreement value"}: ${money(copy.kind === "invoice" ? copy.total : copy.total_amount)}`;
   const details=document.createElement("details"), summary=document.createElement("summary");
+  details.open = expanded;
   summary.textContent=`View ${copy.kind}`;details.append(summary);
   const content=document.createElement("div");content.className="sent-document-content";
   const note=document.createElement("p");note.textContent="Copy as sent. Later edits or payment/signature updates are not reflected in this copy.";content.append(note);
@@ -38,6 +52,15 @@ export function renderDocumentCard(copy) {
     content.append(items,totals);
   } else {
     const retainer=document.createElement("p");retainer.textContent=`Retainer: ${money(copy.retainer_amount)}`;content.append(retainer);
+  }
+  if (showActions) {
+    const actions=document.createElement("div");actions.className="sent-document-actions";
+    const button=document.createElement("button");button.type="button";button.textContent="Print / Save PDF";
+    const status=document.createElement("p");status.setAttribute("role","status");
+    button.addEventListener("click", () => {
+      status.textContent=printDocumentCopy(copy) ? "" : "Allow pop-ups for this site, then choose Print / Save PDF again.";
+    });
+    actions.append(button,status);content.append(actions);
   }
   details.append(content);card.append(heading,amount,details);return card;
 }

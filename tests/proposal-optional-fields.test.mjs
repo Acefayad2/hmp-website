@@ -30,7 +30,7 @@ test("blank and zero equipment stays hidden; positive quantities render on clien
     }
     const card = allText(renderProposalCard({ ...proposal, serviceHours: 4, associates: 2, machines: 1 }, { showActions: false }));
     assert.match(card, /2 Money Associates/);
-    assert.match(card, /1 money counting machine/);
+    assert.match(card, /1 Money Counting Machine/);
     assert.match(card, /Service hours 4/);
   } finally { globalThis.document = original; }
 });
