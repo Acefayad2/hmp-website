@@ -19,6 +19,12 @@ Source: IMG_1867.mov supplied October 16, 2026.
   Guest Seating activity comes only from that event's verified link.
 - Existing drafts and sent records remain unchanged. Existing authentication,
   client PINs and Admin allowlisting remain required.
+- Saving an inquiry as Booked automatically prepares its Admin hub if missing.
+  Existing hubs, links, PINs, and revoked/expired access are preserved. Concurrent
+  saves use the unique inquiry ID and cannot overwrite another save's credentials.
+  No email is sent by booking. If hub creation fails, the saved booking remains
+  visible with a specific retry warning; saving again safely retries hub creation.
+  Existing Booked inquiries can also be saved again to prepare a missing hub.
 
 ## Database release dependency
 
@@ -30,13 +36,16 @@ Production application requires the user's explicit approval.
 
 ## Verification
 
-- npm run check: 182 tests passed; static and 17 function builds passed.
+- npm run check: 187 tests passed; static and 17 function builds passed.
 - Mocked browser checks: Admin/client proposal dialogs, close/focus behavior,
   document filters, completed/signed timeline, Guest Seating link, desktop/mobile
   layouts with no horizontal overflow.
 - Read-only live schema checks confirmed existing JSONB storage and Guest
   Seating activity fields. No production test events, messages or uploads.
 - Preview is prepared; production release is pending database approval.
+- Follow-up shortened IMG_1867 recording: booking-to-hub behavior additionally
+  verified in a mocked browser, including Open Client Hub and Client Activity on
+  desktop and mobile. No live clients or records were used.
 
 ## Existing project advisories (read-only review)
 

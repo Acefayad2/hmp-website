@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { isSameOriginMutation } from "./_conversation-security.mts";
+import { isSameOriginMutation, conversationToken, newNonce, tokenHash } from "./_conversation-security.mts";
 import { manualInquiryRecord } from "./_manual-inquiry.mts";
 
 const json = (body: unknown, status = 200) =>
@@ -66,6 +66,26 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 const cleanText = (value: unknown, maxLength: number) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+
+// Booking never renews a link, resets a PIN, or sends an unsolicited email.
+// Ignore conflicts so simultaneous saves cannot replace an existing hub.
+export const ensureBookedHub = async (client: SupabaseClient, inquiryId: string) => {
+  const read = () => client.from("hmp_client_conversations").select("id")
+    .eq("inquiry_id", inquiryId).maybeSingle();
+  const existing = await read();
+  if (existing.error) throw new Error("Hub lookup failed");
+  if (existing.data) return existing.data.id;
+  const id = crypto.randomUUID(), nonce = newNonce();
+  const { error } = await client.from("hmp_client_conversations").upsert({
+    id, inquiry_id: inquiryId, token_nonce: nonce,
+    access_token_hash: tokenHash(conversationToken(id, nonce)),
+    token_expires_at: new Date(Date.now() + 365 * 86400000).toISOString(),
+  }, { onConflict: "inquiry_id", ignoreDuplicates: true });
+  if (error) throw new Error("Hub creation failed");
+  const saved = await read();
+  if (saved.error || !saved.data) throw new Error("Hub verification failed");
+  return saved.data.id;
+};
 
 export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request) => {
   const user = await getUserFn();
@@ -160,7 +180,15 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
       return json({ error: error.code === "PGRST116" ? "Inquiry not found" : "Changes could not be saved" }, error.code === "PGRST116" ? 404 : 502);
     }
 
-    return json({ ok: true, inquiry: normalizeInquiry(data) });
+    let conversationId: string | undefined;
+    let hubWarning: string | undefined;
+    if (status === "Booked") {
+      try { conversationId = await ensureBookedHub(client, id); }
+      catch {
+        hubWarning = "Booking saved, but the client hub could not be prepared. Press Save again to retry; existing client links are unchanged.";
+      }
+    }
+    return json({ ok: true, inquiry: normalizeInquiry(data), conversationId, hubWarning });
   }
 
   if (request.method !== "GET") {

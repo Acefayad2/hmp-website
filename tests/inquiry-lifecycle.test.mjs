@@ -1,13 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createDashboardHandler } from "../netlify/functions/hmp-dashboard.mts";
+import { createDashboardHandler, ensureBookedHub } from "../netlify/functions/hmp-dashboard.mts";
 
-globalThis.Netlify = { env: { get: key => key === "HMP_ADMIN_EMAILS" ? "admin@example.test" : undefined } };
+globalThis.Netlify = { env: { get: key => ({ HMP_ADMIN_EMAILS: "admin@example.test", SUPABASE_SERVICE_ROLE_KEY: "test-only-secret" })[key] } };
 const id = "11111111-1111-4111-8111-111111111111";
 function fixture() {
   const row = { submission_id: id, status: "New", client_name: "Example Client", internal_notes: "Keep these notes", priority: "High", owner: "HMP" };
   const calls = [];
+  const hubs = [];
+  let hubFailure = false;
   const db = { from(table) {
+    if (table === "hmp_client_conversations") {
+      let inquiryId;
+      return {
+        select() { return this; },
+        eq(key, value) { assert.equal(key, "inquiry_id"); inquiryId = value; return this; },
+        async maybeSingle() { return { data: hubs.find(hub => hub.inquiry_id === inquiryId) || null, error: hubFailure ? { code: "failure" } : null }; },
+        async upsert(value, options) {
+          assert.deepEqual(options, { onConflict: "inquiry_id", ignoreDuplicates: true });
+          if (!hubs.some(hub => hub.inquiry_id === value.inquiry_id)) hubs.push(value);
+          return { error: null };
+        },
+      };
+    }
     assert.equal(table, "hmp_admin_inquiries");
     let patch, filters = [];
     return {
@@ -22,7 +37,7 @@ function fixture() {
       single() { return this.maybeSingle(); },
     };
   } };
-  return { row, db, calls, handler: createDashboardHandler({ getUserFn: async () => ({ email: "admin@example.test" }), databaseFactory: () => db }) };
+  return { row, db, calls, hubs, failHub: value => { hubFailure = value; }, handler: createDashboardHandler({ getUserFn: async () => ({ email: "admin@example.test" }), databaseFactory: () => db }) };
 }
 const request = (body, origin = "https://hmpeds.com") => new Request("https://hmpeds.com/api/hmp-dashboard", {
   method: "PATCH", headers: origin ? { Origin: origin } : {}, body: JSON.stringify(body),
@@ -96,4 +111,57 @@ test("normal saves support all statuses while preserving legacy status compatibi
     assert.equal((await response.json()).inquiry.status, status);
   }
   assert.equal((await handler(request({ id, status: "Deleted", priority: "Normal" }))).status, 400);
+});
+
+test("booking automatically creates one event hub and repeat saves preserve its credentials", async () => {
+  const { handler, hubs } = fixture();
+  const save = () => handler(request({ id, status: "Booked", priority: "Normal" }));
+  const result = await (await save()).json();
+  assert.equal(result.conversationId, hubs[0].id);
+  assert.equal(result.hubWarning, undefined);
+  assert.equal(hubs[0].inquiry_id, id);
+  assert.match(hubs[0].access_token_hash, /^[a-f0-9]{64}$/);
+  const original = structuredClone(hubs[0]);
+  await save();
+  assert.deepEqual(hubs, [original]);
+});
+
+test("booking preserves revoked links, expired links and PIN fields instead of renewing access", async () => {
+  const { handler, hubs } = fixture();
+  const original = { id: "existing", inquiry_id: id, token_nonce: "unchanged", token_expires_at: "2020-01-01", revoked_at: "2020-01-01", client_pin_hash: "unchanged" };
+  hubs.push(structuredClone(original));
+  const result = await (await handler(request({ id, status: "Booked", priority: "Normal" }))).json();
+  assert.equal(result.conversationId, "existing");
+  assert.deepEqual(hubs, [original]);
+});
+
+test("hub failures report a saved booking with a retry warning, then recover safely", async () => {
+  const { handler, row, hubs, failHub } = fixture();
+  failHub(true);
+  const result = await (await handler(request({ id, status: "Booked", priority: "Normal" }))).json();
+  assert.equal(row.status, "Booked");
+  assert.match(result.hubWarning, /Booking saved.*Press Save again/);
+  assert.equal(result.conversationId, undefined);
+  assert.equal(hubs.length, 0);
+  failHub(false);
+  const recovered = await (await handler(request({ id, status: "Booked", priority: "Normal" }))).json();
+  assert.equal(recovered.conversationId, hubs[0].id);
+});
+
+test("concurrent bookings create one hub; different inquiries never share a hub", async () => {
+  const { db, hubs } = fixture();
+  const ids = await Promise.all([ensureBookedHub(db, id), ensureBookedHub(db, id)]);
+  assert.equal(ids[0], ids[1]);
+  assert.equal(hubs.length, 1);
+  const other = await ensureBookedHub(db, "22222222-2222-4222-8222-222222222222");
+  assert.notEqual(other, ids[0]);
+  assert.equal(hubs.length, 2);
+});
+
+test("non-booking saves do not create hubs", async () => {
+  const { handler, hubs } = fixture();
+  for (const status of ["New", "Contacted", "Quoted", "Closed", "Archived"]) {
+    await handler(request({ id, status, priority: "Normal" }));
+  }
+  assert.equal(hubs.length, 0);
 });

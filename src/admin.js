@@ -456,7 +456,26 @@ const saveInquiry = async (event) => {
     renderInquiries();
     renderDetailGrid(data.inquiry);
     updateInquiryActions(data.inquiry);
-    setMessage($("#management-message"), "Changes saved securely.", true);
+    let hubWarning = data.hubWarning || "";
+    if (data.conversationId) {
+      try {
+        await loadMessages();
+        const thread = messageThreads.find((candidate) => candidate.id === data.conversationId);
+        if (!thread) throw new Error("Hub unavailable");
+        activeConversationUrl = thread.clientUrl;
+        $("#create-conversation-link").textContent = "Renew private link";
+        $("#copy-conversation-link").hidden = false;
+        $("#open-conversation").hidden = false;
+        setMessage($("#conversation-link-message"), thread.active
+          ? "Client hub ready. Open it here or find this event under Client Activity."
+          : "Client hub preserved. Its private link is inactive; use Send new link when ready.", thread.active);
+      } catch {
+        hubWarning = "Booking and client hub saved. Refresh Messages or Client Activity to load the hub.";
+      }
+    }
+    setMessage($("#management-message"), hubWarning || (data.conversationId
+      ? "Booked and client hub ready. Existing links and PINs are unchanged."
+      : "Changes saved securely."), !hubWarning);
   } catch (error) {
     setMessage($("#management-message"), error.message || "Changes could not be saved.");
   } finally {
