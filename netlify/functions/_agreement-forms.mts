@@ -1,6 +1,7 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
 import { getAgreementTemplate, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../../agreement-schema.mjs";
+import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -47,7 +48,10 @@ export function editableSnapshot(snapshot: any, body: any) {
   if (!Array.isArray(pages) || pages.length !== snapshot.pages.length ||
       pages.some((page: unknown) => typeof page !== "string" || !page.trim() || page.length > 15000) ||
       pages.join("").length > 85000) throw new Error("Review every agreement page; one or more pages are missing or too long.");
-  return {...snapshot, title, pages:pages.map((page: string) => page.trim())};
+  const formatting = body.pageFormatting === undefined ? (body.pages === undefined ? snapshot.pageFormatting : undefined) : body.pageFormatting;
+  if (formatting !== undefined && (!Array.isArray(formatting) || formatting.length !== pages.length)) throw new Error("Agreement formatting must match every page.");
+  const {pageFormatting:previousFormatting, ...rest} = snapshot;
+  return {...rest, title, pages, ...(formatting ? {pageFormatting:formatting.map((runs: unknown, i: number) => validatePageFormatting(pages[i],runs))} : {})};
 }
 export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, string>) {
   if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return snapshot;
@@ -66,12 +70,14 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
     travelClause:adminAnswers.includeTravelFee === "Yes" ? optionalClauses.travelClause : "",
     grandTotalClause:adminAnswers.includeGrandTotal === "Yes" ? "The final total will be presented to the Client at the conclusion of the service." : "",
   };
-  const pages = snapshot.pages.map((page: string) => page.replace(/\{\{([A-Za-z]+)\}\}/g, (_: string, key: string) => {
+  const replace = (key: string) => {
     if (typeof replacements[key] !== "string") throw new Error(`Unrecognized agreement field: ${key}`);
     return replacements[key];
-  }));
+  };
+  const rendered = snapshot.pages.map((page: string, i: number) => replaceFormattedPage(page,snapshot.pageFormatting?.[i],replace));
+  const pages = rendered.map((page: any) => page.text);
   if (pages.some((page: string) => /\{\{/.test(page))) throw new Error("Agreement text has an unfinished placeholder.");
-  return {...issued, pages};
+  return {...issued, pages, ...(snapshot.pageFormatting ? {pageFormatting:rendered.map((page: any) => page.formatting)} : {})};
 }
 export const cleanContact = (body: any) => {
   const name = typeof body.clientName === "string" ? body.clientName.trim() : "";

@@ -40,6 +40,22 @@ function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:20
 
 const bankBody = row => ({answers:{...inputFor(row.snapshot.clientFields), representativeOneName:"First Signer", representativeOneSignature:"First Signer", representativeTwoName:"", representativeTwoSignature:"", representativeTwoDate:"", attendantName:"HMP Attendant"}, signatureName:"HMP Attendant", consent:true, representativeOneConsent:true, representativeTwoConsent:false});
 
+test("formatting persists through the agreement API and remains locked after sharing", async () => {
+  const row = {...rowFor(),status:"Draft"}, handler = handlerFor([row]);
+  const pages = row.snapshot.pages;
+  const pageFormatting = pages.map((page,i) => i ? [] : [{start:0,end:10,bold:true,align:"center"}]);
+  const saved = await handler(request("hmp-agreement-forms","PATCH",{id,action:"save",updatedAt:row.updated_at,clientName:row.client_name,clientEmail:row.client_email,answers:row.admin_answers,pages,pageFormatting}));
+  assert.equal(saved.status,200);
+  assert.deepEqual(row.snapshot.pageFormatting,pageFormatting);
+  const shared = await handler(request("hmp-agreement-forms","PATCH",{id,action:"share",updatedAt:row.updated_at,hmpConsent:true}));
+  assert.equal(shared.status,200);
+  const client = (await (await handler(request("hmp-agreement","GET",null,agreementToken(id,"seed")))).json()).agreement;
+  assert.deepEqual(client.snapshot.pageFormatting,pageFormatting);
+  const original = structuredClone(row.snapshot);
+  assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"save",updatedAt:row.updated_at,pages,pageFormatting:pages.map(()=>[])}))).status,409);
+  assert.deepEqual(row.snapshot,original);
+});
+
 test("bank form can submit without a second representative and reopens unchanged in Admin and client views", async () => {
   const row = rowFor("money-bank-verification"), handler = handlerFor([row]), body = bankBody(row);
   const original = structuredClone(row.snapshot), token = agreementToken(id,"seed");

@@ -2,6 +2,7 @@ import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
 import terms from "../data/agreement-terms.json";
 import { searchText } from "../page-search.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "../agreement-ui.mjs";
+import { agreementEditorHTML, mountAgreementEditors, readAgreementEditor } from "./agreement-text-editor.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -70,7 +71,7 @@ function renderEditor() {
   dialog.innerHTML = `<header><div><p>CLIENT FORM · ${escape(active.status)}</p><h2 id="agreement-editor-title">${escape(active.snapshot.title)}</h2></div><button class="agreement-button secondary" type="button" id="agreement-close">Close</button></header>
     <form id="agreement-admin-form"><p>Prepare the service details, then send a private form for the client to complete and sign. Sent forms are locked; void and recreate one if its terms need to change.</p>
     ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label></div><h3>HMP service details</h3><p>All starred fields must be completed before sending. You can save an incomplete draft.</p><div id="agreement-admin-fields" class="agreement-grid">${fieldsHTML(active.snapshot.adminFields, active.adminAnswers, "admin-answer", false)}</div>` : `<p>Prepared for ${escape(active.clientName)} · ${escape(active.clientEmail)}</p>${answersHTML(active.snapshot.adminFields, active.adminAnswers)}`}
-    ${draft ? `<details class="agreement-panel"><summary>Edit agreement wording</summary><p>Changes here affect this draft only. Review all pages carefully before sharing; sent and signed copies remain unchanged.</p>${active.snapshot.pages.map((page, i) => `<label class="agreement-field agreement-wide">Page ${i + 1}<textarea data-agreement-page="${i}" rows="12" maxlength="15000" required>${escape(page)}</textarea></label>`).join("")}</details>` : ""}
+    ${draft ? `<details class="agreement-panel"><summary>Edit agreement wording</summary><p>Changes here affect this draft only. Select text to format it; the toolbar appears while editing. Keep field placeholders such as {{serviceHours}} intact. Sent and signed copies remain unchanged.</p>${active.snapshot.pages.map((page, i) => agreementEditorHTML(i)).join("")}</details>` : ""}
     <details class="agreement-panel"><summary>Review full agreement text</summary><p>Client answers and HMP service details supply the matching blanks in this agreement. The event date supplied by the client fills event-date placeholders.</p>${termsHTML(active.snapshot)}</details>
     ${active.status === "Completed" ? completionHTML(active) : ""}
     ${draft && !["client-only", "on-site-three-signatures"].includes(active.snapshot.signatureMode) ? `<label class="agreement-checkbox"><input id="agreement-hmp-consent" type="checkbox"><span>I authorize my typed name as my electronic signature for HMP on this agreement when I send it.</span></label>` : ""}
@@ -89,14 +90,23 @@ function renderEditor() {
     };
   }
   form.oninput = () => {dirty = true;};
+  if (draft) mountAgreementEditors(form,active.snapshot,() => {
+    dirty = true;
+    const pages = [...form.querySelectorAll("[data-agreement-editor]")].map(readAgreementEditor);
+    form.querySelectorAll(".agreement-terms-page").forEach((section,i) => {
+      section.outerHTML = termsHTML({pages:[pages[i].text],pageFormatting:[pages[i].formatting]}).replace("1 / 1", `${i+1} / ${pages.length}`);
+    });
+  });
   form.onsubmit = event => {event.preventDefault(); if (!busy && form.reportValidity()) perform("save");};
   $("#agreement-send")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("send"); });
   $("#agreement-share")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("share"); });
   $("#agreement-void")?.addEventListener("click", () => { if (!busy && confirm("Void this form? Its private link will stop working. Existing signed forms are never deleted.")) perform("void"); });
   $("#agreement-print-button").onclick = () => {
     if (!draft) return printAgreement(active);
-    const values = formValues();
-    printAgreement({...active, ...values, snapshot:{...active.snapshot, title:values.title, pages:values.pages}});
+    try {
+      const values = formValues();
+      printAgreement({...active, ...values, snapshot:{...active.snapshot, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting}});
+    } catch(error) { $("#agreement-editor-status").textContent = error.message; }
   };
   $("#agreement-copy")?.addEventListener("click", async () => {
     try {await navigator.clipboard.writeText(link); $("#agreement-editor-status").textContent = "Private link copied. Share it only with this client.";}
@@ -105,7 +115,9 @@ function renderEditor() {
 }
 function formValues() {
   const values = Object.fromEntries(new FormData($("#agreement-admin-form")));
-  return {title:values.documentTitle, pages:[...document.querySelectorAll("#agreement-admin-form [data-agreement-page]")].map(item => item.value), clientName:values.clientName, clientEmail:values.clientEmail, adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
+  const pages = [...document.querySelectorAll("#agreement-admin-form [data-agreement-editor]")].map(readAgreementEditor);
+  pages.forEach((page,i) => {if (!page.text.trim() || page.text.length > 15000) throw new Error(`Agreement page ${i+1} must contain text and be no longer than 15,000 characters.`);});
+  return {title:values.documentTitle, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
 }
 async function perform(action) {
   if (busy) return;
@@ -124,9 +136,10 @@ async function perform(action) {
     }
     busy = true;
     dialog.querySelectorAll("button,input,textarea,select").forEach(item => item.disabled = true);
+    dialog.querySelectorAll("[data-agreement-editor]").forEach(item => item.setAttribute("contenteditable","false"));
     status.textContent = action === "send" ? "Preparing and sending client form…" : "Saving…";
     if (values) {
-      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, clientName:values.clientName, clientEmail:values.clientEmail, answers:values.adminAnswers})});
+      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientName:values.clientName, clientEmail:values.clientEmail, answers:values.adminAnswers})});
       active = data.agreement; dirty = false;
     }
     let warning = "";
@@ -145,5 +158,5 @@ async function perform(action) {
   } catch(error) {
     if (error.data?.agreement) { active = error.data.agreement; link = error.data.link || ""; dirty = false; renderEditor(); await loadAgreementForms(); }
     $("#agreement-editor-status").textContent = error.message;
-  } finally { busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(item => item.disabled = false); }
+  } finally { busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(item => item.disabled = false); dialog.querySelectorAll("[data-agreement-editor]").forEach(item => item.setAttribute("contenteditable","true")); }
 }
