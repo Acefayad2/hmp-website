@@ -21,7 +21,9 @@ const moneyTableDetails = [
   field("agreementDate", "Agreement date", "date"),
   field("serviceFee", "HMP service fee", "money"),
   field("serviceHours", "Service hours", "decimal"),
+  {...field("retainerAmount", "30% retainer amount (USD)", "money", false), calculated:"money-table-payment", help:"Calculated from the HMP service fee."},
   field("retainerDue", "30% retainer due date", "date"),
+  {...field("finalPaymentAmount", "Final payment amount (USD)", "money", false), calculated:"money-table-payment", help:"Service fee minus the retainer; not a payment-status balance."},
   field("finalPaymentDue", "Final payment due date", "date"),
   field("serviceStartTime", "Scheduled service start time", "time"),
   field("serviceEndTime", "Scheduled service end time", "time"),
@@ -118,6 +120,7 @@ export function requiresSecondRepresentative(snapshot, values = {}, consent = fa
 export function validateAnswers(fields, values, requireAll = true) {
   const answers = {};
   for (const field of fields) {
+    if (field.calculated === "money-table-payment") continue;
     const value = typeof values?.[field.id] === "string" ? values[field.id].trim() : "";
     if (value.length > (field.type === "textarea" ? 5000 : 500)) throw new Error(`${field.label} is too long.`);
     if (requireAll && field.required && !value) throw new Error(`${field.label} is required.`);
@@ -130,5 +133,14 @@ export function validateAnswers(fields, values, requireAll = true) {
     if (value && field.type === "datetime-local" && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)))) throw new Error(`${field.label} is invalid.`);
     answers[field.id] = value;
   }
+  const payments = moneyTablePaymentAmounts(answers.serviceFee);
+  for (const field of fields) if (field.calculated === "money-table-payment") answers[field.id] = payments[field.id] || "";
   return answers;
+}
+
+export function moneyTablePaymentAmounts(serviceFee) {
+  const value = typeof serviceFee === "string" ? serviceFee.trim() : "";
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000) return {retainerAmount:"", finalPaymentAmount:""};
+  const cents = Math.round(Number(value)*100), retainerCents = Math.round(cents*30/100);
+  return {retainerAmount:(retainerCents/100).toFixed(2), finalPaymentAmount:((cents-retainerCents)/100).toFixed(2)};
 }

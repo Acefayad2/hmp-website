@@ -1,4 +1,4 @@
-import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
+import { agreementTemplates, moneyTablePaymentAmounts, validateAnswers } from "../agreement-schema.mjs";
 import terms from "../data/agreement-terms.json";
 import { searchText } from "../page-search.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "../agreement-ui.mjs";
@@ -89,7 +89,12 @@ function renderEditor() {
       if (!busy && confirm(`Create a new 7-day link? The expired link will remain disabled. ${onSite ? "No email will be sent." : `The new link will be emailed to ${active.clientEmail}.`} The form details will not change.`)) perform(onSite ? "renew" : "resend");
     };
   }
-  form.oninput = () => {dirty = true;};
+  const refreshPaymentAmounts = () => {
+    const amounts = moneyTablePaymentAmounts(form.elements.serviceFee?.value);
+    for (const field of active.snapshot.adminFields.filter(field => field.calculated === "money-table-payment")) form.elements[field.id].value = amounts[field.id];
+  };
+  if (draft) refreshPaymentAmounts();
+  form.oninput = event => {dirty = true; if (event.target.name === "serviceFee") refreshPaymentAmounts();};
   if (draft) mountAgreementEditors(form,active.snapshot,() => {
     dirty = true;
     const pages = [...form.querySelectorAll("[data-agreement-editor]")].map(readAgreementEditor);
