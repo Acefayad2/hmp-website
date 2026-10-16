@@ -660,19 +660,21 @@ const openProposalEditor = () => {
   if (!thread) return;
   activeProposalDraftId = "";
   const inquiry = inquiries.find((candidate) => candidate.id === thread.inquiryId) || {};
+  const service = eventServiceLabel(inquiry.service || thread.service);
+  const isMoneyTable = /\bMoney Table\b|\bMoney Changing\b|\bMoney Collecting\b/i.test(service);
   const validUntil = new Date();
   validUntil.setDate(validUntil.getDate() + 14);
   const values = {
-    title: "Money Changing Service Only",
+    title: service === "Money Table Services" ? "Money Changing Service Only" : service && !["Other", "Multiple services"].includes(service) ? service : "Service Proposal",
     clientName: thread.clientName,
     celebrationType: proposalEventType(inquiry.celebrationType || eventServiceLabel(thread.service)),
     eventDate: inquiry.celebrationDate || thread.celebrationDate || "",
     eventTime: [inquiry.startTime, inquiry.endTime].filter(Boolean).join(" – "),
     eventLocation: inquiry.location || "",
     guestCount: inquiry.guestCount || "",
-    serviceHours: 4,
-    associates: 3,
-    machines: 3,
+    serviceHours: isMoneyTable ? 4 : "N/A",
+    associates: isMoneyTable ? 3 : 0,
+    machines: isMoneyTable ? 3 : 0,
     serviceDetails: "",
     notes: "",
     additionalInformation: "",
@@ -704,6 +706,7 @@ const openProposalDraft = (draft) => {
 
 const saveProposalDraft = async () => {
   if (!activeThreadId) return;
+  if (!$("#proposal-service-hours").reportValidity()) return;
   const payload = proposalPayload();
   if (payload.calendarUrl && !normalizeCalendarUrl(payload.calendarUrl)) {
     setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");

@@ -98,10 +98,13 @@ test("proposals and attachment-only messages use the same notification path",asy
 
 test("sent proposals retain additional information for the client", async () => {
   const messages = [];
-  const proposal = serializeProposal({ clientName: "Test Client", serviceFee: 900, additionalInformation: "Parking is behind the venue.\nPlease use the side entrance." });
+  const proposal = serializeProposal({ clientName: "Test Client", serviceFee: 900, serviceHours: "N/A", associates: 0, machines: 0, additionalInformation: "Parking is behind the venue.\nPlease use the side entrance." });
   const response = await handler(fakeDatabase(messages), async () => new Response("{}"))(request({ ...sendBody, message: proposal }));
   assert.equal(response.status, 200);
   assert.equal(parseProposal(messages[0].body).additionalInformation, "Parking is behind the venue.\nPlease use the side entrance.");
+  assert.equal(parseProposal(messages[0].body).serviceHours, "N/A");
+  assert.equal(parseProposal(messages[0].body).associates, 0);
+  assert.equal(parseProposal(messages[0].body).machines, 0);
 });
 
 test("database read failures cannot look like empty conversations or missing proposals", async () => {
