@@ -6,7 +6,7 @@ import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
-import { inquiryGroups, inquiryFilterTitles } from "./inquiry-filters.mjs";
+import { inquiryGroups, inquiryFilterTitles, inquiryStatusGroup } from "./inquiry-filters.mjs";
 import "./admin-search.js";
 import { matchesSearch, searchText } from "../page-search.js";
 import { insertMessageSignature } from "./message-signature.mjs";
@@ -56,7 +56,8 @@ const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
 
 let inquiries = [];
-let activeInquiryFilter = "all";
+let activeInquiryFilter = "new";
+let inquiryBusy = false;
 let invoices = [];
 let invoiceView = "active";
 let invoiceItems = [];
@@ -247,10 +248,8 @@ const showPasswordForm = (message) => {
 
 const renderMetrics = () => {
   const groups = inquiryGroups(inquiries);
-  $("#metric-total").textContent = inquiries.length;
-  $("#metric-new").textContent = groups.new.length;
-  $("#metric-upcoming").textContent = groups.upcoming.length;
-  $("#metric-guests").textContent = groups.largest[0]?.guestCount || "—";
+  for (const status of ["new", "booked", "closed", "archived"]) $("#metric-" + status).textContent = groups[status].length;
+  $("#metric-deleted").textContent = `${groups.deleted.length} in Deleted · View records`;
 };
 
 const renderServiceFilter = () => {
@@ -264,7 +263,7 @@ const renderServiceFilter = () => {
 };
 
 const renderServiceMix = () => {
-  const counts = inquiries.reduce((result, item) => {
+  const counts = inquiries.filter((item) => inquiryStatusGroup(item.status) !== "deleted").reduce((result, item) => {
     const service = eventServiceLabel(item.service) || "Not specified";
     result[service] = (result[service] || 0) + 1;
     return result;
@@ -298,8 +297,11 @@ const renderInquiries = () => {
   const filtered = filteredInquiries();
   $("#clear-inquiry-search").disabled = !$("#search-input").value;
   $("#inquiry-list-title").textContent = inquiryFilterTitles[activeInquiryFilter];
+  const storageView = ["archived", "deleted"].includes(activeInquiryFilter);
+  $("#inquiry-storage-filter-label").hidden = !storageView;
+  if (storageView) $("#inquiry-storage-filter").value = activeInquiryFilter;
   document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
-    const selected = button.dataset.inquiryFilter === activeInquiryFilter;
+    const selected = button.dataset.inquiryFilter === (storageView ? "archived" : activeInquiryFilter);
     button.classList.toggle("metric-featured", selected);
     button.setAttribute("aria-pressed", String(selected));
   });
@@ -361,7 +363,22 @@ const renderDetailGrid = (item) => {
     .join("");
 };
 
+const updateInquiryActions = (item) => {
+  const group = inquiryStatusGroup(item.status);
+  $("#archive-inquiry").hidden = ["archived", "deleted"].includes(group);
+  $("#delete-inquiry").hidden = group === "deleted";
+  $("#restore-inquiry").hidden = !["archived", "deleted"].includes(group);
+  $("#inquiry-management-form .management-grid").hidden = group === "deleted";
+  $("#inquiry-management-form button[type=submit]").hidden = group === "deleted";
+};
+
+const setInquiryBusy = (busy) => {
+  inquiryBusy = busy;
+  document.querySelectorAll("#inquiry-management-form input, #inquiry-management-form select, #inquiry-management-form textarea, #inquiry-management-form button, #dialog-close").forEach((control) => { control.disabled = busy; });
+};
+
 const openInquiry = (id) => {
+  if (inquiryBusy) return;
   const item = inquiries.find((inquiry) => inquiry.id === id);
   if (!item) return;
   activeInquiryId = item.id;
@@ -375,7 +392,9 @@ const openInquiry = (id) => {
   const note = $("#detail-note");
   note.hidden = !item.additionalInformation;
   note.querySelector("p").textContent = item.additionalInformation || "";
-  $("#manage-status").value = item.status || "New";
+  const group = inquiryStatusGroup(item.status);
+  $("#manage-status").value = group === "new" || group === "deleted" ? "New" : group[0].toUpperCase() + group.slice(1);
+  updateInquiryActions(item);
   $("#manage-priority").value = item.priority || "Normal";
   $("#manage-follow-up").value = item.followUpDate || "";
   $("#manage-owner").value = item.owner || "";
@@ -394,10 +413,8 @@ const openInquiry = (id) => {
 
 const saveInquiry = async (event) => {
   event.preventDefault();
-  if (!activeInquiryId) return;
-  const form = event.currentTarget;
-  const button = form.querySelector("button[type=submit]");
-  button.disabled = true;
+  if (!activeInquiryId || inquiryBusy) return;
+  setInquiryBusy(true);
   setMessage($("#management-message"), "Saving changes…");
 
   try {
@@ -418,16 +435,42 @@ const saveInquiry = async (event) => {
     if (!response.ok) throw new Error(data.error || "Changes could not be saved.");
 
     inquiries = inquiries.map((item) => item.id === activeInquiryId ? data.inquiry : item);
+    activeInquiryFilter = inquiryStatusGroup(data.inquiry.status);
     renderMetrics();
     renderServiceMix();
     renderInquiries();
     renderDetailGrid(data.inquiry);
+    updateInquiryActions(data.inquiry);
     setMessage($("#management-message"), "Changes saved securely.", true);
   } catch (error) {
     setMessage($("#management-message"), error.message || "Changes could not be saved.");
   } finally {
-    button.disabled = false;
+    setInquiryBusy(false);
   }
+};
+
+const moveInquiry = async (action) => {
+  const item = inquiries.find((inquiry) => inquiry.id === activeInquiryId);
+  if (!item || inquiryBusy) return;
+  const messages = {
+    archive: "Move this inquiry to Archived? It can be restored later.",
+    delete: "Move this inquiry to Deleted? It will NOT be permanently erased and can be restored later.",
+    restore: "Restore this inquiry to Inquiries with status New?",
+  };
+  if (!Object.hasOwn(messages, action) || !confirm(`${messages[action]} Messages and linked documents will be kept. Unsaved edits in this form will not be saved.`)) return;
+  setInquiryBusy(true);
+  setMessage($("#management-message"), "Moving inquiry…");
+  try {
+    const response = await fetch("/api/hmp-dashboard", { method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: item.id, action, expectedStatus: item.status || "New" }) });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Inquiry could not be moved.");
+    inquiries = inquiries.map((candidate) => candidate.id === item.id ? data.inquiry : candidate);
+    activeInquiryFilter = inquiryStatusGroup(data.inquiry.status);
+    renderMetrics(); renderServiceMix(); renderInquiries();
+    dialog.close();
+  } catch (error) {
+    setMessage($("#management-message"), error.message || "Inquiry could not be moved.");
+  } finally { setInquiryBusy(false); }
 };
 
 const copyText = async (value) => {
@@ -1919,10 +1962,6 @@ $("#service-filter").addEventListener("change", renderInquiries);
 document.querySelectorAll("[data-inquiry-filter]").forEach((button) => {
   button.addEventListener("click", () => {
     activeInquiryFilter = button.dataset.inquiryFilter;
-    if (activeInquiryFilter === "all") {
-      $("#search-input").value = "";
-      $("#service-filter").value = "";
-    }
     renderInquiries();
   });
 });
@@ -1957,7 +1996,10 @@ inquiryList.addEventListener("click", (event) => {
   const row = event.target.closest("[data-inquiry-id]");
   if (row) openInquiry(row.dataset.inquiryId);
 });
-$("#dialog-close").addEventListener("click", () => dialog.close());
+$("#dialog-close").addEventListener("click", () => { if (!inquiryBusy) dialog.close(); });
+dialog.addEventListener("cancel", (event) => { if (inquiryBusy) event.preventDefault(); });
+$("#inquiry-storage-filter").addEventListener("change", (event) => { activeInquiryFilter = event.target.value; renderInquiries(); });
+for (const action of ["archive", "delete", "restore"]) $("#" + action + "-inquiry").addEventListener("click", () => moveInquiry(action));
 $("#inquiry-management-form").addEventListener("submit", saveInquiry);
 $("#create-conversation-link").addEventListener("click", createConversationLink);
 $("#copy-conversation-link").addEventListener("click", async () => {
@@ -1979,7 +2021,7 @@ $("#open-conversation").addEventListener("click", () => {
   openMessageThread(thread.id);
 });
 dialog.addEventListener("click", (event) => {
-  if (event.target === dialog) dialog.close();
+  if (event.target === dialog && !inquiryBusy) dialog.close();
 });
 
 $("#thread-list").addEventListener("click", (event) => {

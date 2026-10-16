@@ -1,4 +1,4 @@
-import type { Config, Context } from "@netlify/functions";
+import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
@@ -59,7 +59,7 @@ const normalizeInquiry = (record: Record<string, unknown>) => ({
   source: record.source || "Website",
 });
 
-const statuses = new Set(["New", "Contacted", "Quoted", "Booked", "Closed"]);
+const statuses = new Set(["New", "Contacted", "Quoted", "Booked", "Closed", "Archived"]);
 const priorities = new Set(["Low", "Normal", "High", "Urgent"]);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const datePattern = /^\d{4}-\d{2}-\d{2}$/;
@@ -67,14 +67,14 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const cleanText = (value: unknown, maxLength: number) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
 
-export default async (request: Request, _context: Context) => {
-  const user = await getUser();
+export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request) => {
+  const user = await getUserFn();
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  const client = getDatabase();
+  const client = databaseFactory();
   if (!client) return json({ error: "Dashboard data is unavailable" }, 503);
 
   if (request.method === "POST") {
@@ -101,21 +101,40 @@ export default async (request: Request, _context: Context) => {
   }
 
   if (request.method === "PATCH") {
+    if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
     let body: Record<string, unknown>;
     try {
       body = await request.json();
+      if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid request" }, 400);
     } catch {
       return json({ error: "Invalid request" }, 400);
     }
 
     const id = cleanText(body.id, 36);
+    if (!uuidPattern.test(id)) return json({ error: "Invalid inquiry" }, 400);
+    if (body.action !== undefined) {
+      const actions: Record<string, string> = { archive: "Archived", delete: "Deleted", restore: "New" };
+      const action = cleanText(body.action, 20);
+      const expectedStatus = cleanText(body.expectedStatus, 24);
+      if (!Object.hasOwn(actions, action) || ![...statuses, "Deleted"].includes(expectedStatus)) return json({ error: "Invalid inquiry action" }, 400);
+      if ((action === "restore" && !["Archived", "Deleted"].includes(expectedStatus)) ||
+          (action === "archive" && ["Archived", "Deleted"].includes(expectedStatus)) ||
+          (action === "delete" && expectedStatus === "Deleted")) return json({ error: "This action is not available for the current status" }, 409);
+      // Change only the status. Preserve the inquiry, related documents/messages,
+      // and all private notes; never physically delete the row or cascade data.
+      const { data, error } = await client.from("hmp_admin_inquiries")
+        .update({ status: actions[action], updated_at: new Date().toISOString() })
+        .eq("submission_id", id).eq("status", expectedStatus).select("*").maybeSingle();
+      if (error) return json({ error: "Inquiry could not be moved. Please try again." }, 502);
+      if (!data) return json({ error: "This inquiry changed or is unavailable. Refresh before trying again." }, 409);
+      return json({ ok: true, inquiry: normalizeInquiry(data) });
+    }
     const status = cleanText(body.status, 24);
     const priority = cleanText(body.priority, 16);
     const followUpDate = cleanText(body.followUpDate, 10);
     const owner = cleanText(body.owner, 100);
     const internalNotes = cleanText(body.internalNotes, 5000);
 
-    if (!uuidPattern.test(id)) return json({ error: "Invalid inquiry" }, 400);
     if (!statuses.has(status)) return json({ error: "Invalid status" }, 400);
     if (!priorities.has(priority)) return json({ error: "Invalid priority" }, 400);
     if (followUpDate && !datePattern.test(followUpDate)) {
@@ -165,6 +184,8 @@ export default async (request: Request, _context: Context) => {
     updatedAt: new Date().toISOString(),
   });
 };
+
+export default createDashboardHandler();
 
 export const config: Config = {
   path: "/api/hmp-dashboard",
