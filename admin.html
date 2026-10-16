@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261012-drafts" />
+    <link rel="stylesheet" href="admin.css?v=20261016-inquiries" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
     <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
@@ -100,17 +100,17 @@
           </header>
 
           <section class="metrics" aria-label="Inquiry summary">
-            <button type="button" class="metric metric-featured" data-inquiry-filter="all" aria-pressed="true" aria-controls="inquiry-list">
-              <span>Total inquiries</span><strong id="metric-total">—</strong><small>Website and manual entries</small>
+            <button type="button" class="metric metric-featured" data-inquiry-filter="new" aria-pressed="true" aria-controls="inquiry-list">
+              <span>Inquiries</span><strong id="metric-new">—</strong><small>New and ongoing inquiries</small>
             </button>
-            <button type="button" class="metric" data-inquiry-filter="new" aria-pressed="false" aria-controls="inquiry-list">
-              <span>New</span><strong id="metric-new">—</strong><small>Ready for follow-up</small>
+            <button type="button" class="metric" data-inquiry-filter="booked" aria-pressed="false" aria-controls="inquiry-list">
+              <span>Booked</span><strong id="metric-booked">—</strong><small>Confirmed bookings</small>
             </button>
-            <button type="button" class="metric" data-inquiry-filter="upcoming" aria-pressed="false" aria-controls="inquiry-list">
-              <span>Upcoming</span><strong id="metric-upcoming">—</strong><small>Events ahead</small>
+            <button type="button" class="metric" data-inquiry-filter="closed" aria-pressed="false" aria-controls="inquiry-list">
+              <span>Closed</span><strong id="metric-closed">—</strong><small>Closed inquiries</small>
             </button>
-            <button type="button" class="metric" data-inquiry-filter="largest" aria-pressed="false" aria-controls="inquiry-list">
-              <span>Largest event</span><strong id="metric-guests">—</strong><small>Guests in one inquiry</small>
+            <button type="button" class="metric" data-inquiry-filter="archived" aria-pressed="false" aria-controls="inquiry-list">
+              <span>Archived</span><strong id="metric-archived">—</strong><small id="metric-deleted">Archived and deleted records</small>
             </button>
           </section>
 
@@ -118,10 +118,11 @@
             <div class="inquiry-panel">
               <div class="panel-heading">
                 <div>
-                  <h2 id="inquiry-list-title">Event inquiries</h2>
+                  <h2 id="inquiry-list-title">Inquiries</h2>
                   <p id="result-count" role="status">Loading submissions…</p>
                 </div>
                 <div class="filters">
+                  <label id="inquiry-storage-filter-label" hidden><span>Show records</span><select id="inquiry-storage-filter" aria-controls="inquiry-list"><option value="archived">Archived</option><option value="deleted">Deleted</option></select></label>
                   <label class="search-field"><span>Search inquiries</span><input id="search-input" type="search" placeholder="Client, email, event, service, status…" aria-controls="inquiry-list" /></label>
                   <button type="button" class="text-button" id="clear-inquiry-search">Clear search</button>
                   <label><span>Service</span><select id="service-filter"><option value="">All services</option></select></label>
@@ -129,7 +130,7 @@
               </div>
               <div class="inquiry-list" id="inquiry-list"></div>
               <div class="empty-state" id="empty-state" hidden>
-                <span>HMP</span><h3>No inquiries match</h3><p>Select Total inquiries to clear the filters and return to the full event list.</p>
+                <span>HMP</span><h3>No inquiries match</h3><p>Try another status, clear your search, or select All services.</p>
               </div>
             </div>
 
@@ -137,7 +138,7 @@
               <p class="kicker">Service mix</p>
               <h2>What clients are planning</h2>
               <div id="service-mix" class="service-mix"></div>
-              <p class="service-note">Based on all inquiries currently in the dashboard.</p>
+              <p class="service-note">Based on all non-deleted inquiries in the dashboard.</p>
             </aside>
           </section>
 
@@ -456,10 +457,9 @@
             <span>Status</span>
             <select id="manage-status" name="status">
               <option>New</option>
-              <option>Contacted</option>
-              <option>Quoted</option>
               <option>Booked</option>
               <option>Closed</option>
+              <option>Archived</option>
             </select>
           </label>
           <label>
@@ -486,6 +486,9 @@
         </div>
         <div class="management-actions">
           <p class="form-message" id="management-message" role="status"></p>
+          <button class="secondary-button" id="archive-inquiry" type="button">Archive inquiry</button>
+          <button class="secondary-button" id="delete-inquiry" type="button">Delete inquiry</button>
+          <button class="secondary-button" id="restore-inquiry" type="button" hidden>Restore to Inquiries</button>
           <button class="primary-button" type="submit">Save changes</button>
         </div>
       </form>
@@ -788,6 +791,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261013-booking"></script>
+    <script type="module" src="assets/admin.js?v=20261016-inquiries"></script>
   </body>
 </html>
