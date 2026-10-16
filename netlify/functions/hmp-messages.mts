@@ -3,6 +3,7 @@ import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
 import { normalizeServiceHours } from "../../proposal-ui.js";
+import { normalizeCalendarUrl } from "../../calendar-link.js";
 import {
   clientConversationUrl,
   conversationToken,
@@ -78,6 +79,7 @@ export const normalizeAdminMessage = (value: unknown) => {
     serviceFee: number(proposal.serviceFee, 1_000_000),
     validUntil: cleanText(proposal.validUntil, 10),
     paymentTerms: cleanText(proposal.paymentTerms, 600),
+    calendarUrl: normalizeCalendarUrl(proposal.calendarUrl),
   };
   if (!normalized.clientName || !normalized.serviceFee) {
     throw new Error("Proposal client and service fee are required");

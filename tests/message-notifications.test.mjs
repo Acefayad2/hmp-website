@@ -107,6 +107,21 @@ test("sent proposals retain additional information for the client", async () => 
   assert.equal(parseProposal(messages[0].body).machines, 0);
 });
 
+test("proposal calendar is saved, returned after reload, and not sent as a separate message", async () => {
+  const messages = [], emails = [];
+  const calendarUrl = "https://calendar.app.google/CJn7HCVgHaqHM2fK6";
+  const h = handler(fakeDatabase(messages), async (_, options) => { emails.push(options); return new Response("{}"); });
+  const message = serializeProposal({ clientName: "Test Client", serviceFee: 900, calendarUrl });
+  const response = await h(request({ ...sendBody, message }));
+  assert.equal(response.status, 200);
+  assert.equal(parseProposal((await response.json()).message.body).calendarUrl, calendarUrl);
+  assert.equal(messages.length, 1);
+  assert.equal(emails.length, 1);
+  assert.equal(parseProposal(messages[0].body).calendarUrl, calendarUrl);
+  const reload = await h(new Request("https://hmpeds.com/api/hmp-messages"));
+  assert.equal(parseProposal((await reload.json()).threads[0].messages[0].body).calendarUrl, calendarUrl);
+});
+
 test("database read failures cannot look like empty conversations or missing proposals", async () => {
   for (const failedTable of ["hmp_admin_inquiries", "hmp_client_messages"]) {
     const database = fakeDatabase([]);
