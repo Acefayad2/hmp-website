@@ -9,8 +9,8 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-2";
-import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20261016-proposal-na";
-import { renderDocumentCard } from "./document-message-ui.js?v=20260923-1";
+import { parseProposal, renderProposalMessage } from "./proposal-ui.js?v=20261016-document-cards";
+import { renderDocumentCard } from "./document-message-ui.js?v=20261016-document-cards";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
 
@@ -116,7 +116,7 @@ const renderMessages = (messages) => {
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
-      article.append(renderProposalCard(proposal));
+      article.append(renderProposalMessage(proposal));
     }
     else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);

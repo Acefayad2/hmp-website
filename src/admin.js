@@ -39,7 +39,7 @@ import {
 import {
   parseProposal,
   printProposal,
-  renderProposalCard,
+  renderProposalMessage,
   serializeProposal,
 } from "../proposal-ui.js";
 
@@ -528,7 +528,7 @@ const renderAdminMessages = (thread) => {
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
-      article.append(renderProposalCard(proposal));
+      article.append(renderProposalMessage(proposal));
     } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
     if (message.sender === "admin") {
