@@ -18,6 +18,17 @@ export const snapshotFor = (id: string) => {
   if (!template || !source) throw new Error("Choose an agreement template.");
   return { ...template, ...source, signingConsent };
 };
+// Add the missing field to editable drafts only; never rewrite issued/signed snapshots.
+export function withCurrentDraftFields(row: any) {
+  const snapshot = row.snapshot;
+  if (row.status !== "Draft" || !["money-collecting", "money-collecting-changing"].includes(snapshot.id) ||
+      snapshot.adminFields.some((field: any) => field.id === "serviceStartTime")) return row;
+  const startField = getAgreementTemplate(snapshot.id).adminFields.find((field: any) => field.id === "serviceStartTime");
+  const fields = [...snapshot.adminFields];
+  const endIndex = fields.findIndex((field: any) => field.id === "serviceEndTime");
+  fields.splice(endIndex < 0 ? fields.length : endIndex, 0, startField);
+  return {...row, snapshot:{...snapshot, adminFields:fields}};
+}
 export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
   if (!title || title.length > 200) throw new Error("Document title is required (maximum 200 characters).");
@@ -41,6 +52,7 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
     serviceHours:adminAnswers.serviceHours,
     retainerDue:adminAnswers.retainerDue,
     finalPaymentDue:adminAnswers.finalPaymentDue,
+    serviceStartTime:adminAnswers.serviceStartTime,
     serviceEndTime:adminAnswers.serviceEndTime,
     cancellationDeadline:adminAnswers.cancellationDeadline,
     cancellationRefundAmount:`$${Number(adminAnswers.cancellationRefundAmount).toFixed(2)}`,
@@ -85,7 +97,7 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
   return { client_answers: answers, signature, record_hash: recordHash, completed_at: now, updated_at: now, status: "Completed" };
 }
 export const publicAgreement = (row: any) => ({
-  id: row.id, snapshot: row.snapshot, clientName: row.client_name, clientEmail: row.client_email,
+  id: row.id, snapshot: withCurrentDraftFields(row).snapshot, clientName: row.client_name, clientEmail: row.client_email,
   adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
   sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
   recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,

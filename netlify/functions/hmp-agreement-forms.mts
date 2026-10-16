@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
-import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
+import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern, withCurrentDraftFields } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
@@ -74,9 +74,10 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         return json({agreement:publicAgreement(data)}, 201);
       }
       if (!uuidPattern.test(body.id || "")) return json({error:"Invalid agreement"}, 400);
-      const {data: row, error: readError} = await db.from(table).select("*").eq("id", body.id).maybeSingle();
+      const {data: storedRow, error: readError} = await db.from(table).select("*").eq("id", body.id).maybeSingle();
       if (readError) return json({error:"Agreement could not be loaded."}, 502);
-      if (!row) return json({error:"Agreement not found."}, 404);
+      if (!storedRow) return json({error:"Agreement not found."}, 404);
+      const row = withCurrentDraftFields(storedRow);
       if (row.status === "Completed" || row.status === "Void") return json({error:"This agreement is locked. Create a new form for any changes."}, 409);
       if (body.action === "void") {
         const {data, error} = await db.from(table).update({status:"Void", updated_at:new Date().toISOString()}).eq("id", row.id).in("status", ["Draft", "Sent"]).select("*").maybeSingle();
