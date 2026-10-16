@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
+import { agreementTemplates, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../agreement-schema.mjs";
 import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash, issuedSnapshot, editableSnapshot } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
@@ -37,6 +37,71 @@ const request = (route, method="GET", body, token) => new Request(`https://hmped
 function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:200})) {
   return createAgreementHandler({getUserFn:async()=>admin ? {email:"admin@example.test"} : null, databaseFactory:()=>fakeDatabase(rows), fetchFn:send});
 }
+
+const bankBody = row => ({answers:{...inputFor(row.snapshot.clientFields), representativeOneName:"First Signer", representativeOneSignature:"First Signer", representativeTwoName:"", representativeTwoSignature:"", representativeTwoDate:"", attendantName:"HMP Attendant"}, signatureName:"HMP Attendant", consent:true, representativeOneConsent:true, representativeTwoConsent:false});
+
+test("bank form can submit without a second representative and reopens unchanged in Admin and client views", async () => {
+  const row = rowFor("money-bank-verification"), handler = handlerFor([row]), body = bankBody(row);
+  const original = structuredClone(row.snapshot), token = agreementToken(id,"seed");
+  assert.equal(requiresSecondRepresentative(row.snapshot, body.answers), false);
+  const result = await handler(request("hmp-agreement", "POST", body, token));
+  assert.equal(result.status, 200);
+  assert.equal(row.signature.representativeOneConsent, true);
+  assert.equal(row.signature.representativeTwoConsent, false, "Never claim consent from an absent signer");
+  assert.equal(row.signature.name, "HMP Attendant");
+  assert.deepEqual(row.snapshot, original);
+  for (const response of [await handler(request(`hmp-agreement-forms?id=${id}`)), await handler(request("hmp-agreement","GET",null,token))]) {
+    const saved = (await response.json()).agreement;
+    assert.equal(saved.clientAnswers.representativeTwoName, "");
+    assert.equal(saved.signature.representativeTwoConsent, false);
+    const html = answersHTML(saved.snapshot.clientFields, saved.clientAnswers);
+    assert.match(html, /First \/ second designated representative initials at receipt/);
+    assert.match(html, /First \/ second designated representative initials at reconciliation/);
+    assert.match(html, /Second designated representative name<\/dt><dd>Not specified/);
+  }
+});
+
+test("partial second-representative details cannot submit; errors identify missing fields", () => {
+  const row=rowFor("money-bank-verification"), body=bankBody(row);
+  for (const field of secondRepresentativeFields) {
+    const answers={...body.answers,[field]:field.endsWith("Date") ? "2026-12-01" : "Second Signer"};
+    assert.equal(requiresSecondRepresentative(row.snapshot, answers),true);
+    assert.throws(()=>completionPayload(row,{...body,answers}),/Second .* required/);
+  }
+  assert.throws(()=>completionPayload(row,{...body,representativeTwoConsent:true}),/Second designated representative name is required/);
+  assert.throws(()=>completionPayload(row,{...body,representativeOneConsent:false}),/first designated representative must consent/);
+  assert.throws(()=>completionPayload(row,{...body,signatureName:"Wrong Person"}),/HMP attendant signature must match/);
+  const whitespace={...body,answers:{...body.answers,representativeTwoName:"  ",representativeTwoSignature:"  ",representativeTwoDate:"  "}};
+  assert.equal(completionPayload(row,whitespace).signature.representativeTwoConsent,false);
+});
+
+test("old bank drafts gain optional second signer without rewriting custom terms or issued snapshots", async () => {
+  for(const status of ["Draft","Sent","Completed"]) {
+    const row={...rowFor("money-bank-verification"),status};
+    delete row.snapshot.optionalSecondRepresentative;
+    row.snapshot.version="2026-10-12.1";
+    row.snapshot.clientFields=row.snapshot.clientFields.map(f=>secondRepresentativeFields.includes(f.id)?{...f,required:true}:f);
+    row.snapshot.pages=[...row.snapshot.pages,"Custom wording stays."];
+    const original=structuredClone(row),handler=handlerFor([row]);
+    const loaded=(await (await handler(request(`hmp-agreement-forms?id=${id}`))).json()).agreement;
+    assert.deepEqual(row,original,"GET must not mutate storage");
+    assert.deepEqual(loaded.snapshot.pages,original.snapshot.pages);
+    if(status==="Draft") {
+      assert.equal(loaded.snapshot.optionalSecondRepresentative,true);
+      assert.equal(loaded.snapshot.version,"2026-10-16.1");
+      assert.ok(loaded.snapshot.clientFields.filter(f=>secondRepresentativeFields.includes(f.id)).every(f=>!f.required));
+      assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"share",updatedAt:row.updated_at}))).status,200);
+      assert.equal(row.snapshot.optionalSecondRepresentative,true);
+      assert.equal((await handler(request("hmp-agreement","POST",bankBody(row),agreementToken(id,"seed")))).status,200);
+    } else {
+      assert.deepEqual(loaded.snapshot,original.snapshot);
+      if(status==="Sent") {
+        assert.equal(requiresSecondRepresentative(row.snapshot,{}),true);
+        assert.throws(()=>completionPayload(row,bankBody(row)),/Second designated representative name is required/);
+      }
+    }
+  }
+});
 
 test("eight templates retain sourced terms and approved four-revision limit", () => {
   assert.equal(agreementTemplates.length,8);
@@ -79,7 +144,7 @@ test("new document titles and wording stay in their draft, while money amounts a
   assert.equal(issued.optionalClauses,undefined);
   assert.throws(()=>editableSnapshot(template,{pages:["missing"]}),/page/);
 });
-test("on-site bank verification requires all three matching signatures and never emails the form", async () => {
+test("on-site bank verification validates all included signatures and never emails the form", async () => {
   const row={...rowFor("money-bank-verification"),status:"Draft"};
   const handler=handlerFor([row]);
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"send",updatedAt:row.updated_at}))).status,400);

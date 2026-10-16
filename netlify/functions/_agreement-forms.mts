@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
-import { getAgreementTemplate, validateAnswers } from "../../agreement-schema.mjs";
+import { getAgreementTemplate, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../../agreement-schema.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -21,6 +21,12 @@ export const snapshotFor = (id: string) => {
 // Add the missing field to editable drafts only; never rewrite issued/signed snapshots.
 export function withCurrentDraftFields(row: any) {
   const snapshot = row.snapshot;
+  if (row.status === "Draft" && snapshot.id === "money-bank-verification" && snapshot.optionalSecondRepresentative !== true) {
+    const current = snapshotFor(snapshot.id);
+    const changedIds = [...secondRepresentativeFields, "receivedInitials", "reconciledInitials"];
+    return {...row, snapshot:{...snapshot, version:current.version, optionalSecondRepresentative:true,
+      clientFields:snapshot.clientFields.map((field: any) => changedIds.includes(field.id) ? current.clientFields.find((item: any) => item.id === field.id) : field)}};
+  }
   if (row.status !== "Draft" || !["money-collecting", "money-collecting-changing"].includes(snapshot.id) ||
       snapshot.adminFields.some((field: any) => field.id === "serviceStartTime")) return row;
   const startField = getAgreementTemplate(snapshot.id).adminFields.find((field: any) => field.id === "serviceStartTime");
@@ -85,14 +91,20 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
   const name = typeof body.signatureName === "string" ? body.signatureName.trim() : "";
   if (name.length < 2 || name.length > 200) throw new Error("Type your full name to sign.");
   const answers = validateAnswers(row.snapshot.clientFields, body.answers);
+  let secondRepresentativeSigned = false;
   if (row.snapshot.signatureMode === "on-site-three-signatures") {
-    if (body.representativeOneConsent !== true || body.representativeTwoConsent !== true) throw new Error("Both designated representatives must consent to their typed signatures.");
-    if (answers.representativeOneName.toLocaleLowerCase() !== answers.representativeOneSignature.toLocaleLowerCase() ||
-        answers.representativeTwoName.toLocaleLowerCase() !== answers.representativeTwoSignature.toLocaleLowerCase() ||
-        answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) throw new Error("Each typed signature must match the corresponding signer name.");
+    secondRepresentativeSigned = requiresSecondRepresentative(row.snapshot, answers, body.representativeTwoConsent);
+    if (body.representativeOneConsent !== true) throw new Error("The first designated representative must consent to their typed signature.");
+    if (answers.representativeOneName.toLocaleLowerCase() !== answers.representativeOneSignature.toLocaleLowerCase()) throw new Error("First representative signature must match the first representative name.");
+    if (secondRepresentativeSigned) {
+      validateAnswers(row.snapshot.clientFields.filter((field: any) => secondRepresentativeFields.includes(field.id)).map((field: any) => ({...field, required:true})), answers);
+      if (body.representativeTwoConsent !== true) throw new Error("The second designated representative must consent to their typed signature, or leave all second representative fields blank.");
+      if (answers.representativeTwoName.toLocaleLowerCase() !== answers.representativeTwoSignature.toLocaleLowerCase()) throw new Error("Second representative signature must match the second representative name.");
+    }
+    if (answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) throw new Error("HMP attendant signature must match the HMP money attendant name.");
   }
   const signature = { name, consent: row.snapshot.signingConsent, signedAt: now, userAgent: userAgent.slice(0, 500), method: "typed-name-private-link",
-    ...(row.snapshot.signatureMode === "on-site-three-signatures" ? {representativeOneConsent:true, representativeTwoConsent:true} : {}) };
+    ...(row.snapshot.signatureMode === "on-site-three-signatures" ? {representativeOneConsent:true, representativeTwoConsent:secondRepresentativeSigned} : {}) };
   const recordHash = hash(JSON.stringify({ id: row.id, snapshot: row.snapshot, adminAnswers: row.admin_answers, clientAnswers: answers, signature }));
   return { client_answers: answers, signature, record_hash: recordHash, completed_at: now, updated_at: now, status: "Completed" };
 }
