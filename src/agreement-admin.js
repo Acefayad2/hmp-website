@@ -77,6 +77,17 @@ function renderEditor() {
     <div class="agreement-actions">${draft ? `<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button secondary" type="button" id="agreement-share">${active.snapshot.signatureMode === "on-site-three-signatures" ? "Open on-site signing link" : "Create private link"}</button>${active.snapshot.signatureMode === "on-site-three-signatures" ? "" : '<button class="agreement-button" type="button" id="agreement-send">Send client form</button>'}` : ""}${active.status === "Sent" && active.snapshot.signatureMode !== "on-site-three-signatures" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}${link && active.snapshot.signatureMode === "on-site-three-signatures" ? `<a class="agreement-button" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open signing page on this device</a>` : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div><p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
   $("#agreement-close").onclick = () => { if (!busy && (!dirty || confirm("Discard unsaved changes to this form?"))) {dirty = false; dialog.close();} };
   const form = $("#agreement-admin-form");
+  const expired = active.status === "Sent" && Date.parse(active.expiresAt) <= Date.now();
+  form.insertAdjacentHTML("afterbegin", `<p>${active.expiresAt ? `Private link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.` : "New private links are valid for 7 days."}</p>`);
+  if (expired) {
+    $("#agreement-send")?.remove();
+    $("#agreement-copy")?.remove();
+    const onSite = active.snapshot.signatureMode === "on-site-three-signatures";
+    form.querySelector(".agreement-actions").insertAdjacentHTML("afterbegin", `<button class="agreement-button" type="button" id="agreement-renew">${onSite ? "Renew link (7 days)" : "Renew &amp; resend (7 days)"}</button>`);
+    $("#agreement-renew").onclick = () => {
+      if (!busy && confirm(`Create a new 7-day link? The expired link will remain disabled. ${onSite ? "No email will be sent." : `The new link will be emailed to ${active.clientEmail}.`} The form details will not change.`)) perform(onSite ? "renew" : "resend");
+    };
+  }
   form.oninput = () => {dirty = true;};
   form.onsubmit = event => {event.preventDefault(); if (!busy && form.reportValidity()) perform("save");};
   $("#agreement-send")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("send"); });
@@ -119,13 +130,15 @@ async function perform(action) {
       active = data.agreement; dirty = false;
     }
     let warning = "";
-    if (action === "send" || action === "share" || action === "void") {
+    if (["send", "share", "void", "renew", "resend"].includes(action)) {
       const data = await agreementRequest(endpoint, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action, updatedAt:active.updatedAt, hmpConsent:sendConsent})});
       active = data.agreement; link = data.link || ""; warning = data.warning || ""; dirty = false;
     }
     renderEditor();
     $("#agreement-editor-status").textContent = warning || (action === "send" ? "Client form sent. The client can complete and sign it using the private link." : action === "share" ? "Private link ready to copy and text to this client. No email was sent." : action === "void" ? "Form voided. The private link is disabled." : "Draft saved.");
     $("#agreement-editor-status").classList.add("success");
+    if (action === "resend") $("#agreement-editor-status").textContent = warning || "New 7-day link emailed. The expired link remains disabled.";
+    if (action === "renew") $("#agreement-editor-status").textContent = "New 7-day link ready. No email was sent; open the signing page or copy the new link.";
     if (active.snapshot.id === "money-bank-verification") await loadBankVerificationForms();
     else await loadAgreementForms();
     window.dispatchEvent(new Event("hmp-drafts-changed"));

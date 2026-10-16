@@ -59,10 +59,16 @@ function render() {
     <form id="information-admin-form">${draft ? "<p>Prepare this form for a client. Create a private link to share in Messages, or email it directly. Responses are stored in HMP—not Google Forms.</p>" : ""}
     ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label>${fieldsHTML(active.snapshot.adminFields, active.adminAnswers)}</div><label class="agreement-field">Form introduction<textarea name="documentDescription" required maxlength="5000" rows="5">${escape(active.snapshot.description)}</textarea></label>` : informationSummary(active, false)}
     ${draft ? `<details class="agreement-panel"><summary>Preview client questions</summary><ul>${active.snapshot.clientFields.map(f => `<li><strong>${escape(f.label)}</strong><p>${escape(f.help || "")}</p></li>`).join("")}</ul></details>` : ""}
-    ${link ? `<label class="agreement-field">Private client link<input id="information-private-link" readonly value="${escape(link)}"></label><p>Share only with this client. The link expires after 90 days.</p>` : ""}
+    ${link ? `<label class="agreement-field">Private client link<input id="information-private-link" readonly value="${escape(link)}"></label><p>Share only with this client. Link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.</p>` : "<p>New private links are valid for 7 days.</p>"}
     <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<button type="button" class="agreement-button secondary" id="information-copy">Copy link</button><a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
+  if (active.status === "Sent" && Date.parse(active.expiresAt) <= Date.now()) {
+    const send = form.querySelector('[data-information-action="send"]');
+    send.dataset.informationAction = "resend";
+    send.textContent = "Renew & resend (7 days)";
+    $("#information-copy")?.remove();
+  }
   form.oninput = () => {if (draft) dirty = true;};
   form.onsubmit = event => {event.preventDefault(); if (form.reportValidity()) perform("save");};
   dialog.querySelectorAll("[data-information-action]").forEach(button => button.onclick = () => {if (button.dataset.informationAction === "void" || form.reportValidity()) perform(button.dataset.informationAction);});
@@ -75,6 +81,7 @@ function render() {
 async function perform(action) {
   if (busy) return;
   if (action === "send" && !confirm("Email this private form to the client shown above?")) return;
+  if (action === "resend" && !confirm(`Create and email a new 7-day link to ${active.clientEmail}? The expired link stays disabled and the form details will not change.`)) return;
   if (action === "void" && !confirm("Void this form and disable its private link?")) return;
   const values = Object.fromEntries(new FormData($("#information-admin-form")));
   busy = true; dialog.querySelectorAll("button,input,textarea,select").forEach(el => el.disabled = true);
@@ -91,7 +98,7 @@ async function perform(action) {
       active = data.agreement; link = data.link || ""; warning = data.warning || ""; dirty = false;
     }
     render();
-    $("#information-status").textContent = warning || ({save:"Draft saved.",share:"Private link ready. No email has been sent.",send:"Client form emailed.",void:"Form voided. Its link is disabled."}[action]);
+    $("#information-status").textContent = warning || ({save:"Draft saved.",share:"Private link ready for 7 days. No email has been sent.",send:"Client form emailed.",resend:"New 7-day link emailed. The expired link remains disabled.",void:"Form voided. Its link is disabled."}[action]);
     await loadInformationForms();
     window.dispatchEvent(new Event("hmp-drafts-changed"));
   } catch (error) {

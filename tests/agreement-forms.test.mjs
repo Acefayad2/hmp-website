@@ -212,7 +212,7 @@ test("draft creation cannot spoof status, owner, terms or signature; send locks 
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"save"}))).status,409);
   await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"send"}));
   assert.equal(mail.length,1,"successful delivery retries must not send duplicate emails");
-  assert.equal(mail[0].headers["Idempotency-Key"],`hmp-agreement/${row.id}`);
+  assert.equal(mail[0].headers["Idempotency-Key"],`hmp-agreement/${row.id}/${hash(row.token_nonce)}`);
   assert.deepEqual(JSON.parse(mail[0].body).to,["client@example.test"]);
 });
 
@@ -311,4 +311,103 @@ test("information storage failure does not claim completion", async () => {
   const result = await handler(request("hmp-agreement", "POST", {answers:inputFor(row.snapshot.clientFields)}, agreementToken(id,"seed")));
   assert.equal(result.status, 502); assert.equal(row.status, "Sent");
   assert.match((await result.json()).error, /could not be saved/);
+});
+
+test("new agreements and information forms expire exactly seven days after activation", async (t) => {
+  const now = Date.parse("2026-10-16T18:00:00Z");
+  t.mock.timers.enable({apis:["Date"], now});
+  for (const template of ["guest-seating", informationTemplates[0].id]) {
+    const row = {...rowFor(template), status:"Draft"}, mail = [];
+    const handler = handlerFor([row], true, async (_, options) => {mail.push(JSON.parse(options.body)); return new Response("{}");});
+    const sent = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"send", updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(sent.status, 200);
+    assert.equal(Date.parse(row.expires_at), now + 7 * 86400000);
+    assert.match(mail[0].html, /valid for 7 days/);
+    assert.doesNotMatch(mail[0].html, /90 days/);
+    const token = agreementToken(id, row.token_nonce);
+    t.mock.timers.setTime(now + 7 * 86400000 - 1);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, token))).status, 200);
+    t.mock.timers.setTime(now + 7 * 86400000);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, token))).status, 410);
+    assert.equal((await handler(request("hmp-agreement", "POST", {answers:{}}, token))).status, 410);
+    t.mock.timers.setTime(now);
+  }
+});
+
+test("expired forms renew and resend without changing document details; old tokens stay invalid", async () => {
+  for (const template of ["guest-seating", informationTemplates[0].id]) {
+    const row = {...rowFor(template), expires_at:"2000-01-01T00:00:00Z", email_delivered_at:"1999-12-25T00:00:00Z"};
+    const original = structuredClone(row), mail = [];
+    const handler = handlerFor([row], true, async (_, options) => {mail.push(options); return new Response("{}");});
+    const before = Date.now();
+    const result = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:row.updated_at}));
+    assert.equal(result.status, 200);
+    assert.equal(mail.length, 1);
+    assert.ok(Date.parse(row.expires_at) >= before + 7 * 86400000);
+    assert.ok(Date.parse(row.expires_at) <= Date.now() + 7 * 86400000);
+    assert.deepEqual(row.snapshot, original.snapshot);
+    assert.deepEqual(row.admin_answers, original.admin_answers);
+    assert.equal(row.sent_at, original.sent_at);
+    assert.notEqual(row.token_nonce, original.token_nonce);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, agreementToken(id, original.token_nonce)))).status, 410);
+    assert.equal((await handler(request("hmp-agreement", "POST", {answers:{}}, agreementToken(id, original.token_nonce)))).status, 410);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, agreementToken(id, row.token_nonce)))).status, 200);
+    assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:original.updated_at}))).status, 409);
+    assert.equal(mail.length, 1);
+  }
+});
+
+test("renewal rejects unauthorized, stale, void, completed and unexpired requests", async () => {
+  for (const status of ["Draft", "Void", "Completed", "Sent"]) {
+    const row = {...rowFor(), status}, original = structuredClone(row);
+    const handler = handlerFor([row]);
+    assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:row.updated_at}))).status, 409);
+    assert.deepEqual(row, original);
+  }
+  const row = {...rowFor(), expires_at:"2000-01-01T00:00:00Z"}, original = structuredClone(row);
+  assert.equal((await handlerFor([row], false)(request("hmp-agreement-forms", "PATCH", {id, action:"renew", updatedAt:row.updated_at}))).status, 401);
+  assert.equal((await handlerFor([row])(request("hmp-agreement-forms", "PATCH", {id, action:"renew", updatedAt:"stale"}))).status, 409);
+  assert.deepEqual(row, original);
+});
+
+test("on-site renewal stays link-only and failed renewed emails can retry without renewing again", async () => {
+  const row = {...rowFor("money-bank-verification"), expires_at:"2000-01-01T00:00:00Z"};
+  let emails = 0;
+  const handler = handlerFor([row], true, async () => {emails++; return new Response("{}");});
+  assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:row.updated_at}))).status, 400);
+  assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"renew", updatedAt:row.updated_at}))).status, 200);
+  assert.equal(emails, 0);
+  const retryRow = {...rowFor(), expires_at:"2000-01-01T00:00:00Z", email_delivered_at:"1999-12-25"}, mail=[];
+  const retryHandler = handlerFor([retryRow], true, async (_, options) => {mail.push(options); return new Response("{}", {status:mail.length === 1 ? 502 : 200});});
+  const first = await retryHandler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:retryRow.updated_at}));
+  assert.equal(first.status, 502);
+  assert.ok((await first.json()).link);
+  const token = retryRow.token_nonce, expiry = retryRow.expires_at;
+  assert.equal((await retryHandler(request("hmp-agreement-forms", "PATCH", {id, action:"send"}))).status, 200);
+  assert.equal(retryRow.token_nonce, token); assert.equal(retryRow.expires_at, expiry);
+  assert.equal(mail[0].headers["Idempotency-Key"], mail[1].headers["Idempotency-Key"]);
+});
+
+test("retrying an existing active link preserves its promised deadline", async () => {
+  const row = rowFor(), expiry = row.expires_at, seed = row.token_nonce, mail=[];
+  const handler = handlerFor([row], true, async (_, options) => {mail.push(JSON.parse(options.body)); return new Response("{}");});
+  assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"send"}))).status, 200);
+  assert.equal(row.expires_at, expiry); assert.equal(row.token_nonce, seed);
+  assert.ok(mail[0].html.includes(new Date(expiry).toLocaleString("en-US", {timeZone:"America/New_York", timeZoneName:"short"})));
+});
+
+test("a token rotated between client read and completion cannot submit", async () => {
+  const row = rowFor(), db = fakeDatabase([row]), originalFrom = db.from;
+  db.from = () => {
+    const query = originalFrom(), update = query.update;
+    query.update = function (payload) {
+      row.token_hash = hash("a-different-token");
+      return update.call(this, payload);
+    };
+    return query;
+  };
+  const handler = createAgreementHandler({getUserFn:async()=>null, databaseFactory:()=>db});
+  const response = await handler(request("hmp-agreement", "POST", {answers:inputFor(row.snapshot.clientFields), signatureName:"Test Client", consent:true}, agreementToken(id,"seed")));
+  assert.equal(response.status, 409);
+  assert.equal(row.status, "Sent"); assert.equal(row.signature, undefined);
 });

@@ -16,7 +16,7 @@ Information forms do not require electronic signatures. The existing signed serv
 - Uses the existing `hmp_client_agreements` table, with versioned `kind: information` snapshots and validated `client_answers`. No schema migration or new secret is required.
 - Admin operations require an authenticated allowlisted HMP administrator. Direct anonymous/authenticated database access remains revoked, with RLS enabled.
 - Private links use the existing random/HMAC token mechanism; only a token hash is used for lookup. The token stays in the URL fragment and is sent as a bearer header, not a query parameter.
-- Draft, Sent, Completed, and Void lifecycle; activation expires after 90 days. Voiding disables the link. Completed responses are read-only under the existing database trigger; create a new form for corrections.
+- Draft, Sent, Completed, and Void lifecycle; new activation expires after 7 days. Admin can renew and resend an expired unfinished form for another 7 days, rotating the link without changing the document. Existing issued deadlines are preserved until renewal. Voiding disables the link. Completed responses are read-only under the existing database trigger; create a new form for corrections.
 - Responses are saved on submission, not automatically while typing. The page warns before leaving unsaved entries.
 - Email retries reuse the existing idempotency key. Link-only creation never emails anyone.
 - Payment questions request public payment handles only. QR screenshots still use HMP Messages/email, as described on the form; never collect account credentials here.
