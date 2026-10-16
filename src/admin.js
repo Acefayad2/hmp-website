@@ -2093,6 +2093,7 @@ $("#proposal-workspace-create").addEventListener("click", () => {
 $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-dialog").close());
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => closeProposalEditor());
+$("#close-proposal-editor-bottom").addEventListener("click", () => closeProposalEditor());
 $("#proposal-form").addEventListener("submit", sendProposal);
 $("#save-proposal-draft").addEventListener("click", saveProposalDraft);
 window.addEventListener("hmp-drafts-changed", () => {
