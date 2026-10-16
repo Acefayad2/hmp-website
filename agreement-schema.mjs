@@ -23,6 +23,7 @@ const moneyTableDetails = [
   field("serviceHours", "Service hours", "decimal"),
   field("retainerDue", "30% retainer due date", "date"),
   field("finalPaymentDue", "Final payment due date", "date"),
+  field("serviceStartTime", "Scheduled service start time", "time"),
   field("serviceEndTime", "Scheduled service end time", "time"),
   field("cancellationDeadline", "Cancellation deadline", "date"),
   field("cancellationRefundAmount", "Refund of final payment before deadline", "money"),

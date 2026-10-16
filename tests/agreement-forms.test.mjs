@@ -97,6 +97,66 @@ test("on-site bank verification requires all three matching signatures and never
   assert.equal(row.signature.representativeOneConsent,true);
   assert.equal(row.signature.representativeTwoConsent,true);
 });
+for (const templateId of ["money-collecting", "money-collecting-changing"]) {
+  test(`${templateId}: service times survive old draft save, reopen, issue and client completion`, async () => {
+    const row = {...rowFor(templateId), status:"Draft"};
+    row.snapshot = {...row.snapshot, title:"Custom draft title", adminFields:row.snapshot.adminFields.filter(field => field.id !== "serviceStartTime")};
+    row.snapshot.pages = [...row.snapshot.pages];
+    row.snapshot.pages[0] += "\nClient-specific wording stays unchanged.";
+    delete row.admin_answers.serviceStartTime;
+    const original = structuredClone(row.snapshot);
+    const handler = handlerFor([row]);
+    const reopened = await (await handler(request(`hmp-agreement-forms?id=${id}`))).json();
+    const fields = reopened.agreement.snapshot.adminFields;
+    const startIndex = fields.findIndex(field => field.id === "serviceStartTime");
+    assert.equal(fields[startIndex + 1].id, "serviceEndTime");
+    assert.equal(fields[startIndex].type, "time");
+    assert.equal(fields[startIndex].required, true);
+    assert.deepEqual(row.snapshot, original, "Reading a draft must not write to storage");
+    const missing = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"share", updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(missing.status, 400);
+    assert.equal((await missing.json()).error, "Scheduled service start time is required.");
+    assert.equal(row.status, "Draft");
+    assert.throws(() => validateAnswers(fields, {...row.admin_answers, serviceStartTime:"25:00"}), /Scheduled service start time/);
+    // A service may cross midnight; do not assume an end time must be later on the same day.
+    const answers = {...row.admin_answers, serviceStartTime:"20:30", serviceEndTime:"00:30"};
+    const saved = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"save", updatedAt:row.updated_at, clientName:row.client_name, clientEmail:row.client_email, answers}));
+    assert.equal(saved.status, 200);
+    assert.equal(row.admin_answers.serviceStartTime, "20:30");
+    assert.equal(row.snapshot.adminFields.filter(field => field.id === "serviceStartTime").length, 1);
+    assert.equal(row.snapshot.title, original.title);
+    assert.deepEqual(row.snapshot.pages, original.pages);
+    const loaded = await (await handler(request(`hmp-agreement-forms?id=${id}`))).json();
+    assert.equal(loaded.agreement.adminAnswers.serviceStartTime, "20:30");
+    assert.match(fieldsHTML(fields, loaded.agreement.adminAnswers), /name="serviceStartTime"[^>]*value="20:30"/);
+    const shared = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"share", updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(shared.status, 200);
+    const token = agreementToken(id, "seed");
+    const client = await (await handler(request("hmp-agreement", "GET", null, token))).json();
+    const details = answersHTML(client.agreement.snapshot.adminFields, client.agreement.adminAnswers);
+    assert.match(details, /Scheduled service start time<\/dt><dd>20:30/);
+    assert.match(details, /Scheduled service end time<\/dt><dd>00:30/);
+    const completed = await handler(request("hmp-agreement", "POST", {answers:inputFor(row.snapshot.clientFields), signatureName:"Test Client", consent:true}, token));
+    assert.equal(completed.status, 200);
+    assert.equal(row.admin_answers.serviceStartTime, "20:30");
+    assert.equal(row.status, "Completed");
+    assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"save", answers:{serviceStartTime:"10:00"}}))).status, 409);
+  });
+}
+test("older sent and completed money agreements retain their exact snapshots", async () => {
+  for (const status of ["Sent", "Completed"]) {
+    const row = {...rowFor("money-collecting-changing"), status};
+    row.snapshot = {...row.snapshot, adminFields:row.snapshot.adminFields.filter(field => field.id !== "serviceStartTime")};
+    delete row.admin_answers.serviceStartTime;
+    const original = structuredClone(row);
+    const handler = handlerFor([row]);
+    for (const response of [await handler(request(`hmp-agreement-forms?id=${id}`)), await handler(request("hmp-agreement", "GET", null, agreementToken(id,"seed")))]) {
+      assert.equal(response.status, 200);
+      assert.deepEqual((await response.json()).agreement.snapshot, original.snapshot);
+    }
+    assert.deepEqual(row, original);
+  }
+});
 test("completion requires consent, validates all answers, stamps signature and hides access secrets", () => {
   const row=rowFor();
   const body={answers:inputFor(row.snapshot.clientFields),signatureName:"Test Client",consent:true};
