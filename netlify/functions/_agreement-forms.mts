@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
-import { getAgreementTemplate, validateAnswers } from "../../agreement-schema.mjs";
+import { getAgreementTemplate, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -20,20 +20,24 @@ export const snapshotFor = (id: string) => {
 };
 export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
-  if (!title || title.length > 200) throw new Error("Document title is required (maximum 200 characters).");
+  if (!title || title.length > 200) throw validationError([{field:"documentTitle", message:"Document title is required (maximum 200 characters)."}]);
   if (snapshot.kind === "information") {
     const description = typeof body.description === "string" ? body.description.trim() : snapshot.description;
-    if (!description || description.length > 5000) throw new Error("Form introduction is required (maximum 5,000 characters).");
+    if (!description || description.length > 5000) throw validationError([{field:"documentDescription", message:"Form introduction is required (maximum 5,000 characters)."}]);
     return {...snapshot, title, description};
   }
   const pages = body.pages === undefined ? snapshot.pages : body.pages;
-  if (!Array.isArray(pages) || pages.length !== snapshot.pages.length ||
-      pages.some((page: unknown) => typeof page !== "string" || !page.trim() || page.length > 15000) ||
-      pages.join("").length > 85000) throw new Error("Review every agreement page; one or more pages are missing or too long.");
+  if (!Array.isArray(pages) || pages.length !== snapshot.pages.length) throw new Error(`This agreement needs ${snapshot.pages.length} pages. Reopen the draft to restore any missing pages.`);
+  const issues = pages.flatMap((page: unknown, pageIndex: number) => typeof page !== "string" || !page.trim() || page.length > 15000
+    ? [{pageIndex, message:`Agreement page ${pageIndex + 1}: ${typeof page !== "string" || !page.trim() ? "enter the agreement wording" : "shorten the wording to 15,000 characters or fewer"}.`}] : []);
+  if (issues.length) throw validationError(issues);
+  if (pages.join("").length > 85000) throw new Error("The combined agreement text exceeds 85,000 characters. Shorten the wording before saving.");
   return {...snapshot, title, pages:pages.map((page: string) => page.trim())};
 }
 export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, string>) {
   if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return snapshot;
+  const issues = agreementTextIssues(snapshot);
+  if (issues.length) throw validationError(issues);
   const {optionalClauses = {}, ...issued} = snapshot;
   const replacements: Record<string, string> = {
     agreementDate:adminAnswers.agreementDate,
@@ -52,14 +56,17 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
     if (typeof replacements[key] !== "string") throw new Error(`Unrecognized agreement field: ${key}`);
     return replacements[key];
   }));
-  if (pages.some((page: string) => /\{\{/.test(page))) throw new Error("Agreement text has an unfinished placeholder.");
+  const remaining = agreementTextIssues({...snapshot, pages});
+  if (remaining.length) throw validationError(remaining);
   return {...issued, pages};
 }
 export const cleanContact = (body: any) => {
   const name = typeof body.clientName === "string" ? body.clientName.trim() : "";
   const email = typeof body.clientEmail === "string" ? body.clientEmail.trim().toLowerCase() : "";
-  if (!name || name.length > 200) throw new Error("Client name is required (maximum 200 characters).");
-  if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("A valid client email is required.");
+  const issues = [];
+  if (!name || name.length > 200) issues.push({field:"clientName", message:"Client name is required (maximum 200 characters)."});
+  if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) issues.push({field:"clientEmail", message:"A valid client email is required."});
+  if (issues.length) throw validationError(issues);
   return { client_name: name, client_email: email };
 };
 export const signingConsent = "I have reviewed this agreement and the completed details, agree to its terms, and consent to using electronic records and my typed name as my electronic signature. I can print or save a copy. To use a paper form instead, I can contact info@hmpeds.com before signing.";
@@ -69,15 +76,18 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
     const answers = validateAnswers(row.snapshot.clientFields, body.answers);
     return {client_answers:answers, signature:null, record_hash:hash(JSON.stringify({id:row.id, snapshot:row.snapshot, answers, completedAt:now})), completed_at:now, updated_at:now, status:"Completed"};
   }
-  if (body.consent !== true) throw new Error("Please consent to electronic signing and accept the agreement.");
+  if (body.consent !== true) throw validationError([{field:"consent", message:"Please consent to electronic signing and accept the agreement."}]);
   const name = typeof body.signatureName === "string" ? body.signatureName.trim() : "";
-  if (name.length < 2 || name.length > 200) throw new Error("Type your full name to sign.");
+  if (name.length < 2 || name.length > 200) throw validationError([{field:"signatureName", message:"Type your full name to sign (2–200 characters)."}]);
   const answers = validateAnswers(row.snapshot.clientFields, body.answers);
   if (row.snapshot.signatureMode === "on-site-three-signatures") {
-    if (body.representativeOneConsent !== true || body.representativeTwoConsent !== true) throw new Error("Both designated representatives must consent to their typed signatures.");
-    if (answers.representativeOneName.toLocaleLowerCase() !== answers.representativeOneSignature.toLocaleLowerCase() ||
-        answers.representativeTwoName.toLocaleLowerCase() !== answers.representativeTwoSignature.toLocaleLowerCase() ||
-        answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) throw new Error("Each typed signature must match the corresponding signer name.");
+    const issues = [];
+    if (body.representativeOneConsent !== true) issues.push({field:"representativeOneConsent", message:"The first designated representative must consent to their typed signature."});
+    if (body.representativeTwoConsent !== true) issues.push({field:"representativeTwoConsent", message:"The second designated representative must consent to their typed signature."});
+    if (answers.representativeOneName.toLocaleLowerCase() !== answers.representativeOneSignature.toLocaleLowerCase()) issues.push({field:"representativeOneSignature", message:"First representative signature must match the first designated representative name."});
+    if (answers.representativeTwoName.toLocaleLowerCase() !== answers.representativeTwoSignature.toLocaleLowerCase()) issues.push({field:"representativeTwoSignature", message:"Second representative signature must match the second designated representative name."});
+    if (answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) issues.push({field:"signatureName", message:"HMP attendant signature must match the HMP money attendant name."});
+    if (issues.length) throw validationError(issues);
   }
   const signature = { name, consent: row.snapshot.signingConsent, signedAt: now, userAgent: userAgent.slice(0, 500), method: "typed-name-private-link",
     ...(row.snapshot.signatureMode === "on-site-three-signatures" ? {representativeOneConsent:true, representativeTwoConsent:true} : {}) };

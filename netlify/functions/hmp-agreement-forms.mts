@@ -123,7 +123,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       const {error: emailUpdateError} = await db.from(table).update({email_delivered_at:new Date().toISOString()}).eq("id", issued.id).eq("status", "Sent");
       return json({agreement:publicAgreement(issued), link, ...(emailUpdateError ? {warning:"Email sent; delivery status could not be recorded."} : {})});
     } catch (error) {
-      return json({error:error instanceof Error ? error.message : "The request could not be completed."}, 400);
+      return json({error:error instanceof Error ? error.message : "The request could not be completed.", ...(error instanceof Error && "issues" in error ? {issues:error.issues} : {})}, 400);
     }
   };
 }

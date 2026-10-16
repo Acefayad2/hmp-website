@@ -41,6 +41,11 @@
 .agreement-status { min-height:24px; color:#842b2b; overflow-wrap:anywhere; }
 .agreement-status.success { color:#305d38; }
 .agreement-status.neutral { color:#765e5e; }
+.agreement-validation { padding:18px; margin:16px 0 24px; border:2px solid #842b2b; border-radius:12px; background:#fff5f2; color:#702323; overflow-wrap:anywhere; }
+.agreement-validation ul { margin-bottom:0; padding-left:22px; }
+.agreement-validation li + li { margin-top:12px; }
+.agreement-validation button { display:inline; padding:4px 0; border:0; background:none; color:inherit; font:inherit; text-align:left; text-decoration:underline; cursor:pointer; vertical-align:top; }
+[data-validation-invalid] { outline:2px solid #842b2b; outline-offset:2px; }
 .agreement-fingerprint { font-size:12px; overflow-wrap:anywhere; }
 .agreement-signature { font:italic 30px Georgia,serif; }
 .agreement-list { display:grid; gap:10px; margin:20px 0; }
