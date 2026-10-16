@@ -11,7 +11,7 @@ export const normalizeServiceHours = (value) => typeof value === "string" && /^n
   ? "N/A" : number(value, 240);
 
 export const normalizeProposal = (value = {}) => ({
-  title: text(value.title, 160) || "Service Proposal",
+  title: /^invoice$/i.test(text(value.title, 160)) ? "Proposal" : text(value.title, 160) || "Service Proposal",
   clientName: text(value.clientName, 200),
   celebrationType: text(value.celebrationType, 200),
   eventDate: text(value.eventDate, 10),

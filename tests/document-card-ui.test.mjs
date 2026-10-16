@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { renderDocumentCard, printDocumentCopy } from "../document-message-ui.js";
-import { renderProposalMessage, renderProposalCard } from "../proposal-ui.js";
+import { parseProposal, serializeProposal, printProposal, renderProposalMessage, renderProposalCard } from "../proposal-ui.js";
 
 const descendants = node => [node, ...node.children.flatMap(descendants)];
 const content = node => descendants(node).map(item => item.textContent || "").join("\n");
@@ -18,6 +18,28 @@ function withDOM(run) {
   try {run();} finally {Object.assign(globalThis, previous);}
 }
 const invoice = {kind:"invoice",number:"HMP-TEST",client_name:"Test Client",total:850,subtotal:850,items:[{description:"Test service",quantity:1,rate:850,amount:850}]};
+
+test("legacy proposals titled Invoice display as Proposal in messages, previews and print", () => withDOM(() => {
+  for (const title of ["Invoice", " INVOICE ", "invoice"]) {
+    const raw = `HMP_PROPOSAL_V1:${JSON.stringify({title,clientName:"Test Client",serviceFee:900})}`;
+    const proposal = parseProposal(raw);
+    assert.equal(proposal.title, "Proposal");
+    assert.equal(parseProposal(serializeProposal({title})).title, "Proposal");
+    assert.equal(descendants(renderProposalMessage(proposal)).find(node=>node.tag==="h3").textContent,"Proposal");
+    assert.equal(descendants(renderProposalCard(proposal)).find(node=>node.tag==="h3").textContent,"Proposal");
+    let printed="";
+    globalThis.window={open:()=>({document:{write(html){printed=html;},close(){}},focus(){},print(){}}),setTimeout:callback=>callback()};
+    assert.equal(printProposal(proposal),true);
+    assert.match(printed, /<h3>Proposal<\/h3>/);
+    assert.doesNotMatch(printed, /<h3>Invoice<\/h3>/i);
+    assert.equal(JSON.parse(raw.slice("HMP_PROPOSAL_V1:".length)).title,title,"Rendering must not rewrite stored messages");
+  }
+  assert.match(content(renderDocumentCard(invoice)),/Invoice HMP-TEST/);
+  assert.equal(parseProposal("Ordinary message about an invoice"),null);
+  for (const title of ["Money Changing Service Only", "Custom Wedding Proposal", "Invoice planning services"]) {
+    assert.equal(parseProposal(serializeProposal({title})).title,title,"Preserve custom service titles");
+  }
+}));
 
 test("proposal messages start collapsed while preview/print cards remain expanded", () => withDOM(() => {
   const proposal = {title:"Test Proposal",machines:2,serviceFee:850,calendarUrl:"https://calendar.app.google/CJn7HCVgHaqHM2fK6"};
