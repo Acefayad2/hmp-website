@@ -1,7 +1,10 @@
 import type { Config } from "@netlify/functions";
+import { timingSafeEqual } from "node:crypto";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
+import { privateLink } from "./_agreement-forms.mts";
+import { stableId } from "./_document-messages.mts";
 import { normalizeServiceHours } from "../../proposal-ui.js";
 import {
   clientConversationUrl,
@@ -47,6 +50,27 @@ const escapeHtml = (value: unknown) =>
     .replaceAll("'", "&#039;");
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const proposalPrefix = "HMP_PROPOSAL_V1:";
+const seatingLinkPattern = /^https:\/\/seating\.hmpeds\.com\/client\/([a-z0-9-]+)\/([a-f0-9]{48})$/i;
+
+const linkedSeatingEvent = async (client: SupabaseClient, url: string) => {
+  const match = seatingLinkPattern.exec(url);
+  if (!match) return null;
+  const { data: index, error: indexError } = await client.from("hmp_seating_records")
+    .select("value").eq("key", `public/${match[1]}`).maybeSingle();
+  if (indexError) throw new Error("Guest Seating event could not be checked");
+  const eventId = String(index?.value?.eventId || "");
+  if (!uuidPattern.test(eventId)) return null;
+  const { data: record, error: eventError } = await client.from("hmp_seating_records")
+    .select("value").eq("key", `events/${eventId}`).maybeSingle();
+  if (eventError) throw new Error("Guest Seating event could not be checked");
+  const event = record?.value;
+  const provided = Buffer.from(match[2], "hex");
+  const expected = Buffer.from(String(event?.clientUploadToken || ""), "hex");
+  if (!event || event.archived || event.deletedAt || event.dataPurgedAt
+    || String(event.publicCode || "").toLowerCase() !== match[1].toLowerCase()
+    || !expected.length || provided.length !== expected.length || !timingSafeEqual(provided, expected)) return null;
+  return { id: eventId, event };
+};
 
 export const normalizeAdminMessage = (value: unknown) => {
   const message = cleanText(value, 4000);
@@ -270,6 +294,124 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (action === "seating-activity") {
+    const conversationId = cleanText(body.conversationId, 36);
+    if (!uuidPattern.test(conversationId)) return json({ error: "Invalid client hub" }, 400);
+    const id = stableId(`shared-seating/${conversationId}`);
+    const { data: shared, error: readError } = await client.from("hmp_client_messages")
+      .select("document,deleted_at").eq("id", id).eq("conversation_id", conversationId).maybeSingle();
+    if (readError) return json({ error: "Guest Seating link could not be checked" }, 502);
+    if (shared?.deleted_at || shared?.document?.kind !== "seating") return json({ activity: [] });
+    try {
+      const linked = await linkedSeatingEvent(client, String(shared.document.url || ""));
+      if (!linked) return json({ error: "The Guest Seating link is no longer active. Replace it in this client hub." }, 409);
+      const rows: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await client.from("hmp_seating_records").select("key,value")
+          .like("key", `client-activity/${linked.id}/%`).order("key", { ascending: false }).range(from, from + 999);
+        if (error) throw new Error("Guest Seating activity could not be read");
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      const allowedKinds = new Set(["sign_in", "pin_setup", "guest_list_uploaded", "guest_list_removed", "guest_added", "guest_updated", "guest_deleted"]);
+      const activity = rows.map((row) => row.value)
+        .filter((item: any) => allowedKinds.has(item?.action) && item?.eventId === linked.id && !Number.isNaN(Date.parse(item?.createdAt || "")))
+        .map((item: any) => ({
+          id: cleanText(item.id, 100), kind: item.action, detail: cleanText(item.summary, 300), at: item.createdAt,
+        }));
+      return json({ activity });
+    } catch {
+      return json({ error: "Guest Seating activity is unavailable. Please try again later." }, 502);
+    }
+  }
+
+  if (action === "share-seating") {
+    const conversationId = cleanText(body.conversationId, 36);
+    const url = cleanText(body.url, 300);
+    const match = seatingLinkPattern.exec(url);
+    if (!uuidPattern.test(conversationId) || !match) return json({ error: "Enter a valid private Guest Seating client link" }, 400);
+    const { data: conversation, error: conversationError } = await client.from("hmp_client_conversations")
+      .select("id,inquiry_id,revoked_at,token_expires_at").eq("id", conversationId).maybeSingle();
+    if (conversationError) return json({ error: "Client hub could not be checked" }, 502);
+    if (!conversation || conversation.revoked_at || !(Date.parse(conversation.token_expires_at) > Date.now()))
+      return json({ error: "Create an active client link before adding Guest Seating" }, 409);
+    const { data: inquiry, error: inquiryError } = await client.from("hmp_admin_inquiries")
+      .select("celebration_date").eq("submission_id", conversation.inquiry_id).maybeSingle();
+    if (inquiryError || !inquiry) return json({ error: "The inquiry could not be checked" }, 502);
+    let seatingEvent: { name?: string; date?: string; archived?: boolean; deletedAt?: string; dataPurgedAt?: string };
+    try {
+      const linked = await linkedSeatingEvent(client, url);
+      if (!linked || linked.event.archived || linked.event.deletedAt || linked.event.dataPurgedAt)
+        return json({ error: "Guest Seating could not verify that active private link" }, 400);
+      seatingEvent = linked.event;
+    } catch {
+      return json({ error: "Guest Seating could not verify that private link. Try again later." }, 502);
+    }
+    const inquiryDate = String(inquiry.celebration_date || "").slice(0, 10);
+    const seatingDate = String(seatingEvent.date || "").slice(0, 10);
+    if (inquiryDate && seatingDate && inquiryDate !== seatingDate)
+      return json({ error: "The Guest Seating event date does not match this inquiry. Check the selected client and event." }, 409);
+    const id = stableId(`shared-seating/${conversationId}`);
+    const document = { kind: "seating", title: cleanText(seatingEvent.name, 160) || "Guest Seating Experience", url };
+    const { error: insertError } = await client.from("hmp_client_messages").insert({
+      id, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: "", document,
+    });
+    if (insertError && insertError.code !== "23505") return json({ error: "Guest Seating could not be added to this hub" }, 502);
+    if (insertError) {
+      const { data: existing, error: readError } = await client.from("hmp_client_messages")
+        .select("document,deleted_at").eq("id", id).eq("conversation_id", conversationId).maybeSingle();
+      if (readError || !existing) return json({ error: "Guest Seating share could not be checked" }, 502);
+      if (!existing.deleted_at) {
+        if (existing.document?.url !== url)
+          return json({ error: "Remove the old Guest Seating link from this hub before adding a different one" }, 409);
+        return json({ ok: true, alreadyShared: true, eventName: document.title });
+      }
+      const { error: restoreError } = await client.from("hmp_client_messages")
+        .update({ deleted_at: null, document }).eq("id", id).eq("conversation_id", conversationId);
+      if (restoreError) return json({ error: "Guest Seating could not be restored to this hub" }, 502);
+    }
+    const now = new Date().toISOString();
+    await client.from("hmp_client_conversations")
+      .update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
+    return json({ ok: true, alreadyShared: false, eventName: document.title });
+  }
+
+  if (action === "share-form") {
+    const conversationId = cleanText(body.conversationId, 36);
+    const formId = cleanText(body.formId, 36);
+    if (!uuidPattern.test(conversationId) || !uuidPattern.test(formId)) return json({error:"Invalid form or conversation"}, 400);
+    const {data: conversation, error: conversationError} = await client.from("hmp_client_conversations")
+      .select("id,inquiry_id,revoked_at,token_expires_at").eq("id", conversationId).maybeSingle();
+    if (conversationError) return json({error:"Client hub could not be checked"}, 502);
+    if (!conversation || conversation.revoked_at || !(Date.parse(conversation.token_expires_at) > Date.now())) return json({error:"Create an active client link before adding a form"}, 409);
+    const [{data: inquiry, error: inquiryError}, {data: form, error: formError}] = await Promise.all([
+      client.from("hmp_admin_inquiries").select("email").eq("submission_id", conversation.inquiry_id).maybeSingle(),
+      client.from("hmp_client_agreements").select("id,client_email,status,expires_at,token_nonce,snapshot").eq("id", formId).maybeSingle(),
+    ]);
+    if (inquiryError || formError) return json({error:"Client form could not be checked"}, 502);
+    if (!inquiry || !form || !emailPattern.test(String(inquiry.email || "").trim()) || String(inquiry.email || "").trim().toLowerCase() !== String(form.client_email || "").trim().toLowerCase()) return json({error:"This form does not belong to the selected client"}, 403);
+    if (!["Sent", "Completed"].includes(form.status) || !(Date.parse(form.expires_at) > Date.now())) return json({error:"Only active sent forms can be added"}, 409);
+    const id = stableId(`shared-form/${conversationId}/${formId}`);
+    const now = new Date().toISOString();
+    const {error: insertError} = await client.from("hmp_client_messages").insert({
+      id, conversation_id:conversationId, sender:"admin", sender_name:user.name || "HMP representative",
+      body:"", document:{kind:"form",id:form.id,title:cleanText(form.snapshot?.title,160) || "Client form",status:form.status,url:privateLink(form)},
+    });
+    if (insertError && insertError.code !== "23505") return json({error:"Form could not be added to the client hub"}, 502);
+    let restored = false;
+    if (insertError) {
+      const {data:existing, error:readError} = await client.from("hmp_client_messages").select("deleted_at").eq("id",id).eq("conversation_id",conversationId).maybeSingle();
+      if (readError || !existing) return json({error:"Form share could not be checked"}, 502);
+      if (existing.deleted_at) {
+        const {error:restoreError} = await client.from("hmp_client_messages").update({deleted_at:null,document:{kind:"form",id:form.id,title:cleanText(form.snapshot?.title,160) || "Client form",status:form.status,url:privateLink(form)}}).eq("id",id).eq("conversation_id",conversationId);
+        if (restoreError) return json({error:"Form could not be restored to the client hub"}, 502);
+        restored = true;
+      }
+    }
+    if (!insertError || restored) await client.from("hmp_client_conversations").update({last_message_at:now,last_sender:"admin",updated_at:now}).eq("id", conversationId);
+    return json({ok:true,alreadyShared:Boolean(insertError && !restored)});
+  }
 
   if (action === "edit-message" || action === "delete-message") {
     const conversationId = cleanText(body.conversationId, 36);
