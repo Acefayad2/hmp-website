@@ -1,4 +1,5 @@
 export const escape = (value = "") => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]);
+import { formattedPageHTML } from "./agreement-formatting.mjs";
 export function fieldsHTML(fields, values = {}, prefix = "answer", required = true) {
   return fields.map(field => {
     const id = `${prefix}-${field.id}`, value = values[field.id] || "";
@@ -17,7 +18,7 @@ export function answersHTML(fields, values = {}) {
     return `<div><dt>${escape(field.label)}</dt><dd>${escape(formatted)}</dd></div>`;
   }).join("")}</dl>`;
 }
-export const termsHTML = snapshot => snapshot.pages.map((page, i) => `<section class="agreement-terms-page"><h3>Agreement text · ${i + 1} / ${snapshot.pages.length}</h3><div>${escape(page)}</div></section>`).join("");
+export const termsHTML = snapshot => snapshot.pages.map((page, i) => `<section class="agreement-terms-page"><h3>Agreement text · ${i + 1} / ${snapshot.pages.length}</h3><div>${snapshot.pageFormatting?.[i] ? formattedPageHTML(page,snapshot.pageFormatting[i]) : escape(page)}</div></section>`).join("");
 export const completionHTML = agreement => `<section class="agreement-panel"><h2>Completed client details</h2>${answersHTML(agreement.snapshot.clientFields, agreement.clientAnswers)}<h3>${agreement.snapshot.signatureMode === "on-site-three-signatures" ? "HMP attendant electronic signature" : "Electronic signature"}</h3><p class="agreement-signature">${escape(agreement.signature?.name)}</p><p>${escape(agreement.signature?.consent)}</p><p>Signed: ${escape(agreement.completedAt)}${agreement.adminAnswers.hmpSignedAt ? `<br>HMP signed: ${escape(agreement.adminAnswers.hmpSignedAt)}` : ""}</p><p class="agreement-fingerprint">Record ID: ${escape(agreement.id)}<br>SHA-256 record fingerprint: ${escape(agreement.recordHash)}</p></section>`;
 export function printAgreement(agreement) {
   document.querySelector("#agreement-print")?.remove();
