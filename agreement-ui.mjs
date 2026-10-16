@@ -3,12 +3,12 @@ import { formattedPageHTML } from "./agreement-formatting.mjs";
 export function fieldsHTML(fields, values = {}, prefix = "answer", required = true) {
   return fields.map(field => {
     const id = `${prefix}-${field.id}`, value = values[field.id] || "";
-    const attrs = `id="${id}" name="${field.id}" ${required && field.required ? "required" : ""}`;
+    const attrs = `id="${id}" name="${field.id}" ${required && field.required ? "required" : ""} ${field.calculated ? 'readonly aria-readonly="true"' : ""}`;
     let input;
     if (field.options) input = `<select ${attrs}><option value="">Choose an option</option>${field.options.map(option => `<option ${value === option ? "selected" : ""}>${escape(option)}</option>`).join("")}</select>`;
     else if (field.type === "textarea") input = `<textarea ${attrs} rows="3" maxlength="5000">${escape(value)}</textarea>`;
     else input = `<input ${attrs} type="${["money", "decimal"].includes(field.type) ? "number" : field.type}" ${["number", "money", "decimal"].includes(field.type) ? `min="${field.id === "serviceHours" ? "4" : "0"}" max="10000000" step="${field.type === "number" ? "1" : "0.01"}"` : 'maxlength="500"'} value="${escape(value)}">`;
-    return `<label class="agreement-field ${field.type === "textarea" ? "agreement-wide" : ""}" for="${id}"><span>${escape(field.label)}${field.required ? " *" : " (optional)"}</span>${field.help ? `<small>${escape(field.help)}</small>` : ""}${input}</label>`;
+    return `<label class="agreement-field ${field.type === "textarea" || field.id === "serviceHours" ? "agreement-wide" : ""}" for="${id}"><span>${escape(field.label)}${field.calculated ? " (calculated)" : field.required ? " *" : " (optional)"}</span>${field.help ? `<small>${escape(field.help)}</small>` : ""}${input}</label>`;
   }).join("");
 }
 export function answersHTML(fields, values = {}) {

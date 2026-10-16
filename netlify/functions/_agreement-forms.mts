@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
-import { getAgreementTemplate, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../../agreement-schema.mjs";
+import { getAgreementTemplate, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../../agreement-schema.mjs";
 import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -28,13 +28,15 @@ export function withCurrentDraftFields(row: any) {
     return {...row, snapshot:{...snapshot, version:current.version, optionalSecondRepresentative:true,
       clientFields:snapshot.clientFields.map((field: any) => changedIds.includes(field.id) ? current.clientFields.find((item: any) => item.id === field.id) : field)}};
   }
-  if (row.status !== "Draft" || !["money-collecting", "money-collecting-changing"].includes(snapshot.id) ||
-      snapshot.adminFields.some((field: any) => field.id === "serviceStartTime")) return row;
-  const startField = getAgreementTemplate(snapshot.id).adminFields.find((field: any) => field.id === "serviceStartTime");
+  if (row.status !== "Draft" || !["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return row;
+  const currentFields = getAgreementTemplate(snapshot.id).adminFields;
   const fields = [...snapshot.adminFields];
-  const endIndex = fields.findIndex((field: any) => field.id === "serviceEndTime");
-  fields.splice(endIndex < 0 ? fields.length : endIndex, 0, startField);
-  return {...row, snapshot:{...snapshot, adminFields:fields}};
+  for (const [id,before] of [["serviceStartTime","serviceEndTime"],["retainerAmount","retainerDue"],["finalPaymentAmount","finalPaymentDue"]]) {
+    if (fields.some((field: any) => field.id === id)) continue;
+    const index = fields.findIndex((field: any) => field.id === before);
+    fields.splice(index < 0 ? fields.length : index,0,currentFields.find((field: any) => field.id === id));
+  }
+  return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee)}};
 }
 export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
@@ -114,9 +116,12 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
   const recordHash = hash(JSON.stringify({ id: row.id, snapshot: row.snapshot, adminAnswers: row.admin_answers, clientAnswers: answers, signature }));
   return { client_answers: answers, signature, record_hash: recordHash, completed_at: now, updated_at: now, status: "Completed" };
 }
-export const publicAgreement = (row: any) => ({
-  id: row.id, snapshot: withCurrentDraftFields(row).snapshot, clientName: row.client_name, clientEmail: row.client_email,
-  adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
-  sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
-  recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,
-});
+export const publicAgreement = (storedRow: any) => {
+  const row = withCurrentDraftFields(storedRow);
+  return {
+    id: row.id, snapshot: row.snapshot, clientName: row.client_name, clientEmail: row.client_email,
+    adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
+    sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
+    recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,
+  };
+};

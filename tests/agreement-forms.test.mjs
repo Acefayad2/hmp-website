@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agreementTemplates, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../agreement-schema.mjs";
+import { agreementTemplates, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../agreement-schema.mjs";
 import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash, issuedSnapshot, editableSnapshot } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
@@ -39,6 +39,55 @@ function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:20
 }
 
 const bankBody = row => ({answers:{...inputFor(row.snapshot.clientFields), representativeOneName:"First Signer", representativeOneSignature:"First Signer", representativeTwoName:"", representativeTwoSignature:"", representativeTwoDate:"", attendantName:"HMP Attendant"}, signatureName:"HMP Attendant", consent:true, representativeOneConsent:true, representativeTwoConsent:false});
+
+test("Money Table payment amounts use cents and never accept supplied calculated amounts", () => {
+  assert.deepEqual(moneyTablePaymentAmounts("1154.00"),{retainerAmount:"346.20",finalPaymentAmount:"807.80"});
+  assert.deepEqual(moneyTablePaymentAmounts("0.05"),{retainerAmount:"0.02",finalPaymentAmount:"0.03"});
+  assert.deepEqual(moneyTablePaymentAmounts("0"),{retainerAmount:"0.00",finalPaymentAmount:"0.00"});
+  for (const value of ["", "-1", "bad", "1.234", "10000001"]) assert.deepEqual(moneyTablePaymentAmounts(value),{retainerAmount:"",finalPaymentAmount:""});
+  const fields = snapshotFor("money-collecting").adminFields;
+  const answers = validateAnswers(fields,{serviceFee:"1154.00",retainerAmount:"999",finalPaymentAmount:"1"},false);
+  assert.equal(answers.retainerAmount,"346.20");
+  assert.equal(answers.finalPaymentAmount,"807.80");
+  const html = fieldsHTML(fields,answers,"admin-answer",false);
+  assert.match(html,/name="retainerAmount"\s+readonly aria-readonly="true"/);
+  assert.match(html,/Final payment amount \(USD\) \(calculated\)/);
+  assert.match(answersHTML(fields,answers),/\$346\.20/);
+  assert.match(answersHTML(fields,answers),/\$807\.80/);
+});
+
+test("old Money Table drafts gain calculated amounts but sent and signed records never change", () => {
+  for (const templateId of ["money-collecting","money-collecting-changing"]) for (const status of ["Draft","Sent","Completed"]) {
+    const row = {...rowFor(templateId),status};
+    row.snapshot.adminFields = row.snapshot.adminFields.filter(field => !field.calculated);
+    row.admin_answers = {...row.admin_answers,serviceFee:"1154.00"};
+    delete row.admin_answers.retainerAmount; delete row.admin_answers.finalPaymentAmount;
+    const original = structuredClone(row), result = publicAgreement(row);
+    assert.deepEqual(row,original,"Read must not mutate the stored record");
+    assert.deepEqual(result.snapshot.pages,original.snapshot.pages);
+    assert.equal(result.adminAnswers.retainerAmount,status === "Draft" ? "346.20" : undefined);
+    assert.equal(result.snapshot.adminFields.some(field => field.id === "finalPaymentAmount"),status === "Draft");
+  }
+});
+
+test("Money Table calculated amounts persist on create, recalculate on save and reach the client on share", async () => {
+  const rows = [], handler = handlerFor(rows), templateId="money-collecting-changing";
+  const answers = {...inputFor(snapshotFor(templateId).adminFields),serviceFee:"1154.00",retainerAmount:"9999",finalPaymentAmount:"0"};
+  const created = await handler(request("hmp-agreement-forms","POST",{templateId,clientName:"Payment Test",clientEmail:"client@example.test",answers}));
+  assert.equal(created.status,201);
+  const row = rows[0];
+  assert.equal(row.admin_answers.retainerAmount,"346.20");
+  assert.equal(row.admin_answers.finalPaymentAmount,"807.80");
+  const saved = await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"save",updatedAt:row.updated_at,clientName:row.client_name,clientEmail:row.client_email,answers:{...answers,serviceFee:"1000.01"}}));
+  assert.equal(saved.status,200);
+  assert.equal(row.admin_answers.retainerAmount,"300.00");
+  assert.equal(row.admin_answers.finalPaymentAmount,"700.01");
+  assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"share",updatedAt:row.updated_at,hmpConsent:true}))).status,200);
+  const client = (await (await handler(request("hmp-agreement","GET",null,agreementToken(row.id,row.token_nonce)))).json()).agreement;
+  assert.equal(client.adminAnswers.retainerAmount,"300.00");
+  assert.equal(client.adminAnswers.finalPaymentAmount,"700.01");
+  assert.match(client.snapshot.pages.join("\n"),/30%/);
+});
 
 test("formatting persists through the agreement API and remains locked after sharing", async () => {
   const row = {...rowFor(),status:"Draft"}, handler = handlerFor([row]);
