@@ -92,21 +92,28 @@ export const agreementTemplates = [
   {
     id:"money-bank-verification", title:"Money Table Service: Money Bank Verification",
     signatureMode:"on-site-three-signatures",
+    optionalSecondRepresentative:true,
     adminFields:[],
     clientFields:[
       field("clientName", "Client name"), field("eventDate", "Event date", "date"), field("eventType", "Event type"),
       field("recommendedBank", "Recommended money bank", "money"), field("actualBank", "Actual money bank received", "money"),
-      field("receivedInitials", "Initials at receipt"),
-      field("reconciledBank", "Money bank reconciliation at service conclusion", "money"), field("reconciledInitials", "Initials at reconciliation"),
+      field("receivedInitials", "First / second designated representative initials at receipt"),
+      field("reconciledBank", "Money bank reconciliation at service conclusion", "money"), field("reconciledInitials", "First / second designated representative initials at reconciliation"),
       field("representativeOneName", "First designated representative name"), field("representativeOneSignature", "First representative signature (type full name)"),
       field("representativeOneDate", "First representative signing date", "date"),
-      field("representativeTwoName", "Second designated representative name"), field("representativeTwoSignature", "Second representative signature (type full name)"),
-      field("representativeTwoDate", "Second representative signing date", "date"),
+      field("representativeTwoName", "Second designated representative name", "text", false), field("representativeTwoSignature", "Second representative signature (type full name)", "text", false),
+      field("representativeTwoDate", "Second representative signing date", "date", false),
       field("attendantName", "HMP money attendant name"), field("attendantDate", "HMP attendant signing date", "date"),
     ],
   },
 ];
 export const getAgreementTemplate = (id) => [...agreementTemplates, ...informationTemplates].find((item) => item.id === id);
+
+export const secondRepresentativeFields = ["representativeTwoName", "representativeTwoSignature", "representativeTwoDate"];
+export function requiresSecondRepresentative(snapshot, values = {}, consent = false) {
+  return snapshot.optionalSecondRepresentative !== true || consent === true ||
+    secondRepresentativeFields.some(id => typeof values[id] === "string" && values[id].trim() !== "");
+}
 
 export function validateAnswers(fields, values, requireAll = true) {
   const answers = {};

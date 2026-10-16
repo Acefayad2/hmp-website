@@ -1,5 +1,5 @@
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "./agreement-ui.mjs";
-import { validateAnswers } from "./agreement-schema.mjs";
+import { requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "./agreement-schema.mjs";
 import { renderInformationForm } from "./information-client.mjs";
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const message = document.querySelector("#agreement-message"), content = document.querySelector("#agreement-content");
@@ -19,6 +19,24 @@ function render() {
     <div class="agreement-actions"><button type="button" class="agreement-button secondary" id="print-agreement">${completed ? "Print / save completed form" : "Print agreement terms"}</button></div>`;
   document.querySelector("#print-agreement").onclick = () => printAgreement(agreement);
   const form = document.querySelector("#client-agreement-form");
+  if (form && onSite && agreement.snapshot.optionalSecondRepresentative === true) {
+    const hint = document.createElement("p");
+    hint.textContent = "The second designated representative is optional. Leave their name, signature and date blank if not needed. If included, complete all three fields and their signature consent. Either designated representative may initial receipt and reconciliation.";
+    form.querySelector(".agreement-grid").before(hint);
+    const consent = form.elements.namedItem("representativeTwoConsent");
+    consent.closest("label").querySelector("span").append(" (Only if a second representative is included.)");
+    const syncSecondRepresentative = () => {
+      const required = requiresSecondRepresentative(agreement.snapshot, Object.fromEntries(new FormData(form)), consent.checked);
+      for (const id of secondRepresentativeFields) {
+        const input = form.elements.namedItem(id);
+        input.required = required;
+        input.closest("label").querySelector("span").textContent = agreement.snapshot.clientFields.find(field => field.id === id).label + (required ? " *" : " (optional)");
+      }
+      consent.required = required;
+    };
+    syncSecondRepresentative();
+    form.addEventListener("input", syncSecondRepresentative);
+  }
   form?.addEventListener("input", () => { dirty = true; });
   form?.addEventListener("submit", async event => {
     event.preventDefault();

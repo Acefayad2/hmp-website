@@ -111,7 +111,7 @@
     ]
   },
   "money-bank-verification": {
-    "version": "2026-10-12.1",
+    "version": "2026-10-16.1",
     "sourceFile": "money-bank-verification.pdf",
     "sourceSha256": "9ee88203fd1e9bb1cfae148e8914ef52e88c425300b2d56800a69e095b933716",
     "pages": [
