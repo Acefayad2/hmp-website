@@ -9,7 +9,7 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-2";
-import { parseProposal, renderProposalMessage } from "./proposal-ui.js?v=20261016-document-cards";
+import { parseProposal, renderProposalMessage } from "./proposal-ui.js?v=20261016-proposal-label";
 import { renderDocumentCard } from "./document-message-ui.js?v=20261016-document-cards";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
