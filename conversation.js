@@ -9,8 +9,9 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-2";
-import { parseProposal, renderProposalCard } from "./proposal-ui.js?v=20261016-proposal-na";
-import { renderDocumentCard } from "./document-message-ui.js?v=20260923-1";
+import { parseProposal, renderProposalPreview } from "./proposal-ui.js?v=20261016-client-hub";
+import { renderDocumentCard } from "./document-message-ui.js?v=20261016-client-hub";
+import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261016-client-hub";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
 
@@ -23,6 +24,7 @@ let authBusy = false;
 let loadVersion = 0;
 let pinMode = "login";
 let renderedMessageSignature = "";
+let activeHubSection = "messages";
 
 const getMessageSignature = (messages = []) => JSON.stringify(messages.map((message) => [
   message.id,
@@ -60,6 +62,7 @@ const showError = () => {
   $("#message-list").hidden = true;
   $("#message-empty").hidden = true;
   $("#message-form").hidden = true;
+  $("#client-hub-tabs").hidden = true;
 };
 
 const showPin = (code) => {
@@ -80,6 +83,7 @@ const showPin = (code) => {
   $("#message-form").hidden = true;
   $("#message-empty").hidden = true;
   $("#message-list").hidden = true;
+  $("#client-hub-tabs").hidden = true;
   $("#message-list").replaceChildren();
   renderedMessageSignature = "";
   if (wasHidden) {
@@ -93,12 +97,20 @@ const showPin = (code) => {
 const pinRequired = (data) => ["CLIENT_PIN_SETUP", "CLIENT_PIN_REQUIRED"].includes(data.code);
 
 const renderMessages = (messages) => {
-  const signature = getMessageSignature(messages);
+  const visible = hubMessages(messages, activeHubSection);
+  const signature = `${activeHubSection}:${getMessageSignature(messages)}`;
   if (signature === renderedMessageSignature) return;
   renderedMessageSignature = signature;
+  const focusedTab = document.activeElement?.classList?.contains("hub-tab")
+    ? [...$("#client-hub-tabs").children].indexOf(document.activeElement) : -1;
+  renderHubTabs($("#client-hub-tabs"), messages, activeHubSection, (section) => {
+    activeHubSection = section;
+    renderMessages(messages);
+  });
+  if (focusedTab >= 0) $("#client-hub-tabs").children[focusedTab]?.focus();
   const list = $("#message-list");
   list.replaceChildren();
-  messages.forEach((message) => {
+  visible.forEach((message) => {
     const article = document.createElement("article");
     article.className = `message ${message.sender === "client" ? "client" : "admin"}`;
     const name = document.createElement("strong");
@@ -116,16 +128,17 @@ const renderMessages = (messages) => {
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
-      article.append(renderProposalCard(proposal));
+      article.append(renderProposalPreview(proposal));
     }
     else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
     article.append(time);
     list.append(article);
   });
-  list.hidden = messages.length === 0;
-  $("#message-empty").hidden = messages.length > 0;
-  if (messages.length) list.scrollTop = list.scrollHeight;
+  list.hidden = visible.length === 0;
+  $("#message-empty").hidden = visible.length > 0;
+  $("#message-empty h3").textContent = activeHubSection === "all" ? "Your private conversation starts here." : `No ${activeHubSection} in this event hub yet.`;
+  if (visible.length) list.scrollTop = list.scrollHeight;
 };
 
 const loadConversation = async ({ quiet = false } = {}) => {
@@ -145,12 +158,13 @@ const loadConversation = async ({ quiet = false } = {}) => {
     if (!response.ok) throw new Error(data.error || "Conversation unavailable");
     $("#client-pin-form").hidden = true;
     $("#client-sign-out").hidden = false;
-    $("#conversation-title").textContent = `Conversation for ${data.conversation.clientName}`;
+    $("#conversation-title").textContent = `${data.conversation.clientName}’s event hub`;
     $("#summary-service").textContent = eventServiceLabel(data.conversation.service);
     $("#summary-date").textContent = formatDate(data.conversation.celebrationDate);
     $("#conversation-summary").hidden = false;
     $("#conversation-error").hidden = true;
     $("#message-form").hidden = false;
+    $("#client-hub-tabs").hidden = false;
     renderMessages(data.messages || []);
     if (!quiet) $("#message-input").focus();
   } catch {

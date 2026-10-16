@@ -1,7 +1,7 @@
-import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
+import { agreementTemplates, validateAnswers, agreementTextIssues, validationError } from "../agreement-schema.mjs";
 import terms from "../data/agreement-terms.json";
 import { searchText } from "../page-search.js";
-import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "../agreement-ui.mjs";
+import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, nativeFormIssues, showFormIssues } from "../agreement-ui.mjs";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -77,10 +77,11 @@ function renderEditor() {
     <div class="agreement-actions">${draft ? `<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button secondary" type="button" id="agreement-share">${active.snapshot.signatureMode === "on-site-three-signatures" ? "Open on-site signing link" : "Create private link"}</button>${active.snapshot.signatureMode === "on-site-three-signatures" ? "" : '<button class="agreement-button" type="button" id="agreement-send">Send client form</button>'}` : ""}${active.status === "Sent" && active.snapshot.signatureMode !== "on-site-three-signatures" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}${link && active.snapshot.signatureMode === "on-site-three-signatures" ? `<a class="agreement-button" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open signing page on this device</a>` : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div><p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
   $("#agreement-close").onclick = () => { if (!busy && (!dirty || confirm("Discard unsaved changes to this form?"))) {dirty = false; dialog.close();} };
   const form = $("#agreement-admin-form");
+  form.noValidate = true;
   form.oninput = () => {dirty = true;};
-  form.onsubmit = event => {event.preventDefault(); if (!busy && form.reportValidity()) perform("save");};
-  $("#agreement-send")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("send"); });
-  $("#agreement-share")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("share"); });
+  form.onsubmit = event => {event.preventDefault(); if (!busy) perform("save");};
+  $("#agreement-send")?.addEventListener("click", () => { if (!busy) perform("send"); });
+  $("#agreement-share")?.addEventListener("click", () => { if (!busy) perform("share"); });
   $("#agreement-void")?.addEventListener("click", () => { if (!busy && confirm("Void this form? Its private link will stop working. Existing signed forms are never deleted.")) perform("void"); });
   $("#agreement-print-button").onclick = () => {
     if (!draft) return printAgreement(active);
@@ -94,20 +95,29 @@ function renderEditor() {
 }
 function formValues() {
   const values = Object.fromEntries(new FormData($("#agreement-admin-form")));
-  return {title:values.documentTitle, pages:[...document.querySelectorAll("#agreement-admin-form [data-agreement-page]")].map(item => item.value), clientName:values.clientName, clientEmail:values.clientEmail, adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
+  return {title:values.documentTitle, pages:[...document.querySelectorAll("#agreement-admin-form [data-agreement-page]")].map(item => item.value), clientName:values.clientName, clientEmail:values.clientEmail, adminAnswers:values};
 }
 async function perform(action) {
   if (busy) return;
   const status = $("#agreement-editor-status");
   let sendConsent = false;
   try {
+    showFormIssues($("#agreement-admin-form"), []);
+    status.classList.remove("success");
     let values;
     if (active.status === "Draft" && action !== "void") {
       values = formValues();
-      if (action === "send" || action === "share") {
-        validateAnswers(active.snapshot.adminFields, values.adminAnswers);
+      const issuing = action === "send" || action === "share";
+      const issues = nativeFormIssues($("#agreement-admin-form"));
+      try { values.adminAnswers = validateAnswers(active.snapshot.adminFields, values.adminAnswers, issuing); }
+      catch (error) { issues.push(...error.issues); }
+      if (issuing) {
+        issues.push(...agreementTextIssues({...active.snapshot, pages:values.pages}));
         sendConsent = ["client-only", "on-site-three-signatures"].includes(active.snapshot.signatureMode) || $("#agreement-hmp-consent").checked;
-        if (!sendConsent) throw new Error("Please authorize the HMP representative’s electronic signature before sharing.");
+        if (!sendConsent) issues.push({id:"agreement-hmp-consent", message:"HMP electronic signature: check the authorization box before sharing."});
+      }
+      if (issues.length) throw validationError(issues);
+      if (action === "send" || action === "share") {
         if (!confirm(`${action === "share" ? "Create a private link for" : "Send this form to"} ${values.clientEmail}? Service details will be locked.${action === "share" ? " No email will be sent." : ""}`)) return;
       }
     }
@@ -131,6 +141,8 @@ async function perform(action) {
     window.dispatchEvent(new Event("hmp-drafts-changed"));
   } catch(error) {
     if (error.data?.agreement) { active = error.data.agreement; link = error.data.link || ""; dirty = false; renderEditor(); await loadAgreementForms(); }
-    $("#agreement-editor-status").textContent = error.message;
+    const issues = error.issues || error.data?.issues;
+    $("#agreement-editor-status").textContent = issues ? "Review the highlighted items above. Your entries are still here." : error.message;
+    showFormIssues($("#agreement-admin-form"), issues || [{message:error.message}]);
   } finally { busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(item => item.disabled = false); }
 }

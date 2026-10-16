@@ -17,10 +17,10 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261016-inquiries" />
+    <link rel="stylesheet" href="admin.css?v=20261016-client-hub" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20260923-1" />
-    <link rel="stylesheet" href="agreement.css?v=20260929-forms" />
+    <link rel="stylesheet" href="agreement.css?v=20261016-validation" />
     <link rel="stylesheet" href="page-search.css?v=20260929-1" />
   </head>
   <body>
@@ -73,6 +73,7 @@
             <a class="rail-link" href="/dashboard">Dashboard hub</a>
             <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
             <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Messages</a>
+            <a class="rail-link" href="/admin?view=activity" data-workspace-view="activity">Client activity</a>
             <a class="rail-link" href="/admin?view=drafts" data-workspace-view="drafts">Drafts</a>
             <a class="rail-link" href="/admin?view=proposals" data-workspace-view="proposals">Proposals</a>
             <a class="rail-link" href="/admin?view=forms" data-workspace-view="forms">Forms</a>
@@ -114,6 +115,24 @@
             </button>
           </section>
 
+          <section class="messages-workspace" id="activity-workspace" hidden>
+            <div class="workspace-section-header">
+              <div><p class="kicker">Client care</p><h2>Client activity</h2><p>See each event’s shared documents, completed forms, client messages, and linked Guest Seating activity in one timeline.</p></div>
+            </div>
+            <p class="form-message" id="activity-status" role="status"></p>
+            <div class="activity-layout">
+              <div class="activity-clients" id="activity-clients" aria-label="Clients and events"></div>
+              <div class="activity-detail">
+                <h3 id="activity-client-title">Select a client</h3>
+                <p id="activity-client-event"></p>
+                <button class="secondary-button" id="activity-open-hub" type="button" hidden>Open client hub</button>
+                <p class="form-message" id="activity-seating-status" role="status"></p>
+                <ol id="activity-timeline"></ol>
+                <p id="activity-empty">Choose a client to see their event activity.</p>
+              </div>
+            </div>
+          </section>
+
           <section class="dashboard-grid">
             <div class="inquiry-panel">
               <div class="panel-heading">
@@ -147,7 +166,7 @@
               <div>
                 <p class="kicker">Client care</p>
                 <h2>Messages</h2>
-                <p>Reply to clients through the private conversation link connected to each inquiry.</p>
+                <p>Review messages, proposals, invoices, contracts, and forms in each inquiry's private client hub.</p>
               </div>
               <div class="conversation-heading-actions">
                 <button class="secondary-button" id="new-client-proposal-button" type="button">New client &amp; proposal</button>
@@ -170,7 +189,7 @@
             </section>
             <div class="messages-layout" id="message-conversations-panel" role="tabpanel" aria-labelledby="message-conversations-tab">
               <aside class="thread-panel">
-                <div class="thread-panel-heading"><strong>Conversations</strong><span id="thread-count">0</span></div>
+                <div class="thread-panel-heading"><strong>Client hubs</strong><span id="thread-count">0</span></div>
                 <div id="thread-list"></div>
                 <div class="thread-empty" id="thread-empty">
                   <span>☾</span><h3>No conversations yet</h3><p>Create a private link from an inquiry to begin.</p>
@@ -178,7 +197,7 @@
               </aside>
               <section class="admin-conversation-panel" id="admin-conversation-panel">
                 <div class="admin-conversation-placeholder" id="admin-conversation-placeholder">
-                  <span>HMP</span><h3>Select a conversation</h3><p>Choose a client to review and reply to their messages.</p>
+                  <span>HMP</span><h3>Select a client hub</h3><p>Choose a client to review their event documents and messages.</p>
                 </div>
                 <div id="admin-conversation" hidden>
                   <header class="admin-conversation-heading">
@@ -191,6 +210,19 @@
                       <button class="conversation-delete-button" id="delete-active-conversation" type="button">Delete conversation</button>
                     </div>
                   </header>
+                  <nav class="hub-tabs admin-hub-tabs" id="admin-hub-tabs" aria-label="Client hub sections"></nav>
+                  <div class="hub-form-share" id="hub-form-share">
+                    <label for="hub-form-select">Add a sent client form to this event hub</label>
+                    <select id="hub-form-select"><option value="">Choose a form</option></select>
+                    <button class="secondary-button" id="hub-share-form" type="button" disabled>Add form</button>
+                    <p class="form-message" id="hub-form-status" role="status"></p>
+                  </div>
+                  <form class="hub-form-share" id="hub-seating-share">
+                    <label for="hub-seating-url">Add this event’s private Guest Seating portal</label>
+                    <input id="hub-seating-url" type="url" inputmode="url" maxlength="300" placeholder="https://seating.hmpeds.com/client/…" required />
+                    <button class="secondary-button" type="submit">Add Guest Seating</button>
+                    <p class="form-message" id="hub-seating-status" role="status"></p>
+                  </form>
                   <div class="admin-message-list" id="admin-message-list"></div>
                   <div class="admin-message-empty" id="admin-message-empty" hidden>No messages yet. Send a welcome note to begin the conversation.</div>
                   <form class="admin-message-composer" id="admin-message-form">
@@ -432,15 +464,15 @@
       <section class="detail-note" id="detail-note" hidden><h3>Additional information</h3><p></p></section>
       <section class="client-conversation-card">
         <div>
-          <p class="kicker">Private client messaging</p>
-          <h3>Talk with a representative</h3>
-          <p>Create or renew a secure link for this client. The link is private to this inquiry.</p>
+          <p class="kicker">Private client hub</p>
+          <h3>Everything for this event</h3>
+          <p>Create or renew a secure link for this client's messages and documents. The link is private to this inquiry.</p>
         </div>
         <div class="client-conversation-actions">
           <button class="secondary-button" id="create-conversation-link" type="button">Create private link</button>
           <button class="secondary-button" id="copy-conversation-link" type="button" hidden>Copy link</button>
           <button class="secondary-button" id="send-new-conversation-link" type="button">Send new link</button>
-          <button class="primary-button" id="open-conversation" type="button" hidden>Open Messages</button>
+          <button class="primary-button" id="open-conversation" type="button" hidden>Open Client Hub</button>
         </div>
         <p class="form-message" id="conversation-link-message" role="status"></p>
       </section>
@@ -791,6 +823,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261016-proposal-na"></script>
+    <script type="module" src="assets/admin.js?v=20261016-validation"></script>
   </body>
 </html>

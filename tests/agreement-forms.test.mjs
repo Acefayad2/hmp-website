@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agreementTemplates, validateAnswers } from "../agreement-schema.mjs";
+import { agreementTemplates, validateAnswers, agreementTextIssues } from "../agreement-schema.mjs";
 import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash, issuedSnapshot, editableSnapshot } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
@@ -79,6 +79,60 @@ test("new document titles and wording stay in their draft, while money amounts a
   assert.equal(issued.optionalClauses,undefined);
   assert.throws(()=>editableSnapshot(template,{pages:["missing"]}),/page/);
 });
+test("validation returns every missing field with its editable field key", () => {
+  const fields = snapshotFor("money-collecting-changing").adminFields;
+  assert.throws(() => validateAnswers(fields, {}), error => {
+    assert.equal(error.issues.length, fields.filter(field => field.required).length);
+    assert.deepEqual(error.issues.map(issue => issue.field), fields.filter(field => field.required).map(field => field.id));
+    return true;
+  });
+  assert.doesNotThrow(() => validateAnswers(fields, {}, false));
+});
+
+test("filled values left in double braces identify all pages and select exact text", () => {
+  const snapshot = snapshotFor("money-collecting-changing");
+  const pages = ["Known {{serviceFee}}", "Retainer {{$346.20}} and final {{$807.80}}", "Plain {4}", "Ends {{10:45PM}}", "Before {{10/18/2026}}, then {{$807.80}}"];
+  const issues = agreementTextIssues({...snapshot, pages});
+  assert.deepEqual(issues.map(issue => issue.pageIndex), [1, 1, 3, 4, 4]);
+  assert.equal(pages[1].slice(issues[0].start, issues[0].end), "{{$346.20}}");
+  assert.match(issues[0].message, /page 2.*\$346\.20/);
+  assert.match(issues[0].help, /remove only its double braces/);
+  assert.throws(() => issuedSnapshot({...snapshot, pages}, inputFor(snapshot.adminFields)), error => error.issues.length === 5);
+  assert.equal(pages[1], "Retainer {{$346.20}} and final {{$807.80}}", "must not rewrite draft wording");
+  for (const text of ["{{typo}}", "{{serviceFee", "orphan }}", "{{{serviceFee}}}"]) {
+    assert.ok(agreementTextIssues({...snapshot, pages:[text]}).length, text);
+  }
+  assert.deepEqual(agreementTextIssues(snapshot), []);
+});
+
+test("bad agreement wording cannot issue, email or mutate a draft and returns locations", async () => {
+  const row = {...rowFor("money-collecting-changing"), status:"Draft"};
+  row.snapshot.pages = row.snapshot.pages.map((page, index) => index === 1 ? `${page}\nFinal payment {{$807.80}}` : page);
+  const before = structuredClone(row);
+  let sends = 0;
+  const handler = handlerFor([row], true, async () => {sends++; return new Response("{}");});
+  for (const action of ["send", "share"]) {
+    const response = await handler(request("hmp-agreement-forms", "PATCH", {id, action, updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(response.status, 400);
+    const data = await response.json();
+    assert.equal(data.issues[0].pageIndex, 1);
+    assert.match(data.error, /page 2.*\$807\.80/);
+    assert.deepEqual(row, before);
+  }
+  assert.equal(sends, 0);
+});
+
+test("empty and overlong agreement pages identify each page", () => {
+  const snapshot = snapshotFor("money-collecting-changing");
+  const pages = [...snapshot.pages]; pages[1] = " "; pages[3] = "x".repeat(15001);
+  assert.throws(() => editableSnapshot(snapshot, {pages}), error => {
+    assert.deepEqual(error.issues.map(issue => issue.pageIndex), [1, 3]);
+    assert.match(error.message, /page 2.*enter/);
+    assert.match(error.message, /page 4.*15,000/);
+    return true;
+  });
+});
+
 test("on-site bank verification requires all three matching signatures and never emails the form", async () => {
   const row={...rowFor("money-bank-verification"),status:"Draft"};
   const handler=handlerFor([row]);

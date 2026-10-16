@@ -1,5 +1,5 @@
 import { activeInformationTemplates, informationTemplates } from "../information-form-schema.mjs";
-import { agreementRequest, escape, fieldsHTML } from "../agreement-ui.mjs";
+import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues } from "../agreement-ui.mjs";
 import { informationSummary, printInformation } from "../information-form-ui.mjs";
 import { loadBankVerificationForms } from "./agreement-admin.js";
 
@@ -63,9 +63,10 @@ function render() {
     <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<button type="button" class="agreement-button secondary" id="information-copy">Copy link</button><a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
+  form.noValidate = true;
   form.oninput = () => {if (draft) dirty = true;};
-  form.onsubmit = event => {event.preventDefault(); if (form.reportValidity()) perform("save");};
-  dialog.querySelectorAll("[data-information-action]").forEach(button => button.onclick = () => {if (button.dataset.informationAction === "void" || form.reportValidity()) perform(button.dataset.informationAction);});
+  form.onsubmit = event => {event.preventDefault(); if (!busy && checkFormInputs(form)) perform("save");};
+  dialog.querySelectorAll("[data-information-action]").forEach(button => button.onclick = () => {if (!busy && (button.dataset.informationAction === "void" || checkFormInputs(form))) perform(button.dataset.informationAction);});
   $("#information-copy")?.addEventListener("click", async () => {
     try {await navigator.clipboard.writeText(link); $("#information-status").textContent = "Private link copied.";}
     catch {$("#information-private-link").select(); $("#information-status").textContent = "Link selected. Copy it manually.";}
@@ -97,5 +98,6 @@ async function perform(action) {
   } catch (error) {
     if (error.data?.agreement) {active = error.data.agreement; link = error.data.link || ""; dirty = false; render(); await loadInformationForms();}
     $("#information-status").textContent = error.message;
+    showFormIssues($("#information-admin-form"), error.issues || error.data?.issues || [{message:error.message}]);
   } finally {busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(el => el.disabled = false);}
 }

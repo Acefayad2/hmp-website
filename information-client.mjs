@@ -1,4 +1,4 @@
-import { agreementRequest, escape, fieldsHTML } from "./agreement-ui.mjs";
+import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues } from "./agreement-ui.mjs";
 import { validateAnswers } from "./agreement-schema.mjs";
 import { informationSummary, printInformation } from "./information-form-ui.mjs";
 
@@ -17,10 +17,11 @@ export function renderInformationForm(record, headers) {
     message.classList.toggle("success", completed);
     document.querySelector("#information-print")?.addEventListener("click", () => printInformation(record));
     const form = document.querySelector("#information-client-form");
+    if (form) form.noValidate = true;
     form?.addEventListener("input", () => {dirty = true;});
     form?.addEventListener("submit", async event => {
       event.preventDefault();
-      if (busy || !form.reportValidity()) return;
+      if (busy || !checkFormInputs(form)) return;
       const status = document.querySelector("#information-save-status");
       try {
         const answers = validateAnswers(record.snapshot.clientFields, Object.fromEntries(new FormData(form)));
@@ -29,7 +30,7 @@ export function renderInformationForm(record, headers) {
         const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({answers})});
         record = data.agreement; dirty = false; render();
         message.scrollIntoView({block:"center", behavior:"smooth"});
-      } catch (error) {status.textContent = `${error.message} Your entries are still here; please try again.`;}
+      } catch (error) {status.textContent = `${error.message} Your entries are still here; please try again.`; showFormIssues(form, error.issues || error.data?.issues || [{message:error.message}]);}
       finally {busy = false; form.querySelectorAll("input,textarea,select,button").forEach(el => el.disabled = false);}
     });
   }

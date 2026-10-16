@@ -1,4 +1,4 @@
-import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "./agreement-ui.mjs";
+import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, checkFormInputs, showFormIssues } from "./agreement-ui.mjs";
 import { validateAnswers } from "./agreement-schema.mjs";
 import { renderInformationForm } from "./information-client.mjs";
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
@@ -19,10 +19,11 @@ function render() {
     <div class="agreement-actions"><button type="button" class="agreement-button secondary" id="print-agreement">${completed ? "Print / save completed form" : "Print agreement terms"}</button></div>`;
   document.querySelector("#print-agreement").onclick = () => printAgreement(agreement);
   const form = document.querySelector("#client-agreement-form");
+  if (form) form.noValidate = true;
   form?.addEventListener("input", () => { dirty = true; });
   form?.addEventListener("submit", async event => {
     event.preventDefault();
-    if (busy || !form.reportValidity()) return;
+    if (busy || !checkFormInputs(form)) return;
     const status = document.querySelector("#signature-status");
     try {
       const values = Object.fromEntries(new FormData(form));
@@ -34,7 +35,7 @@ function render() {
       agreement = data.agreement; dirty = false; render();
       message.classList.add("success"); message.textContent = "Your signed form has been saved and is available to HMP. You can print or save your copy below.";
       message.scrollIntoView({block:"center"});
-    } catch (error) { status.textContent = error.message; }
+    } catch (error) { status.textContent = error.message; showFormIssues(form, error.issues || error.data?.issues || [{message:error.message}]); }
     finally { busy = false; form.querySelectorAll("input,select,textarea,button").forEach(item => item.disabled = false); }
   });
 }
