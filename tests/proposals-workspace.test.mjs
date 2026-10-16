@@ -32,10 +32,12 @@ test("proposals refreshes using the existing authenticated conversations loader"
   assert.equal(calls, 1);
 });
 
-test("new proposals start at four hours with editable details, notes, and payment terms blank", () => {
+test("money proposals start at four hours; other services omit money equipment by default", () => {
   const source = readFileSync(new URL("../src/admin.js", import.meta.url), "utf8");
   const editor = source.slice(source.indexOf("const openProposalEditor ="), source.indexOf("const openProposalDraft ="));
-  assert.match(editor, /serviceHours: 4,/);
+  assert.match(editor, /serviceHours: isMoneyTable \? 4 : "N\/A",/);
+  assert.match(editor, /associates: isMoneyTable \? 3 : 0,/);
+  assert.match(editor, /machines: isMoneyTable \? 3 : 0,/);
   assert.match(editor, /serviceDetails: "",/);
   assert.match(editor, /notes: "",/);
   assert.match(editor, /paymentTerms: "",/);
