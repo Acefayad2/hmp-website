@@ -44,10 +44,11 @@ test("Drafts groups saved records by type and excludes sent, archived, and delet
     proposals: [{ id: "p", payload: { title: "Gala" }, updatedAt: "2026-10-12" }],
     invoices: [{ id: "i", status: "Draft" }, { id: "sent", status: "Sent" }, { id: "archived", status: "Draft", archivedAt: "now" }],
     contracts: [{ id: "c", status: "Draft" }],
+    receipts: [{ id: "r", invoiceNumber: "HMP-1", clientName: "Test Client", payload: {} }],
     forms: [{ id: "f", status: "Draft", template_id: "money-event-information" }, { id: "complete", status: "Completed", template_id: "money-event-information" }],
   });
   assert.deepEqual(groups.map(group => [group.title, group.rows.map(row => row.id)]), [
-    ["Proposals", ["p"]], ["Invoices", ["i"]], ["Contracts", ["c"]], ["Client forms & agreements", ["f"]],
+    ["Proposals", ["p"]], ["Invoices", ["i"]], ["Payment receipts", ["r"]], ["Contracts", ["c"]], ["Client forms & agreements", ["f"]],
   ]);
 });
 

@@ -20,14 +20,14 @@ test("receipt uses saved invoice amounts and client/event details without mutati
 });
 
 test("draft, void, deleted and invalid invoices cannot produce a receipt", () => {
-  for (const status of ["Draft", "Void", ""]) assert.throws(() => make({ ...invoice, status }), /Sent or Paid/);
-  assert.throws(() => make({ ...invoice, deletedAt: "2026-09-25" }), /Sent or Paid/);
+  for (const status of ["Draft", "Void", ""]) assert.throws(() => make({ ...invoice, status }), /Sent, Partially paid/);
+  assert.throws(() => make({ ...invoice, deletedAt: "2026-09-25" }), /Sent, Partially paid/);
   for (const total of [NaN, Infinity, -1, 0, "954"]) assert.throws(() => make({ ...invoice, total }), /valid receipt details/);
   assert.throws(() => make({ ...invoice, currency: "EUR" }), /valid receipt details/);
 });
 
 test("partial payments use the entered cumulative amount, even if the invoice was marked Paid", () => {
-  for (const status of ["Sent", "Paid"]) {
+  for (const status of ["Sent", "Partially paid", "Paid"]) {
     const record = { ...invoice, status };
     const receipt = make(record, { ...details, amountPaid: "400.50" });
     assert.equal(receipt.amountPaid, 400.5);

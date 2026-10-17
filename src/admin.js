@@ -1,6 +1,7 @@
 import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
 import { loadAdminWorkspace } from "./admin-startup.mjs";
-import "./receipt-admin.js";
+import { openReceiptDraft } from "./receipt-admin.js";
+import { invoiceStatusLabel } from "../invoice-status.mjs";
 import { loadInformationForms, openInformationDraft } from "./client-forms.js";
 import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
@@ -1315,7 +1316,7 @@ const renderInvoices = () => {
           <span><strong>${escapeHTML(invoice.clientName)}</strong><small>${escapeHTML(invoice.clientEmail)}</small></span>
           <span>${escapeHTML(formatDate(invoice.dueDate))}</span>
           <span class="invoice-list-total">${formatMoney(invoice.total)}</span>
-          <span class="status-pill">${escapeHTML(invoice.status)}</span>
+          <span class="status-pill">${escapeHTML(invoiceStatusLabel(invoice.status))}</span>
         </button>
         <div class="invoice-row-actions">
           ${invoiceView === "active" ? `<button type="button" data-invoice-action="archive" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Archive invoice ${escapeHTML(invoice.invoiceNumber)}">Archive</button><button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : `<button type="button" data-invoice-action="restore" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Restore invoice ${escapeHTML(invoice.invoiceNumber)}">Restore</button>${invoiceView === "archived" ? `<button type="button" data-invoice-action="delete" data-invoice-id="${escapeHTML(invoice.id)}" aria-label="Delete invoice ${escapeHTML(invoice.invoiceNumber)}">Delete</button>` : ""}`}
@@ -1437,10 +1438,11 @@ const loadContracts = async () => {
 
 const renderCurrentDrafts = () => renderDraftGroups(
   $("#drafts-groups"),
-  collectDraftGroups({ proposals: proposalDrafts, invoices, contracts, forms: savedFormDrafts }),
+  collectDraftGroups({ proposals: proposalDrafts, invoices, contracts, forms: savedFormDrafts, receipts: receiptDrafts }),
   (kind, row) => {
     if (kind === "proposal") return openProposalDraft(proposalDrafts.find((draft) => draft.id === row.id));
     if (kind === "invoice") return openInvoiceEditor(invoices.find((invoice) => invoice.id === row.id));
+    if (kind === "receipt") return openReceiptDraft(receiptDrafts.find((draft) => draft.id === row.id));
     if (kind === "contract") return openContractEditor(contracts.find((contract) => contract.id === row.id));
     if (kind === "form") return row.informationForm
       ? openInformationDraft(row.id)
@@ -1448,21 +1450,25 @@ const renderCurrentDrafts = () => renderDraftGroups(
   },
 );
 
+let receiptDrafts = [];
 const loadDrafts = async () => {
   setMessage($("#drafts-status"), "Loading saved drafts…");
-  const [proposalResponse, formResponse] = await Promise.all([
+  const [proposalResponse, formResponse, receiptResponse] = await Promise.all([
     fetch("/api/hmp-proposal-drafts", { credentials: "same-origin", cache: "no-store" }),
     fetch("/api/hmp-agreement-forms", { credentials: "same-origin", cache: "no-store" }),
+    fetch("/api/hmp-receipt-drafts", { credentials: "same-origin", cache: "no-store" }),
     loadInvoices(), loadContracts(), loadMessages(),
   ]);
-  const [proposalData, formData] = await Promise.all([
+  const [proposalData, formData, receiptData] = await Promise.all([
     proposalResponse.json().catch(() => ({})), formResponse.json().catch(() => ({})),
+    receiptResponse.json().catch(() => ({})),
   ]);
   if (!proposalResponse.ok || !formResponse.ok) throw new Error(proposalData.error || formData.error || "Drafts could not be loaded.");
   proposalDrafts = proposalData.drafts || [];
   savedFormDrafts = formData.agreements || [];
+  receiptDrafts = receiptData.drafts || [];
   renderCurrentDrafts();
-  setMessage($("#drafts-status"), "Drafts are private until sent or shared.", true);
+  setMessage($("#drafts-status"), receiptResponse.ok ? "Drafts are private until sent or shared." : (receiptData.error || "Payment receipt drafts could not be loaded. Other drafts are shown."), receiptResponse.ok);
 };
 
 const saveContract = async ({ quiet = false } = {}) => {
@@ -1814,7 +1820,7 @@ const sendInvoice = async () => {
     documentSendRequests.delete(sendRequest.key);
     await loadInvoices();
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
-    $("#invoice-status").value = "Sent";
+    $("#invoice-status").value = invoices.find(invoice => invoice.id === saved.id)?.status || saved.status;
     $("#send-invoice").textContent = "Send again";
     setMessage($("#invoice-editor-message"), `Invoice sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {

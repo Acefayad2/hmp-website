@@ -1,6 +1,7 @@
 import type { Config, Context } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { invoiceStatuses } from "../../invoice-status.mjs";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -116,8 +117,8 @@ export const cleanPayload = (body: Record<string, unknown>) => {
   const taxRate = money(Math.min(100, Math.max(0, number(body.taxRate))));
   const taxAmount = money((subtotal - discountAmount) * (taxRate / 100));
   const total = money(subtotal - discountAmount + taxAmount);
-  const status = ["Draft", "Sent", "Paid", "Void"].includes(text(body.status, 12))
-    ? text(body.status, 12)
+  const status = invoiceStatuses.includes(text(body.status, 20))
+    ? text(body.status, 20)
     : "Draft";
   const inquiryId = text(body.inquiryId, 36);
 
