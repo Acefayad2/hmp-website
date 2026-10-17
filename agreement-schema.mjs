@@ -38,7 +38,7 @@ const moneyTableClient = [...eventFields, field("guestCount", "Estimated number 
 export const agreementTemplates = [
   {
     id: "guest-seating", title: "Guest Seating Experience Services Agreement",
-    adminFields: [field("selectedService", "Selected service / package", "textarea"), field("guestListDue", "Final guest seating list due", "date"), ...setup, ...payment, ...representative],
+    adminFields: [field("selectedService", "Selected service / package", "select", true, ["Guest Arrival", "Arrival + Directory"]), field("guestListDue", "Final guest seating list due", "date"), ...setup, ...payment, ...representative],
     clientFields: [...eventFields, field("guestCount", "Estimated number of guests", "number"), field("vendorAccess", "Venue vendor access time"), marketing],
   },
   {
@@ -110,6 +110,17 @@ export const agreementTemplates = [
   },
 ];
 export const getAgreementTemplate = (id) => [...agreementTemplates, ...informationTemplates].find((item) => item.id === id);
+
+// Presentation only: keep saved draft wording selectable without rewriting its snapshot.
+export function agreementDraftFields(snapshot, answers = {}) {
+  if (snapshot.id !== "guest-seating") return snapshot.adminFields;
+  const current = getAgreementTemplate(snapshot.id).adminFields.find(field => field.id === "selectedService");
+  return snapshot.adminFields.map(field => {
+    if (field.id !== current.id || field.options) return field;
+    const saved = answers[field.id] || "";
+    return {...field, type:"select", options:[...current.options, ...(saved && !current.options.includes(saved) ? [saved] : [])]};
+  });
+}
 
 export const secondRepresentativeFields = ["representativeTwoName", "representativeTwoSignature", "representativeTwoDate"];
 export function requiresSecondRepresentative(snapshot, values = {}, consent = false) {
