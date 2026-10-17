@@ -20,6 +20,8 @@ Choose **Save draft** to save incomplete details privately in **Drafts → Payme
 
 Drafts are stored in `hmp_admin_receipt_drafts`, available only through the authenticated Admin endpoint. RLS is enabled, public/anon/authenticated grants are revoked, and the server role has only select/insert/update access. A removed invoice does not remove a draft. Drafts are not issued records or messages: printing does not mark them sent or remove them. Keep each issued PDF for your records. Client-facing receipts exclude invoice notes/payment instructions and internal data.
 
+For the retainer-to-final-payment workflow in IMG_1916: save the retainer receipt as a draft before printing its PDF. When the remaining payment arrives, reopen that same draft, update **Amount paid to date** to the cumulative full amount, update the payment date/method/note as needed, and confirm receipt of payment again. Save and print a new PDF. Previously downloaded or sent PDFs remain unchanged; share the new PDF with the client separately.
+
 ## Invoice status
 
 HMP manually selects **Partially paid** after a retainer/installment, or **Paid in full** when fully paid. The existing stored `Paid` value is retained for compatibility. Saving a receipt never changes that status. Resending an invoice preserves its payment status. Newly emailed/shared invoice copies include the recorded partial/full status; previously sent copies remain unchanged and are labeled as snapshots, not live payment records.

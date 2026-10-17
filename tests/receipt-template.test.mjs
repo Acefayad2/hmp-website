@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createReceipt, receiptHTML } from "../receipt-template.mjs";
+import { receiptDraftPayload } from "../receipt-draft.mjs";
 
 const invoice = { id: "test-invoice", invoiceNumber: "HMP-1001", status: "Paid", currency: "USD", clientName: "Test Client", clientEmail: "test@example.test", eventName: "Test event", eventDate: "2026-09-24", eventAddress: "Venue\nLaurel, MD", items: [{ description: "Guest seating\nArrival and directory", amount: 1000 }], subtotal: 1000, discountAmount: 100, taxAmount: 54, total: 954, notes: "Do not copy invoice notes", paymentTerms: "Do not request payment again" };
 const details = { amountPaid: "954.00", paymentDate: "2026-09-24", paymentMethod: "Bank transfer", reference: "REF-123", confirmed: true };
@@ -48,6 +49,28 @@ test("only a zero calculated balance shows Paid in full, regardless of saved sta
   assert.equal(receipt.balance, 0);
   assert.match(receiptHTML(receipt), /Paid in full/);
   assert.doesNotMatch(receiptHTML(receipt), /Partial payment received/);
+});
+
+test("IMG_1916: reopen a retainer draft and issue a full-payment copy without rewriting the earlier receipt", () => {
+  const record = { ...invoice, status: "Sent" };
+  const saved = receiptDraftPayload({ ...details, amountPaid: "354.00", note: "Retainer received" });
+  const retainer = make(record, { ...saved, confirmed: true });
+  const issuedRetainerHTML = receiptHTML(retainer);
+  assert.equal(retainer.balance, 600);
+  assert.match(issuedRetainerHTML, /Partial payment received/);
+
+  // A reopened draft has no saved payment confirmation, even after the first PDF.
+  const reopened = receiptDraftPayload(JSON.parse(JSON.stringify(saved)));
+  assert.throws(() => make(record, reopened), /Confirm/);
+  reopened.amountPaid = "954.00";
+  reopened.note = "Full balance paid";
+  const finalReceipt = make(record, { ...reopened, confirmed: true });
+  assert.equal(finalReceipt.balance, 0);
+  assert.match(receiptHTML(finalReceipt), /Paid in full/);
+  assert.match(receiptHTML(finalReceipt), /Full balance paid/);
+  assert.equal(retainer.balance, 600);
+  assert.equal(receiptHTML(retainer), issuedRetainerHTML);
+  assert.equal(record.status, "Sent", "editing a receipt must not update the invoice automatically");
 });
 
 test("an actual positive amount no greater than the invoice total is required", () => {
