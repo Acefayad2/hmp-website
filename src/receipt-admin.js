@@ -15,11 +15,13 @@ window.addEventListener("beforeunload", event => { if (dirty) { event.preventDef
 
 document.querySelector("#create-receipt").addEventListener("click", async () => {
   dialog.innerHTML = `<header><div><p>CLIENT RECEIPT</p><h2 id="receipt-editor-title">Payment receipt</h2></div><button class="agreement-button secondary" type="button" id="receipt-close">Close</button></header>
-    <p>Choose an invoice already saved as Paid. Confirm the payment details, then print or save a PDF to share with the client by email or Messages.</p>
+    <p>Choose a sent or paid invoice. Enter the amount actually paid to date, then print or save a PDF to share with the client by email or Messages.</p>
     <p>Payment details entered here are not stored. Keep the PDF for your records. This does not charge the client or change the invoice.</p>
-    <form id="receipt-form"><label class="agreement-field">Paid invoice<select id="receipt-invoice" required disabled><option value="">Loading paid invoices…</option></select></label>
+    <form id="receipt-form"><label class="agreement-field">Invoice<select id="receipt-invoice" required disabled><option value="">Loading invoices…</option></select></label>
+    <p id="receipt-amount-help" hidden></p>
     <div id="receipt-fields" hidden><div class="agreement-grid"><label class="agreement-field">Payment received date<input name="paymentDate" type="date" required max="${localDate()}"></label><label class="agreement-field">Payment method<select name="paymentMethod" required><option value="">Choose a method</option>${paymentMethods.map(method => `<option>${escape(method)}</option>`).join("")}</select></label><label class="agreement-field agreement-wide">Payment reference (optional)<input name="reference" maxlength="120" placeholder="Transaction or check reference - no card or bank account numbers"></label><label class="agreement-field agreement-wide">Client-facing receipt note (optional)<textarea name="note" rows="3" maxlength="1000"></textarea></label></div>
-    <label class="agreement-checkbox"><input name="confirmed" type="checkbox" required><span>I confirm that the full invoice amount has been received.</span></label></div>
+    <label class="agreement-field">Amount paid to date ($)<input name="amountPaid" type="number" inputmode="decimal" min="0.01" step="0.01" required aria-describedby="receipt-amount-help"></label>
+    <label class="agreement-checkbox"><input name="confirmed" type="checkbox" required><span>I confirm that the amount paid to date entered above has actually been received.</span></label></div>
     <div class="agreement-actions"><button class="agreement-button secondary" type="submit" id="receipt-preview-button" disabled>Preview receipt</button><button class="agreement-button" type="button" id="receipt-print-button" disabled>Print / Save PDF</button></div><p id="receipt-status" class="agreement-status" role="status"></p></form><div id="receipt-preview" hidden></div>`;
   selected = null; dirty = false; busy = false;
   $("#receipt-close").onclick = () => { if (canClose()) { dirty = false; dialog.close(); } };
@@ -29,6 +31,9 @@ document.querySelector("#create-receipt").addEventListener("click", async () => 
     $("#receipt-preview-button").disabled = !selected;
     $("#receipt-print-button").disabled = !selected;
     $("#receipt-fields").querySelectorAll("input,select,textarea").forEach(field => { if (field.type === "checkbox") field.checked = false; else field.value = ""; });
+    $("[name=amountPaid]").max = selected ? String(selected.total) : "";
+    $("#receipt-amount-help").hidden = !selected;
+    $("#receipt-amount-help").textContent = selected ? `Invoice total: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(selected.total)}. Enter the total received for this invoice so far, including earlier payments—not just the latest installment. The remaining balance is calculated in the receipt preview.` : "";
     clearPreview(); dirty = false;
   };
   $("#receipt-form").oninput = () => { dirty = true; clearPreview(); };
@@ -37,12 +42,12 @@ document.querySelector("#create-receipt").addEventListener("click", async () => 
   dialog.showModal();
   try {
     const result = await agreementRequest("/api/hmp-invoices");
-    invoices = result.invoices.filter(invoice => invoice.status === "Paid" && !invoice.deletedAt);
-    $("#receipt-invoice").innerHTML = `<option value="">Choose a paid invoice</option>${invoices.map(invoice => `<option value="${escape(invoice.id)}">${escape(invoice.invoiceNumber)} · ${escape(invoice.clientName)}</option>`).join("")}`;
+    invoices = result.invoices.filter(invoice => ["Sent", "Paid"].includes(invoice.status) && !invoice.deletedAt);
+    $("#receipt-invoice").innerHTML = `<option value="">Choose an invoice</option>${invoices.map(invoice => `<option value="${escape(invoice.id)}">${escape(invoice.invoiceNumber)} · ${escape(invoice.clientName)} · ${escape(invoice.status)}</option>`).join("")}`;
     $("#receipt-invoice").disabled = !invoices.length;
-    message(invoices.length ? "" : "No paid invoices yet. In Invoices & Contracts, open the invoice, set its status to Paid after payment is received, and save it. Then return here.");
+    message(invoices.length ? "" : "No sent or paid invoices are available. Prepare and send the invoice in Invoices & Contracts first. Do not mark a partially paid invoice as Paid just to create a receipt.");
   } catch (error) {
-    $("#receipt-invoice").innerHTML = '<option value="">Paid invoices unavailable</option>';
+    $("#receipt-invoice").innerHTML = '<option value="">Invoices unavailable</option>';
     message(error.message);
   }
 });
