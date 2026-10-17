@@ -705,6 +705,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .receipt-services td { padding: 12px 10px; border-bottom: 1px solid #d9cbc5; vertical-align: top; }
 .receipt-services th:last-child, .receipt-services td:last-child { text-align: right; white-space: nowrap; }
 .receipt-sheet .receipt-totals { max-width: 320px; margin: 24px 0 24px auto; }
+.receipt-totals dd { flex-shrink: 0; white-space: nowrap; }
 .receipt-total { font-size: 20px; font-weight: bold; border-top: 1px solid #604244; padding-top: 10px; }
 .receipt-sheet footer { border-top: 1px solid #d9cbc5; margin-top: 24px; padding-top: 18px; font-size: 12px; }
 @media (max-width: 600px) {
