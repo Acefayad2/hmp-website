@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
-import { getAgreementTemplate, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
+import { getAgreementTemplate, newAgreementSnapshot, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
 import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
 import { validateSignatureDrawing } from "../../signature-pad.mjs";
 
@@ -18,15 +18,7 @@ export const snapshotFor = (id: string) => {
   if (template?.kind === "information") return {...template};
   const source = (terms as Record<string, any>)[id];
   if (!template || !source) throw new Error("Choose an agreement template.");
-  const snapshot = { ...template, ...source, signingConsent };
-  if (["money-collecting", "money-collecting-changing"].includes(id)) {
-    // Only new templates use variable retainers. Stored issued records are immutable.
-    snapshot.version = "2026-10-18.1";
-    snapshot.pages = source.pages.map((page: string) => page
-      .replace("An initial 30% non-refundable retainer & a signed agreement must be secured prior to any\nservices being performed by Vendor.", "{{retainerClause}}")
-      .replace("30% Non-Refundable Retainer due by: {{retainerDue}}", "{{retainerPayment}}"));
-  }
-  return snapshot;
+  return {...newAgreementSnapshot(template,source), signingConsent};
 };
 // Add the missing field to editable drafts only; never rewrite issued/signed snapshots.
 export function withCurrentDraftFields(row: any) {

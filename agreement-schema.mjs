@@ -113,6 +113,18 @@ export const agreementTemplates = [
 ];
 export const getAgreementTemplate = (id) => [...agreementTemplates, ...informationTemplates].find((item) => item.id === id);
 
+// Used only when starting a new template, never to rewrite a saved agreement.
+export function newAgreementSnapshot(template, source) {
+  const snapshot={...template,...source};
+  if (["money-collecting","money-collecting-changing"].includes(template.id)) {
+    snapshot.version="2026-10-18.1";
+    snapshot.pages=source.pages.map(page=>page
+      .replace("An initial 30% non-refundable retainer & a signed agreement must be secured prior to any\nservices being performed by Vendor.","{{retainerClause}}")
+      .replace("30% Non-Refundable Retainer due by: {{retainerDue}}","{{retainerPayment}}"));
+  }
+  return snapshot;
+}
+
 // Presentation only: keep saved draft wording selectable without rewriting its snapshot.
 export function agreementDraftFields(snapshot, answers = {}) {
   if (snapshot.id !== "guest-seating") return snapshot.adminFields;

@@ -1,4 +1,4 @@
-import { agreementDraftFields, agreementTemplates, moneyTablePaymentAmounts, validateAnswers, agreementTextIssues, validationError } from "../agreement-schema.mjs";
+import { agreementDraftFields, agreementTemplates, newAgreementSnapshot, moneyTablePaymentAmounts, validateAnswers, agreementTextIssues, validationError } from "../agreement-schema.mjs";
 import terms from "../data/agreement-terms.json";
 import { searchText } from "../page-search.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, nativeFormIssues, showFormIssues } from "../agreement-ui.mjs";
@@ -25,7 +25,7 @@ templateList.addEventListener("click", event => {
   startTemplate(template);
 });
 function startTemplate(template) {
-  active = {snapshot:{...template,...terms[template.id]}, status:"Draft", adminAnswers:{}, clientName:"", clientEmail:""};
+  active = {snapshot:newAgreementSnapshot(template,terms[template.id]), status:"Draft", adminAnswers:{}, clientName:"", clientEmail:""};
   link = ""; dirty = false; renderEditor(); dialog.showModal();
 }
 $("#create-bank-verification").addEventListener("click", () => startTemplate(agreementTemplates.find(item => item.id === "money-bank-verification")));
