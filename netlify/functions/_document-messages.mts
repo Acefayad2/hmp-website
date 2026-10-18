@@ -14,6 +14,7 @@ export const documentSnapshot = (kind: "invoice" | "contract", record: Record<st
     : ["client_name", "effective_date", "event_name", "event_date", "event_location", "services", "scope_of_work", "total_amount", "retainer_amount", "payment_terms", "cancellation_terms", "additional_terms", "hmp_signature_name", "hmp_signed_at", "client_signature_name", "client_signed_at"];
   return {
     kind, id: record.id, number: record[`${kind}_number`],
+    ...(record.revision_root_id ? {revisionRootId:record.revision_root_id} : {}),
     ...Object.fromEntries(fields.map(field => [field, record[field] ?? null])),
     ...(kind === "invoice" ? {
       ...(["Partially paid", "Paid"].includes(record.status) ? { payment_status: invoiceStatusLabel(record.status) } : {}),
@@ -32,11 +33,15 @@ export async function prepareDocumentConversation(client: any, kind: "invoice" |
     const {data: matches, error} = await client.from("hmp_admin_inquiries").select("submission_id,celebration_date").eq("email",recipient);
     if (error) throw new Error("Client conversation could not be checked. No email was sent.");
     const matching = (matches || []).filter((row: any) => (row.celebration_date || "") === (record.event_date || ""));
-    inquiryId = matching.length === 1 ? matching[0].submission_id : stableId(`document-inquiry/${kind}/${record.id}`);
+    inquiryId = matching.length === 1 ? matching[0].submission_id : stableId(`document-inquiry/${kind}/${record.revision_root_id || record.id}`);
     if (matching.length !== 1) {
       const row = manualInquiryRecord({id:inquiryId,name:record.client_name,email:recipient,eventDate:record.event_date || "",service:record.services || "Invoice",location:record.event_location || record.event_address},owner);
       const {error: createError} = await client.from("hmp_admin_inquiries").upsert(row,{onConflict:"submission_id",ignoreDuplicates:true});
       if (createError) throw new Error("Client conversation could not be created. No email was sent.");
+    }
+    if(record.revision_root_id){
+      const {error:rootError}=await client.from(`hmp_admin_${kind}s`).update({inquiry_id:inquiryId}).eq("id",record.revision_root_id).is("inquiry_id",null);
+      if(rootError)throw new Error("The original document's event link could not be saved. No email was sent.");
     }
     const {error: linkError} = await client.from(`hmp_admin_${kind}s`).update({inquiry_id:inquiryId}).eq("id",record.id);
     if (linkError) throw new Error("Document could not be linked to the client. No email was sent.");

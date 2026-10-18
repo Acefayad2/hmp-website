@@ -14,7 +14,14 @@ const draftId = "33333333-3333-4333-8333-333333333333";
 function database() {
   const rows = { hmp_admin_proposal_drafts: [], hmp_client_conversations: [{ id: conversationId }],
     hmp_client_messages: [{ id: messageId, sender: "admin", conversation_id: conversationId }] };
-  return { rows, from(table) {
+  return { rows, async rpc(name,args){
+    assert.equal(name,"hmp_mark_proposal_revision_sent");
+    const message=rows.hmp_client_messages.find(r=>r.id===args.p_message_id&&r.conversation_id===args.p_conversation_id&&r.sender==="admin");
+    const draft=rows.hmp_admin_proposal_drafts.find(r=>r.id===args.p_id&&r.conversation_id===args.p_conversation_id);
+    if(!message||!draft)return {data:false,error:null};
+    draft.sent_at="2026-10-18";draft.sent_message_id=message.id;
+    return {data:true,error:null};
+  }, from(table) {
     const source = rows[table];
     let filters = [], change = null, mode = "read";
     const query = {
@@ -68,7 +75,7 @@ test("proposal drafts are admin-only, private until sent, and editable after sav
   assert.equal(db.rows.hmp_admin_proposal_drafts[0].payload.title, "Updated Gala");
   const listed = await handle(new Request("https://hmpeds.com/api/hmp-proposal-drafts"));
   assert.equal((await listed.json()).drafts.length, 1);
-  assert.equal((await handle(request({ action: "mark-sent", id: draftId, conversationId, messageId: draftId }))).status, 404);
+  assert.equal((await handle(request({ action: "mark-sent", id: draftId, conversationId, messageId: draftId }))).status, 502);
   assert.equal((await handle(request({ action: "mark-sent", id: draftId, conversationId, messageId }))).status, 200);
   const after = await handle(new Request("https://hmpeds.com/api/hmp-proposal-drafts"));
   assert.deepEqual((await after.json()).drafts, []);

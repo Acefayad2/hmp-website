@@ -143,5 +143,6 @@ export const publicAgreement = (storedRow: any) => {
     adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
     sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
     recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,
+    ...(row.revision_root_id ? {revisionRootId:row.revision_root_id, legacyRevisionText:!row.prepared_snapshot && row.snapshot.kind !== "information"} : {}),
   };
 };

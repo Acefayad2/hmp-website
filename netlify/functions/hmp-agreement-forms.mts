@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
 import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern, withCurrentDraftFields } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
+import {latestDocumentRows} from "../../document-versions.mjs";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]!);
@@ -39,12 +40,13 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         if (!body || Array.isArray(body) || typeof body !== "object") return json({error:"Invalid request"}, 400);
       }
       if (clientRoute) {
-        const {data: row, error} = await db.from(table).select("*").eq("token_hash", hash(token)).maybeSingle();
+        const {data: row, error} = await db.rpc("hmp_resolve_agreement_revision",{p_token_hash:hash(token)});
         if (error) return json({error:"Client form could not be loaded."}, 502);
         if (!row || !["Sent", "Completed"].includes(row.status) || !row.expires_at || Date.parse(row.expires_at) <= Date.now()) return json({error:"This link has expired or is no longer available. Please contact HMP for help."}, 410);
+        if (request.method === "POST" && ((body.agreementId && body.agreementId !== row.id) || (row.revision_root_id && body.agreementId !== row.id))) return json({error:"HMP has sent a newer version. Reload and review it before submitting."},409);
         if (request.method === "GET" || row.status === "Completed") return json({agreement:publicAgreement(row), signingConsent:row.snapshot.signingConsent});
         const payload = completionPayload(row, body, request.headers.get("user-agent") || "");
-        const {data: saved, error: saveError} = await db.from(table).update(payload).eq("id", row.id).eq("token_hash", hash(token)).eq("status", "Sent").gt("expires_at", new Date().toISOString()).select("*").maybeSingle();
+        const {data: saved, error: saveError} = await db.rpc("hmp_complete_agreement_revision",{p_token_hash:hash(token),p_expected_id:row.id,p_updated_at:row.updated_at,p_payload:payload});
         if (saveError) return json({error:"Your form could not be saved. Please try again."}, 502);
         if (!saved) return json({error:"This form changed or was already completed. Reload to review its current status."}, 409);
         return json({agreement:publicAgreement(saved), signingConsent:row.snapshot.signingConsent});
@@ -59,9 +61,9 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
           if (!data) return json({error:"Agreement not found."}, 404);
           return json({agreement:publicAgreement(data), link:["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
         }
-        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,document_title:snapshot->>title,expires_at,event_name:admin_answers->>eventName").order("created_at", {ascending:false}).limit(500);
+        const {data, error} = await db.from(table).select("id,revision_root_id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,document_title:snapshot->>title,expires_at,event_name:admin_answers->>eventName").order("created_at", {ascending:false}).limit(500);
         if (error) return json({error:"Client forms are unavailable. The agreement database migration may still be pending."}, 502);
-        return json({agreements:data || []});
+        return json({agreements:latestDocumentRows(data || [])});
       }
       if (request.method === "POST") {
         const snapshot = editableSnapshot(snapshotFor(body.templateId), body);
@@ -85,7 +87,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         return json({agreement:publicAgreement(data)});
       }
       if (body.action === "save") {
-        if (row.status !== "Draft") return json({error:"Sent agreements cannot be edited. Void this form and create a new one."}, 409);
+        if (row.status !== "Draft") return json({error:"Sent agreements cannot be edited. Choose Create revision to prepare changes without replacing this original."}, 409);
         const snapshot = editableSnapshot(row.snapshot, body);
         const {data, error} = await db.from(table).update({...cleanContact(body), snapshot, admin_answers:validateAnswers(snapshot.adminFields, body.answers, false), updated_at:new Date().toISOString()})
           .eq("id", row.id).eq("status", "Draft").eq("updated_at", body.updatedAt || "").select("*").maybeSingle();
@@ -118,6 +120,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         const now = new Date().toISOString();
         const {data, error} = await db.from(table).update({status:"Sent", sent_at:now, updated_at:now,
           expires_at:new Date(Date.now() + 7 * 86400000).toISOString(),
+          prepared_snapshot:row.snapshot,
           snapshot:information ? row.snapshot : issuedSnapshot(row.snapshot, completeAnswers),
           admin_answers:information || ["client-only", "on-site-three-signatures"].includes(row.snapshot.signatureMode) ? row.admin_answers : {...row.admin_answers, hmpSignedAt:now, hmpConsent:"I authorize my typed name as my electronic signature for HMP on this agreement."}})
           .eq("id", row.id).eq("status", "Draft").eq("updated_at", body.updatedAt || "").select("*").maybeSingle();

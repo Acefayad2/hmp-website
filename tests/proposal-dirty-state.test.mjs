@@ -58,7 +58,8 @@ test("admin proposal exits share the dirty guard and successful saves and sends 
   assert.match(source, /addEventListener\("cancel", \(event\) => \{\s*event\.preventDefault\(\);\s*closeProposalEditor\(\)/);
   assert.match(source, /if \(!setWorkspaceView[\s\S]*history\.pushState\(\{ view: activeWorkspaceView \}/);
   const sender = source.slice(source.indexOf("const sendProposal ="), source.indexOf("const openMessageThread ="));
-  assert.ok(sender.indexOf("closeProposalEditor({ confirmDiscard: false })") < sender.indexOf('fetch("/api/hmp-proposal-drafts"'));
+  assert.ok(sender.indexOf("closeProposalEditor({ confirmDiscard: false })") < sender.indexOf('const draftResponse = await fetch("/api/hmp-proposal-drafts"'));
+  assert.ok(sender.indexOf('const saved=await fetch("/api/hmp-proposal-drafts"') < sender.indexOf('fetch("/api/hmp-messages"'));
   assert.match(sender, /await loadMessages\(\)\.catch/);
   assert.match(sender, /#admin-message-status[\s\S]*postSendWarnings\.join/);
   assert.match(sender, /activeWorkspaceView === "drafts"[\s\S]*#drafts-status/);

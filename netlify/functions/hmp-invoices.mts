@@ -53,6 +53,7 @@ export const invoiceLifecycleChange = (action: string, now: string) => {
 
 export const normalizeInvoice = (record: Record<string, unknown>) => ({
   id: record.id || "",
+  ...(record.revision_root_id ? {revisionRootId:record.revision_root_id} : {}),
   invoiceNumber: record.invoice_number || "",
   status: record.status || "Draft",
   issueDate: record.issue_date || "",
@@ -236,7 +237,7 @@ export default async (request: Request, _context: Context) => {
       .single();
     if (error) {
       console.error("Supabase invoice update failed", error.code);
-      return json({ error: error.code === "PGRST116" ? "Invoice not found" : "Invoice could not be saved" }, error.code === "PGRST116" ? 404 : 502);
+      return json({ error: error.code === "P0001" ? error.message : error.code === "PGRST116" ? "Invoice not found" : "Invoice could not be saved" }, error.code === "P0001" ? 409 : error.code === "PGRST116" ? 404 : 502);
     }
     return json({ ok: true, invoice: normalizeInvoice(data) });
   }

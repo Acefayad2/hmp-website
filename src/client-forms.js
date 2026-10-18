@@ -2,6 +2,7 @@ import { activeInformationTemplates, informationTemplates } from "../information
 import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues } from "../agreement-ui.mjs";
 import { informationSummary, printInformation } from "../information-form-ui.mjs";
 import { loadBankVerificationForms } from "./agreement-admin.js";
+import {mountDocumentVersions} from "./document-versions.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -63,6 +64,7 @@ function render() {
     <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<button type="button" class="agreement-button secondary" id="information-copy">Copy link</button><a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
+  mountDocumentVersions(dialog,{kind:"form",id:active.id,status:active.status,beforeSwitch:()=>!busy&&(!dirty||confirm("Discard unsaved changes before switching versions?")),open:async(id)=>{dirty=false;await openInformationDraft(id);await loadInformationForms();}});
   form.noValidate = true;
   if (active.status === "Sent" && Date.parse(active.expiresAt) <= Date.now()) {
     const send = form.querySelector('[data-information-action="send"]');
