@@ -59,7 +59,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
           if (!data) return json({error:"Agreement not found."}, 404);
           return json({agreement:publicAgreement(data), link:["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
         }
-        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,document_title:snapshot->>title").order("created_at", {ascending:false}).limit(500);
+        const {data, error} = await db.from(table).select("id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,document_title:snapshot->>title,expires_at,event_name:admin_answers->>eventName").order("created_at", {ascending:false}).limit(500);
         if (error) return json({error:"Client forms are unavailable. The agreement database migration may still be pending."}, 502);
         return json({agreements:data || []});
       }
@@ -136,7 +136,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       const {error: emailUpdateError} = await db.from(table).update({email_delivered_at:new Date().toISOString()}).eq("id", issued.id).eq("token_hash", issued.token_hash).eq("status", "Sent");
       return json({agreement:publicAgreement(issued), link, ...(emailUpdateError ? {warning:"Email sent; delivery status could not be recorded."} : {})});
     } catch (error) {
-      return json({error:error instanceof Error ? error.message : "The request could not be completed."}, 400);
+      return json({error:error instanceof Error ? error.message : "The request could not be completed.", ...(error instanceof Error && "issues" in error ? {issues:error.issues} : {})}, 400);
     }
   };
 }

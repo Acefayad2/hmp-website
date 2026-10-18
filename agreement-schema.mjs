@@ -130,9 +130,11 @@ export function requiresSecondRepresentative(snapshot, values = {}, consent = fa
 
 export function validateAnswers(fields, values, requireAll = true) {
   const answers = {};
+  const issues = [];
   for (const field of fields) {
     if (field.calculated === "money-table-payment") continue;
     const value = typeof values?.[field.id] === "string" ? values[field.id].trim() : "";
+    try {
     if (value.length > (field.type === "textarea" ? 5000 : 500)) throw new Error(`${field.label} is too long.`);
     if (requireAll && field.required && !value) throw new Error(`${field.label} is required.`);
     if (value && field.options && !field.options.includes(value)) throw new Error(`${field.label} is invalid.`);
@@ -142,11 +144,37 @@ export function validateAnswers(fields, values, requireAll = true) {
     if (value && field.type === "date" && (!/^\d{4}-\d{2}-\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)) || new Date(value).toISOString().slice(0,10) !== value)) throw new Error(`${field.label} is invalid.`);
     if (value && field.type === "time" && !/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(value)) throw new Error(`${field.label} is invalid.`);
     if (value && field.type === "datetime-local" && (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(value) || !Number.isFinite(Date.parse(value)))) throw new Error(`${field.label} is invalid.`);
+    } catch (error) { issues.push({field:field.id, message:error.message}); }
     answers[field.id] = value;
   }
+  if (issues.length) throw validationError(issues);
   const payments = moneyTablePaymentAmounts(answers.serviceFee);
   for (const field of fields) if (field.calculated === "money-table-payment") answers[field.id] = payments[field.id] || "";
   return answers;
+}
+
+export function validationError(issues) {
+  const error = new Error(issues.map(issue => issue.message).join("\n"));
+  error.issues = issues;
+  return error;
+}
+
+// Keep the same allowlist on the editor and server; never silently strip draft wording.
+const moneyPlaceholders = new Set(["agreementDate", "serviceFee", "serviceHours", "retainerDue", "finalPaymentDue", "serviceStartTime", "serviceEndTime", "cancellationDeadline", "cancellationRefundAmount", "commissionClause", "travelClause", "grandTotalClause"]);
+export function agreementTextIssues(snapshot) {
+  if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return [];
+  return snapshot.pages.flatMap((page, pageIndex) => {
+    const issues = [];
+    for (const match of page.matchAll(/\{\{[^{}\r\n]*(?:\}\})?|\}\}/g)) {
+      const token = match[0];
+      if (/^\{\{[A-Za-z]+\}\}$/.test(token) && moneyPlaceholders.has(token.slice(2, -2))) continue;
+      const shown = token.length > 100 ? `${token.slice(0, 100)}…` : token;
+      issues.push({pageIndex, start:match.index, end:match.index + token.length,
+        message:`Agreement page ${pageIndex + 1}: review “${shown}” — unfinished or unrecognized placeholder.`,
+        help:"Select an item to jump to it. For a completed amount, date, time, or other value, remove only its double braces. For a template field, restore its correct name."});
+    }
+    return issues;
+  });
 }
 
 export function moneyTablePaymentAmounts(serviceFee) {

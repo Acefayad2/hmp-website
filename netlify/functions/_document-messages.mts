@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { clientConversationUrl, conversationToken, newNonce, tokenHash } from "./_conversation-security.mts";
 import { manualInquiryRecord } from "./_manual-inquiry.mts";
+import { invoiceStatusLabel } from "../../invoice-status.mjs";
 
 export const stableId = (value: string) => {
   const hex = createHash("sha256").update(value).digest("hex");
@@ -14,7 +15,10 @@ export const documentSnapshot = (kind: "invoice" | "contract", record: Record<st
   return {
     kind, id: record.id, number: record[`${kind}_number`],
     ...Object.fromEntries(fields.map(field => [field, record[field] ?? null])),
-    ...(kind === "invoice" ? {items: (record.items || []).map((item: any) => ({description:item.description, quantity:item.quantity, rate:item.rate, amount:item.amount}))} : {}),
+    ...(kind === "invoice" ? {
+      ...(["Partially paid", "Paid"].includes(record.status) ? { payment_status: invoiceStatusLabel(record.status) } : {}),
+      items: (record.items || []).map((item: any) => ({description:item.description, quantity:item.quantity, rate:item.rate, amount:item.amount})),
+    } : {}),
   };
 };
 

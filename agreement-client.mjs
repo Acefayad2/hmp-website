@@ -1,6 +1,7 @@
-import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML } from "./agreement-ui.mjs";
+import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, checkFormInputs, showFormIssues } from "./agreement-ui.mjs";
 import { requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "./agreement-schema.mjs";
 import { renderInformationForm } from "./information-client.mjs";
+import { mountSignaturePad } from "./signature-pad.mjs";
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const message = document.querySelector("#agreement-message"), content = document.querySelector("#agreement-content");
 let agreement, consentText, dirty = false, busy = false;
@@ -19,6 +20,13 @@ function render() {
     <div class="agreement-actions"><button type="button" class="agreement-button secondary" id="print-agreement">${completed ? "Print / save completed form" : "Print agreement terms"}</button></div>`;
   document.querySelector("#print-agreement").onclick = () => printAgreement(agreement);
   const form = document.querySelector("#client-agreement-form");
+  if (form) form.noValidate = true;
+  const pads = {};
+  if (form) {
+    for (const [key,label] of [["signatureName",onSite ? "HMP attendant" : "Client"], ...(onSite ? [["representativeOneSignature","First representative"],["representativeTwoSignature","Second representative"]] : [])]) {
+      pads[key]=mountSignaturePad(form.elements.namedItem(key),label,()=>{dirty=true;});
+    }
+  }
   if (form && onSite && agreement.snapshot.optionalSecondRepresentative === true) {
     const hint = document.createElement("p");
     hint.textContent = "The second designated representative is optional. Leave their name, signature and date blank if not needed. If included, complete all three fields and their signature consent. Either designated representative may initial receipt and reconciliation.";
@@ -40,19 +48,20 @@ function render() {
   form?.addEventListener("input", () => { dirty = true; });
   form?.addEventListener("submit", async event => {
     event.preventDefault();
-    if (busy || !form.reportValidity()) return;
+    if (busy || !checkFormInputs(form)) return;
     const status = document.querySelector("#signature-status");
     try {
       const values = Object.fromEntries(new FormData(form));
       const answers = validateAnswers(agreement.snapshot.clientFields, values);
+      const signatureDrawings = Object.fromEntries(Object.entries(pads).map(([key,pad])=>[key,pad.read()]).filter(([,value])=>value));
       if (!confirm("Submit your electronic signature? Your answers will be locked after submission.")) return;
       busy = true; form.querySelectorAll("input,select,textarea,button").forEach(item => item.disabled = true);
       status.textContent = "Saving your signed form…";
-      const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({answers, signatureName:values.signatureName, consent:values.consent === "on", ...(onSite ? {representativeOneConsent:values.representativeOneConsent === "on", representativeTwoConsent:values.representativeTwoConsent === "on"} : {})})});
+      const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({answers, signatureDrawings, signatureName:values.signatureName, consent:values.consent === "on", ...(onSite ? {representativeOneConsent:values.representativeOneConsent === "on", representativeTwoConsent:values.representativeTwoConsent === "on"} : {})})});
       agreement = data.agreement; dirty = false; render();
       message.classList.add("success"); message.textContent = "Your signed form has been saved and is available to HMP. You can print or save your copy below.";
       message.scrollIntoView({block:"center"});
-    } catch (error) { status.textContent = error.message; }
+    } catch (error) { status.textContent = error.message; showFormIssues(form, error.issues || error.data?.issues || [{message:error.message}]); }
     finally { busy = false; form.querySelectorAll("input,select,textarea,button").forEach(item => item.disabled = false); }
   });
 }

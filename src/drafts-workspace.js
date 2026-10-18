@@ -6,7 +6,7 @@ const formTitles = new Map([...agreementTemplates, ...informationTemplates].map(
 const informationIds = new Set(informationTemplates.map(template => template.id));
 const activeDraft = row => row.status === "Draft" && !row.deletedAt && !row.archivedAt;
 
-export function collectDraftGroups({ proposals = [], invoices = [], contracts = [], forms = [] } = {}) {
+export function collectDraftGroups({ proposals = [], invoices = [], contracts = [], forms = [], receipts = [] } = {}) {
   const groups = [
     { kind: "proposal", title: "Proposals", rows: proposals.map(row => ({
       id: row.id, title: row.payload?.title || "Service proposal", client: row.payload?.clientName || "Client not named",
@@ -15,6 +15,11 @@ export function collectDraftGroups({ proposals = [], invoices = [], contracts = 
     { kind: "invoice", title: "Invoices", rows: invoices.filter(activeDraft).map(row => ({
       id: row.id, title: row.invoiceNumber || "Draft invoice", client: row.clientName || "Client not named",
       detail: row.eventName || "Event not named", updatedAt: row.updatedAt || row.createdAt,
+    })) },
+    { kind: "receipt", title: "Payment receipts", rows: receipts.map(row => ({
+      id: row.id, title: row.invoiceNumber ? `Receipt for ${row.invoiceNumber}` : "Payment receipt — invoice not selected",
+      client: row.clientName || "Client not selected", detail: row.eventName || row.payload?.reference || "Unfinished receipt",
+      updatedAt: row.updatedAt || row.createdAt,
     })) },
     { kind: "contract", title: "Contracts", rows: contracts.filter(activeDraft).map(row => ({
       id: row.id, title: row.contractNumber || "Draft contract", client: row.clientName || "Client not named",

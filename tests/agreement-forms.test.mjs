@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agreementTemplates, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../agreement-schema.mjs";
+import { agreementTemplates, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues } from "../agreement-schema.mjs";
 import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash, issuedSnapshot, editableSnapshot } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
@@ -39,6 +39,26 @@ function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:20
 }
 
 const bankBody = row => ({answers:{...inputFor(row.snapshot.clientFields), representativeOneName:"First Signer", representativeOneSignature:"First Signer", representativeTwoName:"", representativeTwoSignature:"", representativeTwoDate:"", attendantName:"HMP Attendant"}, signatureName:"HMP Attendant", consent:true, representativeOneConsent:true, representativeTwoConsent:false});
+
+test("on-site drawings save, reopen, print and remain immutable with the completed record",async()=>{
+  const row=rowFor("money-bank-verification"),h=handlerFor([row]),token=agreementToken(id,"seed");
+  const drawing={strokes:[[[10,20],[50,60],[90,20]]],consent:true};
+  const body={...bankBody(row),signatureDrawings:{signatureName:drawing,representativeOneSignature:drawing}};
+  assert.equal((await h(request("hmp-agreement","POST",body,token))).status,200);
+  const saved=structuredClone(row);
+  const reopened=await (await h(request("hmp-agreement","GET",undefined,token))).json();
+  assert.deepEqual(reopened.agreement.signature.drawings.signatureName.strokes,drawing.strokes);
+  assert.equal((await h(request("hmp-agreement","POST",{...body,signatureDrawings:{}},token))).status,200);
+  assert.deepEqual(row,saved);
+  assert.equal((await h(request("hmp-agreement-forms","PATCH",{id,action:"save",updatedAt:row.updated_at}))).status,409);
+});
+test("drawing authorization, signer presence and content are validated before persistence",()=>{
+  const row=rowFor("money-bank-verification"),body=bankBody(row),strokes=[[[10,20],[50,60]]];
+  const before=structuredClone(row);
+  for(const drawings of [{signatureName:{strokes,consent:false}},{representativeTwoSignature:{strokes,consent:true}},{other:{strokes,consent:true}},{signatureName:{strokes:"<svg>",consent:true}}]) assert.throws(()=>completionPayload(row,{...body,signatureDrawings:drawings}));
+  const typed=completionPayload(row,body),drawn=completionPayload(row,{...body,signatureDrawings:{signatureName:{strokes,consent:true}}});
+  assert.notEqual(typed.record_hash,drawn.record_hash);assert.deepEqual(row,before);
+});
 
 test("Money Table payment amounts use cents and never accept supplied calculated amounts", () => {
   assert.deepEqual(moneyTablePaymentAmounts("1154.00"),{retainerAmount:"346.20",finalPaymentAmount:"807.80"});
@@ -209,6 +229,60 @@ test("new document titles and wording stay in their draft, while money amounts a
   assert.equal(issued.optionalClauses,undefined);
   assert.throws(()=>editableSnapshot(template,{pages:["missing"]}),/page/);
 });
+test("validation returns every missing field with its editable field key", () => {
+  const fields = snapshotFor("money-collecting-changing").adminFields;
+  assert.throws(() => validateAnswers(fields, {}), error => {
+    assert.equal(error.issues.length, fields.filter(field => field.required).length);
+    assert.deepEqual(error.issues.map(issue => issue.field), fields.filter(field => field.required).map(field => field.id));
+    return true;
+  });
+  assert.doesNotThrow(() => validateAnswers(fields, {}, false));
+});
+
+test("filled values left in double braces identify all pages and select exact text", () => {
+  const snapshot = snapshotFor("money-collecting-changing");
+  const pages = ["Known {{serviceFee}}", "Retainer {{$346.20}} and final {{$807.80}}", "Plain {4}", "Ends {{10:45PM}}", "Before {{10/18/2026}}, then {{$807.80}}"];
+  const issues = agreementTextIssues({...snapshot, pages});
+  assert.deepEqual(issues.map(issue => issue.pageIndex), [1, 1, 3, 4, 4]);
+  assert.equal(pages[1].slice(issues[0].start, issues[0].end), "{{$346.20}}");
+  assert.match(issues[0].message, /page 2.*\$346\.20/);
+  assert.match(issues[0].help, /remove only its double braces/);
+  assert.throws(() => issuedSnapshot({...snapshot, pages}, inputFor(snapshot.adminFields)), error => error.issues.length === 5);
+  assert.equal(pages[1], "Retainer {{$346.20}} and final {{$807.80}}", "must not rewrite draft wording");
+  for (const text of ["{{typo}}", "{{serviceFee", "orphan }}", "{{{serviceFee}}}"]) {
+    assert.ok(agreementTextIssues({...snapshot, pages:[text]}).length, text);
+  }
+  assert.deepEqual(agreementTextIssues(snapshot), []);
+});
+
+test("bad agreement wording cannot issue, email or mutate a draft and returns locations", async () => {
+  const row = {...rowFor("money-collecting-changing"), status:"Draft"};
+  row.snapshot.pages = row.snapshot.pages.map((page, index) => index === 1 ? `${page}\nFinal payment {{$807.80}}` : page);
+  const before = structuredClone(row);
+  let sends = 0;
+  const handler = handlerFor([row], true, async () => {sends++; return new Response("{}");});
+  for (const action of ["send", "share"]) {
+    const response = await handler(request("hmp-agreement-forms", "PATCH", {id, action, updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(response.status, 400);
+    const data = await response.json();
+    assert.equal(data.issues[0].pageIndex, 1);
+    assert.match(data.error, /page 2.*\$807\.80/);
+    assert.deepEqual(row, before);
+  }
+  assert.equal(sends, 0);
+});
+
+test("empty and overlong agreement pages identify each page", () => {
+  const snapshot = snapshotFor("money-collecting-changing");
+  const pages = [...snapshot.pages]; pages[1] = " "; pages[3] = "x".repeat(15001);
+  assert.throws(() => editableSnapshot(snapshot, {pages}), error => {
+    assert.deepEqual(error.issues.map(issue => issue.pageIndex), [1, 3]);
+    assert.match(error.message, /page 2.*enter/);
+    assert.match(error.message, /page 4.*15,000/);
+    return true;
+  });
+});
+
 test("on-site bank verification validates all included signatures and never emails the form", async () => {
   const row={...rowFor("money-bank-verification"),status:"Draft"};
   const handler=handlerFor([row]);

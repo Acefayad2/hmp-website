@@ -1,7 +1,8 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
-import { getAgreementTemplate, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "../../agreement-schema.mjs";
+import { getAgreementTemplate, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
 import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
+import { validateSignatureDrawing } from "../../signature-pad.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -40,16 +41,18 @@ export function withCurrentDraftFields(row: any) {
 }
 export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
-  if (!title || title.length > 200) throw new Error("Document title is required (maximum 200 characters).");
+  if (!title || title.length > 200) throw validationError([{field:"documentTitle", message:"Document title is required (maximum 200 characters)."}]);
   if (snapshot.kind === "information") {
     const description = typeof body.description === "string" ? body.description.trim() : snapshot.description;
-    if (!description || description.length > 5000) throw new Error("Form introduction is required (maximum 5,000 characters).");
+    if (!description || description.length > 5000) throw validationError([{field:"documentDescription", message:"Form introduction is required (maximum 5,000 characters)."}]);
     return {...snapshot, title, description};
   }
   const pages = body.pages === undefined ? snapshot.pages : body.pages;
-  if (!Array.isArray(pages) || pages.length !== snapshot.pages.length ||
-      pages.some((page: unknown) => typeof page !== "string" || !page.trim() || page.length > 15000) ||
-      pages.join("").length > 85000) throw new Error("Review every agreement page; one or more pages are missing or too long.");
+  if (!Array.isArray(pages) || pages.length !== snapshot.pages.length) throw new Error(`This agreement needs ${snapshot.pages.length} pages. Reopen the draft to restore any missing pages.`);
+  const issues = pages.flatMap((page: unknown, pageIndex: number) => typeof page !== "string" || !page.trim() || page.length > 15000
+    ? [{pageIndex, message:`Agreement page ${pageIndex + 1}: ${typeof page !== "string" || !page.trim() ? "enter the agreement wording" : "shorten the wording to 15,000 characters or fewer"}.`}] : []);
+  if (issues.length) throw validationError(issues);
+  if (pages.join("").length > 85000) throw new Error("The combined agreement text exceeds 85,000 characters. Shorten the wording before saving.");
   const formatting = body.pageFormatting === undefined ? (body.pages === undefined ? snapshot.pageFormatting : undefined) : body.pageFormatting;
   if (formatting !== undefined && (!Array.isArray(formatting) || formatting.length !== pages.length)) throw new Error("Agreement formatting must match every page.");
   const {pageFormatting:previousFormatting, ...rest} = snapshot;
@@ -57,6 +60,8 @@ export function editableSnapshot(snapshot: any, body: any) {
 }
 export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, string>) {
   if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return snapshot;
+  const issues = agreementTextIssues(snapshot);
+  if (issues.length) throw validationError(issues);
   const {optionalClauses = {}, ...issued} = snapshot;
   const replacements: Record<string, string> = {
     agreementDate:adminAnswers.agreementDate,
@@ -78,14 +83,17 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
   };
   const rendered = snapshot.pages.map((page: string, i: number) => replaceFormattedPage(page,snapshot.pageFormatting?.[i],replace));
   const pages = rendered.map((page: any) => page.text);
-  if (pages.some((page: string) => /\{\{/.test(page))) throw new Error("Agreement text has an unfinished placeholder.");
+  const remaining = agreementTextIssues({...snapshot, pages});
+  if (remaining.length) throw validationError(remaining);
   return {...issued, pages, ...(snapshot.pageFormatting ? {pageFormatting:rendered.map((page: any) => page.formatting)} : {})};
 }
 export const cleanContact = (body: any) => {
   const name = typeof body.clientName === "string" ? body.clientName.trim() : "";
   const email = typeof body.clientEmail === "string" ? body.clientEmail.trim().toLowerCase() : "";
-  if (!name || name.length > 200) throw new Error("Client name is required (maximum 200 characters).");
-  if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("A valid client email is required.");
+  const issues = [];
+  if (!name || name.length > 200) issues.push({field:"clientName", message:"Client name is required (maximum 200 characters)."});
+  if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) issues.push({field:"clientEmail", message:"A valid client email is required."});
+  if (issues.length) throw validationError(issues);
   return { client_name: name, client_email: email };
 };
 export const signingConsent = "I have reviewed this agreement and the completed details, agree to its terms, and consent to using electronic records and my typed name as my electronic signature. I can print or save a copy. To use a paper form instead, I can contact info@hmpeds.com before signing.";
@@ -95,9 +103,9 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
     const answers = validateAnswers(row.snapshot.clientFields, body.answers);
     return {client_answers:answers, signature:null, record_hash:hash(JSON.stringify({id:row.id, snapshot:row.snapshot, answers, completedAt:now})), completed_at:now, updated_at:now, status:"Completed"};
   }
-  if (body.consent !== true) throw new Error("Please consent to electronic signing and accept the agreement.");
+  if (body.consent !== true) throw validationError([{field:"consent", message:"Please consent to electronic signing and accept the agreement."}]);
   const name = typeof body.signatureName === "string" ? body.signatureName.trim() : "";
-  if (name.length < 2 || name.length > 200) throw new Error("Type your full name to sign.");
+  if (name.length < 2 || name.length > 200) throw validationError([{field:"signatureName", message:"Type your full name to sign (2–200 characters)."}]);
   const answers = validateAnswers(row.snapshot.clientFields, body.answers);
   let secondRepresentativeSigned = false;
   if (row.snapshot.signatureMode === "on-site-three-signatures") {
@@ -111,7 +119,17 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
     }
     if (answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) throw new Error("HMP attendant signature must match the HMP money attendant name.");
   }
+  const drawings: Record<string, any> = {};
+  if (body.signatureDrawings !== undefined) {
+    if (!body.signatureDrawings || typeof body.signatureDrawings !== "object" || Array.isArray(body.signatureDrawings)) throw new Error("Invalid signature drawings.");
+    const allowed = ["signatureName", ...(row.snapshot.signatureMode === "on-site-three-signatures" ? ["representativeOneSignature", ...(secondRepresentativeSigned ? ["representativeTwoSignature"] : [])] : [])];
+    for (const [key,value] of Object.entries(body.signatureDrawings) as [string, any][]) {
+      if (!allowed.includes(key) || !value || value.consent !== true) throw new Error("Each drawing needs its signer’s details and explicit authorization.");
+      drawings[key] = {strokes:validateSignatureDrawing(value.strokes), consent:"I authorize this drawing as part of my electronic signature."};
+    }
+  }
   const signature = { name, consent: row.snapshot.signingConsent, signedAt: now, userAgent: userAgent.slice(0, 500), method: "typed-name-private-link",
+    ...(Object.keys(drawings).length ? {drawings} : {}),
     ...(row.snapshot.signatureMode === "on-site-three-signatures" ? {representativeOneConsent:true, representativeTwoConsent:secondRepresentativeSigned} : {}) };
   const recordHash = hash(JSON.stringify({ id: row.id, snapshot: row.snapshot, adminAnswers: row.admin_answers, clientAnswers: answers, signature }));
   return { client_answers: answers, signature, record_hash: recordHash, completed_at: now, updated_at: now, status: "Completed" };

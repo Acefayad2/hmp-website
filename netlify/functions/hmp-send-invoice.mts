@@ -3,6 +3,7 @@ import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { prepareDocumentConversation, recordSentDocument } from "./_document-messages.mts";
+import { invoiceStatusLabel } from "../../invoice-status.mjs";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -66,6 +67,7 @@ export const renderEmail = (invoice: Record<string, any>) => {
           <p style="margin:0 0 8px;color:#756467;font-size:12px;text-transform:uppercase;letter-spacing:1px">Prepared for</p>
           <h2 style="margin:0 0 6px;font-family:Georgia,serif;font-size:30px">${escapeHTML(invoice.client_name)}</h2>
           <p style="margin:0;color:#756467">Issue date: ${date(invoice.issue_date)}<br>Due date: ${date(invoice.due_date)}</p>
+          ${["Partially paid", "Paid"].includes(invoice.status) ? `<p><strong>Payment status: ${escapeHTML(invoiceStatusLabel(invoice.status))}</strong></p>` : ""}
           ${invoice.event_address ? `<p style="margin:18px 0 0;color:#756467;overflow-wrap:anywhere"><strong style="color:#2e2022">Event address:</strong><br>${multilineHTML(invoice.event_address)}</p>` : ""}
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:30px;border-collapse:collapse">
             <thead><tr style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#756467">

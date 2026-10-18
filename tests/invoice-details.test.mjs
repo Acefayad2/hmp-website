@@ -2,12 +2,24 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { cleanPayload, invoiceLifecycleChange, normalizeInvoice } from "../netlify/functions/hmp-invoices.mts";
 import { renderEmail } from "../netlify/functions/hmp-send-invoice.mts";
+import { documentSnapshot } from "../netlify/functions/_document-messages.mts";
 
 const draft = {
   clientName: "Test Client", clientEmail: "client@example.test", issueDate: "2026-09-23",
   eventAddress: "Test Venue\n123 Example Street\nLaurel, MD 20707",
   items: [{ description: "Money Table Services\nChanging + Collecting\nThree attendants", quantity: 2, rate: 450 }],
 };
+
+test("partial/full payment statuses persist and appear in newly shared client copies", () => {
+  for (const [status, label] of [["Partially paid", "Partially paid"], ["Paid", "Paid in full"]]) {
+    const row = cleanPayload({ ...draft, status });
+    assert.equal(row.status, status);
+    assert.equal(normalizeInvoice(row).status, status);
+    assert.match(renderEmail(row), new RegExp(`Payment status: ${label}`));
+    assert.equal(documentSnapshot("invoice", row).payment_status, label);
+  }
+  assert.equal(documentSnapshot("invoice", cleanPayload(draft)).payment_status, undefined);
+});
 
 test("invoice details retain line breaks through save and reopen", () => {
   const row = cleanPayload(draft);
