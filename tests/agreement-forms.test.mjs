@@ -61,6 +61,8 @@ test("drawing authorization, signer presence and content are validated before pe
 });
 
 test("Money Table payment amounts use cents and never accept supplied calculated amounts", () => {
+  assert.deepEqual(moneyTablePaymentAmounts("1154.00","50"),{retainerAmount:"577.00",finalPaymentAmount:"577.00"});
+  assert.deepEqual(moneyTablePaymentAmounts("1154.00",""),{retainerAmount:"",finalPaymentAmount:""});
   assert.deepEqual(moneyTablePaymentAmounts("1154.00"),{retainerAmount:"346.20",finalPaymentAmount:"807.80"});
   assert.deepEqual(moneyTablePaymentAmounts("0.05"),{retainerAmount:"0.02",finalPaymentAmount:"0.03"});
   assert.deepEqual(moneyTablePaymentAmounts("0"),{retainerAmount:"0.00",finalPaymentAmount:"0.00"});
@@ -74,6 +76,22 @@ test("Money Table payment amounts use cents and never accept supplied calculated
   assert.match(html,/Final payment amount \(USD\) \(calculated\)/);
   assert.match(answersHTML(fields,answers),/\$346\.20/);
   assert.match(answersHTML(fields,answers),/\$807\.80/);
+});
+
+test("Money Table blank retainer requires custom terms and never implies no payment", () => {
+  const snapshot = snapshotFor("money-collecting-changing");
+  const values = {...inputFor(snapshot.adminFields),serviceFee:"1000",retainerPercent:"",customPaymentTerms:"",retainerDue:""};
+  assert.throws(() => validateAnswers(snapshot.adminFields,values),/Enter custom payment terms/);
+  values.customPaymentTerms="Payment in two installments agreed with the client.";
+  const answers=validateAnswers(snapshot.adminFields,values);
+  assert.equal(answers.retainerPercent,"");
+  assert.equal(answers.retainerAmount,"");
+  const issued=issuedSnapshot(snapshot,answers);
+  assert.match(issued.pages.join("\n"),/Payment in two installments/);
+  assert.doesNotMatch(issued.pages.join("\n"),/30%|50%/);
+  const fifty=issuedSnapshot(snapshot,validateAnswers(snapshot.adminFields,{...values,retainerPercent:"50",retainerDue:"2026-11-01"}));
+  assert.match(fifty.pages.join("\n"),/50% Non-Refundable Retainer/);
+  assert.doesNotMatch(fifty.pages.join("\n"),/30%/);
 });
 
 test("old Money Table drafts gain calculated amounts but sent and signed records never change", () => {
@@ -232,8 +250,8 @@ test("new document titles and wording stay in their draft, while money amounts a
 test("validation returns every missing field with its editable field key", () => {
   const fields = snapshotFor("money-collecting-changing").adminFields;
   assert.throws(() => validateAnswers(fields, {}), error => {
-    assert.equal(error.issues.length, fields.filter(field => field.required).length);
-    assert.deepEqual(error.issues.map(issue => issue.field), fields.filter(field => field.required).map(field => field.id));
+    assert.equal(error.issues.length, fields.filter(field => field.required).length + 1);
+    assert.deepEqual(error.issues.map(issue => issue.field), [...fields.filter(field => field.required).map(field => field.id), "retainerDue"]);
     return true;
   });
   assert.doesNotThrow(() => validateAnswers(fields, {}, false));

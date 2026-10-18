@@ -1,6 +1,6 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
-import { getAgreementTemplate, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
+import { getAgreementTemplate, newAgreementSnapshot, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
 import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
 import { validateSignatureDrawing } from "../../signature-pad.mjs";
 
@@ -18,7 +18,7 @@ export const snapshotFor = (id: string) => {
   if (template?.kind === "information") return {...template};
   const source = (terms as Record<string, any>)[id];
   if (!template || !source) throw new Error("Choose an agreement template.");
-  return { ...template, ...source, signingConsent };
+  return {...newAgreementSnapshot(template,source), signingConsent};
 };
 // Add the missing field to editable drafts only; never rewrite issued/signed snapshots.
 export function withCurrentDraftFields(row: any) {
@@ -37,7 +37,7 @@ export function withCurrentDraftFields(row: any) {
     const index = fields.findIndex((field: any) => field.id === before);
     fields.splice(index < 0 ? fields.length : index,0,currentFields.find((field: any) => field.id === id));
   }
-  return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee)}};
+  return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee,row.admin_answers?.retainerPercent)}};
 }
 export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
@@ -68,6 +68,8 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
     serviceFee:`$${Number(adminAnswers.serviceFee).toFixed(2)}`,
     serviceHours:adminAnswers.serviceHours,
     retainerDue:adminAnswers.retainerDue,
+    retainerClause:adminAnswers.retainerPercent ? `An initial ${adminAnswers.retainerPercent}% non-refundable retainer & a signed agreement must be secured prior to any services being performed by Vendor.` : adminAnswers.customPaymentTerms,
+    retainerPayment:adminAnswers.retainerPercent ? `${adminAnswers.retainerPercent}% Non-Refundable Retainer due by: ${adminAnswers.retainerDue}` : "See custom payment terms above.",
     finalPaymentDue:adminAnswers.finalPaymentDue,
     serviceStartTime:adminAnswers.serviceStartTime,
     serviceEndTime:adminAnswers.serviceEndTime,
