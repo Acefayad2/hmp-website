@@ -3,6 +3,7 @@ const fieldLabels = {
   client_name:"Prepared for",issue_date:"Issue date",due_date:"Due date",effective_date:"Effective date",
   event_name:"Event",event_date:"Event date",event_address:"Event address",event_location:"Event location",
   services:"Services",scope_of_work:"Scope of services",payment_terms:"Payment terms",
+  payment_status:"Payment status when shared",
   cancellation_terms:"Cancellation and rescheduling",additional_terms:"Additional terms",notes:"Notes",
   hmp_signature_name:"HMP representative",hmp_signed_at:"HMP signature date",
   client_signature_name:"Client signature",client_signed_at:"Client signature date",

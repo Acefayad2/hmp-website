@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createReceipt, receiptHTML } from "../receipt-template.mjs";
+import { receiptDraftPayload } from "../receipt-draft.mjs";
 
 const invoice = { id: "test-invoice", invoiceNumber: "HMP-1001", status: "Paid", currency: "USD", clientName: "Test Client", clientEmail: "test@example.test", eventName: "Test event", eventDate: "2026-09-24", eventAddress: "Venue\nLaurel, MD", items: [{ description: "Guest seating\nArrival and directory", amount: 1000 }], subtotal: 1000, discountAmount: 100, taxAmount: 54, total: 954, notes: "Do not copy invoice notes", paymentTerms: "Do not request payment again" };
 const details = { amountPaid: "954.00", paymentDate: "2026-09-24", paymentMethod: "Bank transfer", reference: "REF-123", confirmed: true };
@@ -20,14 +21,14 @@ test("receipt uses saved invoice amounts and client/event details without mutati
 });
 
 test("draft, void, deleted and invalid invoices cannot produce a receipt", () => {
-  for (const status of ["Draft", "Void", ""]) assert.throws(() => make({ ...invoice, status }), /Sent or Paid/);
-  assert.throws(() => make({ ...invoice, deletedAt: "2026-09-25" }), /Sent or Paid/);
+  for (const status of ["Draft", "Void", ""]) assert.throws(() => make({ ...invoice, status }), /Sent, Partially paid/);
+  assert.throws(() => make({ ...invoice, deletedAt: "2026-09-25" }), /Sent, Partially paid/);
   for (const total of [NaN, Infinity, -1, 0, "954"]) assert.throws(() => make({ ...invoice, total }), /valid receipt details/);
   assert.throws(() => make({ ...invoice, currency: "EUR" }), /valid receipt details/);
 });
 
 test("partial payments use the entered cumulative amount, even if the invoice was marked Paid", () => {
-  for (const status of ["Sent", "Paid"]) {
+  for (const status of ["Sent", "Partially paid", "Paid"]) {
     const record = { ...invoice, status };
     const receipt = make(record, { ...details, amountPaid: "400.50" });
     assert.equal(receipt.amountPaid, 400.5);
@@ -48,6 +49,28 @@ test("only a zero calculated balance shows Paid in full, regardless of saved sta
   assert.equal(receipt.balance, 0);
   assert.match(receiptHTML(receipt), /Paid in full/);
   assert.doesNotMatch(receiptHTML(receipt), /Partial payment received/);
+});
+
+test("IMG_1916: reopen a retainer draft and issue a full-payment copy without rewriting the earlier receipt", () => {
+  const record = { ...invoice, status: "Sent" };
+  const saved = receiptDraftPayload({ ...details, amountPaid: "354.00", note: "Retainer received" });
+  const retainer = make(record, { ...saved, confirmed: true });
+  const issuedRetainerHTML = receiptHTML(retainer);
+  assert.equal(retainer.balance, 600);
+  assert.match(issuedRetainerHTML, /Partial payment received/);
+
+  // A reopened draft has no saved payment confirmation, even after the first PDF.
+  const reopened = receiptDraftPayload(JSON.parse(JSON.stringify(saved)));
+  assert.throws(() => make(record, reopened), /Confirm/);
+  reopened.amountPaid = "954.00";
+  reopened.note = "Full balance paid";
+  const finalReceipt = make(record, { ...reopened, confirmed: true });
+  assert.equal(finalReceipt.balance, 0);
+  assert.match(receiptHTML(finalReceipt), /Paid in full/);
+  assert.match(receiptHTML(finalReceipt), /Full balance paid/);
+  assert.equal(retainer.balance, 600);
+  assert.equal(receiptHTML(retainer), issuedRetainerHTML);
+  assert.equal(record.status, "Sent", "editing a receipt must not update the invoice automatically");
 });
 
 test("an actual positive amount no greater than the invoice total is required", () => {

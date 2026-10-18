@@ -1,4 +1,5 @@
 import { escape } from "./agreement-ui.mjs";
+import { receiptableStatuses } from "./invoice-status.mjs";
 
 export const paymentMethods = ["Bank transfer", "Credit / debit card", "Cash", "Check", "Zelle", "Other"];
 export const localDate = (date = new Date()) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -11,7 +12,7 @@ const money = value => new Intl.NumberFormat("en-US", { style: "currency", curre
 const dateLabel = value => value ? new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(new Date(`${value}T12:00:00`)) : "Not specified";
 
 export function createReceipt(invoice, details, today = localDate()) {
-  if (!invoice?.id || invoice.deletedAt || !["Sent", "Paid"].includes(invoice.status)) throw new Error("Choose an invoice saved with Sent or Paid status before creating a receipt.");
+  if (!invoice?.id || invoice.deletedAt || !receiptableStatuses.includes(invoice.status)) throw new Error("Choose an invoice saved with Sent, Partially paid, or Paid in full status before creating a receipt.");
   if (!invoice.invoiceNumber || !invoice.clientName || invoice.currency !== "USD" || typeof invoice.total !== "number" || !Number.isFinite(invoice.total) || invoice.total <= 0) throw new Error("This invoice does not have valid receipt details. Review it in Invoices first.");
   const totalCents = Math.round(invoice.total * 100);
   const amountText = typeof details.amountPaid === "string" || typeof details.amountPaid === "number" ? String(details.amountPaid).trim() : "";
