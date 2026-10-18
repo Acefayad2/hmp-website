@@ -21,8 +21,10 @@ const moneyTableDetails = [
   field("agreementDate", "Agreement date", "date"),
   field("serviceFee", "HMP service fee", "money"),
   field("serviceHours", "Service hours", "decimal"),
-  {...field("retainerAmount", "30% retainer amount (USD)", "money", false), calculated:"money-table-payment", help:"Calculated from the HMP service fee."},
-  field("retainerDue", "30% retainer due date", "date"),
+  {...field("retainerPercent", "Retainer percentage (leave blank for custom terms)", "select", false, ["30", "50"]), default:"30"},
+  field("customPaymentTerms", "Custom payment terms (required when percentage is blank)", "textarea", false),
+  {...field("retainerAmount", "Retainer amount (USD)", "money", false), calculated:"money-table-payment", help:"Calculated from the chosen percentage. Blank for custom terms."},
+  field("retainerDue", "Retainer due date", "date", false),
   {...field("finalPaymentAmount", "Final payment amount (USD)", "money", false), calculated:"money-table-payment", help:"Service fee minus the retainer; not a payment-status balance."},
   field("finalPaymentDue", "Final payment due date", "date"),
   field("serviceStartTime", "Scheduled service start time", "time"),
@@ -133,7 +135,7 @@ export function validateAnswers(fields, values, requireAll = true) {
   const issues = [];
   for (const field of fields) {
     if (field.calculated === "money-table-payment") continue;
-    const value = typeof values?.[field.id] === "string" ? values[field.id].trim() : "";
+    const value = typeof values?.[field.id] === "string" ? values[field.id].trim() : (field.default || "");
     try {
     if (value.length > (field.type === "textarea" ? 5000 : 500)) throw new Error(`${field.label} is too long.`);
     if (requireAll && field.required && !value) throw new Error(`${field.label} is required.`);
@@ -147,8 +149,12 @@ export function validateAnswers(fields, values, requireAll = true) {
     } catch (error) { issues.push({field:field.id, message:error.message}); }
     answers[field.id] = value;
   }
+  if (requireAll && fields.some(field => field.id === "retainerPercent")) {
+    if (!answers.retainerPercent && !answers.customPaymentTerms) issues.push({field:"customPaymentTerms",message:"Enter custom payment terms when the retainer percentage is blank."});
+    if (answers.retainerPercent && !answers.retainerDue) issues.push({field:"retainerDue",message:"Retainer due date is required for a percentage retainer."});
+  }
   if (issues.length) throw validationError(issues);
-  const payments = moneyTablePaymentAmounts(answers.serviceFee);
+  const payments = moneyTablePaymentAmounts(answers.serviceFee, answers.retainerPercent);
   for (const field of fields) if (field.calculated === "money-table-payment") answers[field.id] = payments[field.id] || "";
   return answers;
 }
@@ -160,7 +166,7 @@ export function validationError(issues) {
 }
 
 // Keep the same allowlist on the editor and server; never silently strip draft wording.
-const moneyPlaceholders = new Set(["agreementDate", "serviceFee", "serviceHours", "retainerDue", "finalPaymentDue", "serviceStartTime", "serviceEndTime", "cancellationDeadline", "cancellationRefundAmount", "commissionClause", "travelClause", "grandTotalClause"]);
+const moneyPlaceholders = new Set(["agreementDate", "serviceFee", "serviceHours", "retainerDue", "retainerClause", "retainerPayment", "finalPaymentDue", "serviceStartTime", "serviceEndTime", "cancellationDeadline", "cancellationRefundAmount", "commissionClause", "travelClause", "grandTotalClause"]);
 export function agreementTextIssues(snapshot) {
   if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return [];
   return snapshot.pages.flatMap((page, pageIndex) => {
@@ -177,9 +183,9 @@ export function agreementTextIssues(snapshot) {
   });
 }
 
-export function moneyTablePaymentAmounts(serviceFee) {
+export function moneyTablePaymentAmounts(serviceFee, percentage = "30") {
   const value = typeof serviceFee === "string" ? serviceFee.trim() : "";
-  if (!/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000) return {retainerAmount:"", finalPaymentAmount:""};
-  const cents = Math.round(Number(value)*100), retainerCents = Math.round(cents*30/100);
+  if (!["30","50"].includes(percentage) || !/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000) return {retainerAmount:"", finalPaymentAmount:""};
+  const cents = Math.round(Number(value)*100), retainerCents = Math.round(cents*Number(percentage)/100);
   return {retainerAmount:(retainerCents/100).toFixed(2), finalPaymentAmount:((cents-retainerCents)/100).toFixed(2)};
 }

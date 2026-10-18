@@ -18,7 +18,15 @@ export const snapshotFor = (id: string) => {
   if (template?.kind === "information") return {...template};
   const source = (terms as Record<string, any>)[id];
   if (!template || !source) throw new Error("Choose an agreement template.");
-  return { ...template, ...source, signingConsent };
+  const snapshot = { ...template, ...source, signingConsent };
+  if (["money-collecting", "money-collecting-changing"].includes(id)) {
+    // Only new templates use variable retainers. Stored issued records are immutable.
+    snapshot.version = "2026-10-18.1";
+    snapshot.pages = source.pages.map((page: string) => page
+      .replace("An initial 30% non-refundable retainer & a signed agreement must be secured prior to any\nservices being performed by Vendor.", "{{retainerClause}}")
+      .replace("30% Non-Refundable Retainer due by: {{retainerDue}}", "{{retainerPayment}}"));
+  }
+  return snapshot;
 };
 // Add the missing field to editable drafts only; never rewrite issued/signed snapshots.
 export function withCurrentDraftFields(row: any) {
@@ -37,7 +45,7 @@ export function withCurrentDraftFields(row: any) {
     const index = fields.findIndex((field: any) => field.id === before);
     fields.splice(index < 0 ? fields.length : index,0,currentFields.find((field: any) => field.id === id));
   }
-  return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee)}};
+  return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee,row.admin_answers?.retainerPercent)}};
 }
 export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
@@ -68,6 +76,8 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
     serviceFee:`$${Number(adminAnswers.serviceFee).toFixed(2)}`,
     serviceHours:adminAnswers.serviceHours,
     retainerDue:adminAnswers.retainerDue,
+    retainerClause:adminAnswers.retainerPercent ? `An initial ${adminAnswers.retainerPercent}% non-refundable retainer & a signed agreement must be secured prior to any services being performed by Vendor.` : adminAnswers.customPaymentTerms,
+    retainerPayment:adminAnswers.retainerPercent ? `${adminAnswers.retainerPercent}% Non-Refundable Retainer due by: ${adminAnswers.retainerDue}` : "See custom payment terms above.",
     finalPaymentDue:adminAnswers.finalPaymentDue,
     serviceStartTime:adminAnswers.serviceStartTime,
     serviceEndTime:adminAnswers.serviceEndTime,

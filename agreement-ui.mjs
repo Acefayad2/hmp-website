@@ -75,7 +75,7 @@ export function installValidationSummaries(root) {
 }
 export function fieldsHTML(fields, values = {}, prefix = "answer", required = true) {
   return fields.map(field => {
-    const id = `${prefix}-${field.id}`, value = values[field.id] || "";
+    const id = `${prefix}-${field.id}`, value = values[field.id] ?? field.default ?? "";
     const attrs = `id="${id}" name="${field.id}" ${required && field.required ? "required" : ""} ${field.calculated ? 'readonly aria-readonly="true"' : ""}`;
     let input;
     if (field.options) input = `<select ${attrs}><option value="">Choose an option</option>${field.options.map(option => `<option ${value === option ? "selected" : ""}>${escape(option)}</option>`).join("")}</select>`;

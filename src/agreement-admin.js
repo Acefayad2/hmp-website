@@ -91,11 +91,11 @@ function renderEditor() {
     };
   }
   const refreshPaymentAmounts = () => {
-    const amounts = moneyTablePaymentAmounts(form.elements.serviceFee?.value);
+    const amounts = moneyTablePaymentAmounts(form.elements.serviceFee?.value, form.elements.retainerPercent?.value);
     for (const field of active.snapshot.adminFields.filter(field => field.calculated === "money-table-payment")) form.elements[field.id].value = amounts[field.id];
   };
   if (draft) refreshPaymentAmounts();
-  form.oninput = event => {dirty = true; if (event.target.name === "serviceFee") refreshPaymentAmounts();};
+  form.oninput = event => {dirty = true; if (["serviceFee","retainerPercent"].includes(event.target.name)) refreshPaymentAmounts();};
   if (draft) mountAgreementEditors(form,active.snapshot,() => {
     dirty = true;
     const pages = [...form.querySelectorAll("[data-agreement-editor]")].map(readAgreementEditor);
