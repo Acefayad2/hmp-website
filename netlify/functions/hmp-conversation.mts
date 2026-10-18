@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import {latestPublishedDocuments} from "../../document-versions.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
 import { portalPinId, requireClientPin } from "./_client-pin.mts";
@@ -89,9 +90,9 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   if (!inquiry) return json({ error: "Conversation is unavailable." }, 404);
 
   if (request.method === "GET") {
-    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at,edited_at");
+    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at,edited_at,revision_root_id");
     if (error) return json({ error: "Conversation is temporarily unavailable." }, 502);
-    const signedMessages = await Promise.all((messages || []).map(async (message) => ({
+    const signedMessages = await Promise.all(latestPublishedDocuments(messages || []).map(async (message) => ({
       ...message,
       signedAttachments: await signAttachments(client, message.attachments),
     })));
@@ -109,6 +110,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
         senderName: message.sender_name || (message.sender === "admin" ? "HMP representative" : inquiry.client_name || "Client"),
         body: message.body,
         document: message.document || null,
+        ...(message.revision_root_id?{revisionRootId:message.revision_root_id}:{}),
         attachments: message.signedAttachments,
         createdAt: message.created_at,
         editedAt: message.edited_at || null,

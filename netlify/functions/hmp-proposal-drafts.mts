@@ -43,12 +43,7 @@ export const createProposalDraftHandler = ({ getUserFn = getUser, databaseFactor
 
   if (body.action === "mark-sent") {
     if (!id || !uuid.test(body.messageId || "") || !uuid.test(body.conversationId || "")) return json({ error: "Invalid draft or message" }, 400);
-    const { data: message, error: messageError } = await db.from("hmp_client_messages").select("id")
-      .eq("id", body.messageId).eq("sender", "admin").eq("conversation_id", body.conversationId).maybeSingle();
-    if (messageError) return json({ error: "Sent message could not be verified" }, 502);
-    if (!message) return json({ error: "Sent message not found" }, 404);
-    const { data, error } = await db.from(table).update({ sent_at: new Date().toISOString(), sent_message_id: message.id })
-      .eq("id", id).eq("conversation_id", body.conversationId).is("sent_at", null).select("id").maybeSingle();
+    const {data,error}=await db.rpc("hmp_mark_proposal_revision_sent",{p_id:id,p_message_id:body.messageId,p_conversation_id:body.conversationId});
     if (error || !data) return json({ error: "Proposal was sent, but its draft could not be cleared. Refresh before sending again." }, 502);
     return json({ ok: true });
   }

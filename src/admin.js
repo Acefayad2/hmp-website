@@ -1,4 +1,6 @@
 import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
+import {mountDocumentVersions} from "./document-versions.js";
+import {latestDocumentRows} from "../document-versions.mjs";
 import { installValidationSummaries } from "../agreement-ui.mjs";
 import { loadAdminWorkspace } from "./admin-startup.mjs";
 import { openReceiptDraft } from "./receipt-admin.js";
@@ -861,6 +863,11 @@ const sendProposal = async (event) => {
   buttons.forEach((button) => { button.disabled = true; });
   setMessage($("#proposal-editor-message"), "Sending proposal securely…");
   try {
+    if(activeProposalDraftId){
+      const saved=await fetch("/api/hmp-proposal-drafts",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"save",id:activeProposalDraftId,conversationId,payload:proposal})});
+      const result=await saved.json().catch(()=>({}));
+      if(!saved.ok)throw new Error(result.error||"Save the proposal revision before sending.");
+    }
     const response = await fetch("/api/hmp-messages", {
       method: "POST",
       credentials: "same-origin",
@@ -1154,6 +1161,18 @@ const loadMessages = async () => {
   renderProposalsWorkspace(messageThreads, (threadId) => {
     openMessageThread(threadId);
     if (activeThreadId === threadId) setWorkspaceView("messages", true);
+  },async(id,record,created)=>{
+    if(created){
+      const response=await fetch("/api/hmp-proposal-drafts",{credentials:"same-origin",cache:"no-store"});
+      const data=await response.json();
+      if(!response.ok)throw new Error(data.error||"Proposal drafts could not be loaded");
+      proposalDrafts=data.drafts||[];record=proposalDrafts.find(item=>item.id===id);
+      if(!record)throw new Error("The new draft could not be loaded. Find it in Drafts → Proposals.");
+      openProposalDraft(record);
+    }else if(record){
+      // History is read-only. Use Restore as new draft to make changes.
+      if(!printProposal(record.payload))throw new Error("Allow pop-ups to view the original proposal, then try again.");
+    }
   });
   if (activeThreadId && messageThreads.some((thread) => thread.id === activeThreadId)) {
     openMessageThread(activeThreadId);
@@ -1509,6 +1528,18 @@ const invoiceFormFields = {
   taxRate: "#invoice-tax-rate",
 };
 
+const lockIssuedDocumentControls=(form,record,kind)=>{
+  const locked=record&&record.status!=="Draft";
+  form.querySelectorAll("input,textarea,select").forEach(control=>{
+    const statusField=control.id===`${kind}-status`;
+    const signatureField=kind==="contract"&&record?.status==="Sent"&&/signature-name|signed-at/.test(control.id);
+    control.disabled=Boolean(locked&&!statusField&&!signatureField);
+    if(statusField&&["Paid","Signed","Void"].includes(record?.status))control.disabled=true;
+    if(record?.revisionRootId&&control.id===`${kind}-client-email`)control.disabled=true;
+  });
+  if(kind==="invoice")form.querySelectorAll("#add-line-item,.remove-line-item").forEach(control=>control.disabled=Boolean(locked));
+};
+
 const openInvoiceEditor = (invoice = null) => {
   activeInvoiceId = invoice?.id || "";
   const values = invoice || {
@@ -1536,6 +1567,9 @@ const openInvoiceEditor = (invoice = null) => {
     if (control.id !== "close-invoice-editor" && control.id !== "print-invoice") control.disabled = inactive;
   });
   if (inactive) setMessage($("#invoice-editor-message"), "Restore this invoice before editing or sending it.");
+  if(!inactive)lockIssuedDocumentControls($("#invoice-form"),invoice,"invoice");
+  if(invoice&&invoice.status!=="Draft"&&!inactive)setMessage($("#invoice-editor-message"),"Issued content is preserved. Choose Create revision to change it. Payment status can still be updated.");
+  mountDocumentVersions($("#invoice-editor-dialog"),{kind:"invoice",id:invoice?.id,status:invoice?.status,open:async(id,record)=>{await loadInvoices();openInvoiceEditor(record||invoices.find(item=>item.id===id));}});
   $("#invoice-editor-dialog").showModal();
   resizeInvoiceTextareas();
 };
@@ -1551,7 +1585,7 @@ const invoicePayload = () => ({
 const renderInvoices = () => {
   const list = $("#invoice-list");
   const empty = $("#invoice-empty");
-  const visible = invoices.filter((invoice) => invoiceView === "deleted" ? invoice.deletedAt : invoiceView === "archived" ? invoice.archivedAt : !invoice.archivedAt && !invoice.deletedAt);
+  const visible = latestDocumentRows(invoices.filter((invoice) => invoiceView === "deleted" ? invoice.deletedAt : invoiceView === "archived" ? invoice.archivedAt : !invoice.archivedAt && !invoice.deletedAt));
   document.querySelectorAll("[data-invoice-view]").forEach((button) => {
     button.setAttribute("aria-pressed", String(button.dataset.invoiceView === invoiceView));
   });
@@ -1650,6 +1684,9 @@ const openContractEditor = (contract = null) => {
   $("#contract-number-display").textContent = contract?.contractNumber || "Draft";
   $("#send-contract").textContent = contract?.status === "Sent" ? "Send again" : "Send contract";
   setMessage($("#contract-editor-message"), "");
+  lockIssuedDocumentControls($("#contract-form"),contract,"contract");
+  if(contract&&contract.status!=="Draft")setMessage($("#contract-editor-message"),"Issued content is preserved. Choose Create revision to change it.");
+  mountDocumentVersions($("#contract-editor-dialog"),{kind:"contract",id:contract?.id,status:contract?.status,open:async(id,record)=>{await loadContracts();openContractEditor(record||contracts.find(item=>item.id===id));}});
   $("#contract-editor-dialog").showModal();
 };
 
@@ -1665,7 +1702,7 @@ const renderContracts = () => {
   const empty = $("#contract-empty");
   empty.hidden = contracts.length > 0;
   list.hidden = contracts.length === 0;
-  list.innerHTML = contracts
+  list.innerHTML = latestDocumentRows(contracts)
     .map(
       (contract) => `
         <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
@@ -1726,6 +1763,8 @@ const loadDrafts = async () => {
 
 const saveContract = async ({ quiet = false } = {}) => {
   const form = $("#contract-form");
+  const original=contracts.find(row=>row.id===activeContractId);
+  if(quiet&&original?.status==="Signed")return original;
   if (!form.reportValidity()) return null;
   const buttons = form.querySelectorAll("button");
   buttons.forEach((button) => { button.disabled = true; });
@@ -1752,6 +1791,7 @@ const saveContract = async ({ quiet = false } = {}) => {
     return null;
   } finally {
     buttons.forEach((button) => { button.disabled = false; });
+    lockIssuedDocumentControls(form,contracts.find(row=>row.id===activeContractId),"contract");
   }
 };
 
@@ -1771,6 +1811,8 @@ const copyDocumentLink = async (kind) => {
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Client link could not be prepared.");
+    if(invoice){await loadInvoices();openInvoiceEditor(invoices.find(item=>item.id===saved.id));}
+    else{await loadContracts();openContractEditor(contracts.find(item=>item.id===saved.id));}
     await copyText(data.clientUrl);
     setMessage(message, "Private client link copied. Text it only to this client; they will need their portal PIN. No email was sent.", true);
     loadMessages().catch(() => {});
@@ -1812,8 +1854,9 @@ const sendContract = async () => {
     if (!response.ok) throw new Error(data.error || "Contract email could not be sent.");
     documentSendRequests.delete(sendRequest.key);
     await loadContracts();
+    openContractEditor(contracts.find(item=>item.id===saved.id));
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
-    $("#contract-status").value = "Sent";
+    $("#contract-status").value = contracts.find(contract=>contract.id===saved.id)?.status || saved.status;
     $("#send-contract").textContent = "Send again";
     setMessage($("#contract-editor-message"), `Contract sent to ${recipient} and added to the client's Messages.`, true);
   } catch (error) {
@@ -2010,6 +2053,8 @@ const onReviewFolderAction = (event) => {
 
 const saveInvoice = async ({ quiet = false } = {}) => {
   const form = $("#invoice-form");
+  const original=invoices.find(row=>row.id===activeInvoiceId);
+  if(quiet&&original?.status==="Paid")return original;
   if (!form.reportValidity()) return null;
   if (!invoiceItems.some((item) => item.description.trim() && Number(item.quantity) > 0)) {
     setMessage($("#invoice-editor-message"), "Add at least one invoice item.");
@@ -2041,6 +2086,7 @@ const saveInvoice = async ({ quiet = false } = {}) => {
     return null;
   } finally {
     buttons.forEach((button) => { button.disabled = false; });
+    lockIssuedDocumentControls(form,invoices.find(row=>row.id===activeInvoiceId),"invoice");
   }
 };
 
@@ -2072,6 +2118,7 @@ const sendInvoice = async () => {
     if (!response.ok) throw new Error(data.error || "Invoice email could not be sent.");
     documentSendRequests.delete(sendRequest.key);
     await loadInvoices();
+    openInvoiceEditor(invoices.find(item=>item.id===saved.id));
     if (activeWorkspaceView === "drafts") renderCurrentDrafts();
     $("#invoice-status").value = invoices.find(invoice => invoice.id === saved.id)?.status || saved.status;
     $("#send-invoice").textContent = "Send again";

@@ -29,8 +29,9 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-const normalizeContract = (record: Record<string, unknown>) => ({
+export const normalizeContract = (record: Record<string, unknown>) => ({
   id: record.id || "",
+  ...(record.revision_root_id ? {revisionRootId:record.revision_root_id} : {}),
   contractNumber: record.contract_number || "",
   status: record.status || "Draft",
   effectiveDate: record.effective_date || "",
@@ -157,7 +158,7 @@ export default async (request: Request, _context: Context) => {
     .eq("id", id).select("*").single();
   if (error) {
     console.error("Supabase contract update failed", error.code);
-    return json({ error: error.code === "PGRST116" ? "Contract not found" : "Contract could not be saved" }, error.code === "PGRST116" ? 404 : 502);
+    return json({ error: error.code === "P0001" ? error.message : error.code === "PGRST116" ? "Contract not found" : "Contract could not be saved" }, error.code === "P0001" ? 409 : error.code === "PGRST116" ? 404 : 502);
   }
   return json({ ok: true, contract: normalizeContract(data) });
 };

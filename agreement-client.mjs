@@ -57,7 +57,7 @@ function render() {
       if (!confirm("Submit your electronic signature? Your answers will be locked after submission.")) return;
       busy = true; form.querySelectorAll("input,select,textarea,button").forEach(item => item.disabled = true);
       status.textContent = "Saving your signed form…";
-      const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({answers, signatureDrawings, signatureName:values.signatureName, consent:values.consent === "on", ...(onSite ? {representativeOneConsent:values.representativeOneConsent === "on", representativeTwoConsent:values.representativeTwoConsent === "on"} : {})})});
+      const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({agreementId:agreement.id, answers, signatureDrawings, signatureName:values.signatureName, consent:values.consent === "on", ...(onSite ? {representativeOneConsent:values.representativeOneConsent === "on", representativeTwoConsent:values.representativeTwoConsent === "on"} : {})})});
       agreement = data.agreement; dirty = false; render();
       message.classList.add("success"); message.textContent = "Your signed form has been saved and is available to HMP. You can print or save your copy below.";
       message.scrollIntoView({block:"center"});

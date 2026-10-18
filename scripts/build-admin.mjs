@@ -17,6 +17,7 @@ const productionFiles = [
   "conversation.css",
   "conversation.js",
   "client-hub.js",
+  "document-versions.mjs",
   "proposal-ui.js",
   "calendar-link.js",
   "calendar-date.mjs",

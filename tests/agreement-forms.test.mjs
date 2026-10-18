@@ -14,7 +14,19 @@ const rowFor = (templateId = "guest-seating") => {
   return {id, template_id:templateId, snapshot, client_name:"Test Client", client_email:"client@example.test", status:"Sent", expires_at:"2099-01-01T00:00:00Z", admin_answers:inputFor(snapshot.adminFields), token_nonce:"seed", token_hash:hash(agreementToken(id,"seed")), updated_at:"2026-09-23T00:00:00Z"};
 };
 function fakeDatabase(rows) {
-  return {from() {
+  return {async rpc(name,args){
+    const {data:source,error}=await this.from().select("*").eq("token_hash",args.p_token_hash).maybeSingle();
+    if(error||!source||!["Sent","Completed"].includes(source.status))return {data:null,error};
+    const root=source.revision_root_id||source.id;
+    const target=rows.filter(r=>(r.id===root||r.revision_root_id===root)&&["Sent","Completed"].includes(r.status)).at(-1);
+    if(!target||!(Date.parse(target.expires_at)>Date.now()))return {data:null,error:null};
+    if(name==="hmp_resolve_agreement_revision")return {data:structuredClone(target),error:null};
+    assert.equal(name,"hmp_complete_agreement_revision");
+    if(target.id!==args.p_expected_id||target.status!=="Sent"||target.updated_at!==args.p_updated_at)return {data:null,error:null};
+    // Use the fake query engine so storage-error and token-rotation tests still
+    // exercise the conditional write path. Real transaction tests live in SQL.
+    return this.from().update(args.p_payload).eq("id",target.id).eq("token_hash",args.p_token_hash).eq("status","Sent").gt("expires_at",new Date().toISOString()).select("*").maybeSingle();
+  },from() {
     let filters = [], operation = "read", payload;
     const query = {
       select(){return this;}, order(){return this;}, limit(){return this;},

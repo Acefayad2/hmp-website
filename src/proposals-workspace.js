@@ -1,8 +1,10 @@
 import { parseProposal, renderProposalCard } from "../proposal-ui.js";
 import { searchText } from "../page-search.js";
+import {mountDocumentVersions} from "./document-versions.js";
+import {latestPublishedDocuments} from "../document-versions.mjs";
 
 export const collectProposals = (threads = []) => threads.flatMap((thread) =>
-  (thread.messages || []).flatMap((message) => {
+  latestPublishedDocuments(thread.messages || []).flatMap((message) => {
     if (message.sender !== "admin") return [];
     const proposal = parseProposal(message.body);
     return proposal ? [{ thread, message, proposal }] : [];
@@ -11,7 +13,7 @@ export const collectProposals = (threads = []) => threads.flatMap((thread) =>
 
 let renderedSignature = "";
 
-export const renderProposalsWorkspace = (threads, openConversation) => {
+export const renderProposalsWorkspace = (threads, openConversation, openRevision) => {
   const select = document.querySelector("#proposal-client-select");
   const selected = select.value;
   const optionsSignature = JSON.stringify(threads.map(({ id, clientName, clientEmail }) => [id, clientName, clientEmail]));
@@ -71,6 +73,7 @@ export const renderProposalsWorkspace = (threads, openConversation) => {
       } catch { status.textContent = "Copying was blocked. Open the conversation to copy its link."; }
     });
     content.append(renderProposalCard(proposal), conversation, copy, status);
+    if(openRevision)mountDocumentVersions(content,{kind:"proposal",id:message.id,status:"Sent",open:openRevision});
     record.append(summary, content);
     list.append(record);
   });

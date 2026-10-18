@@ -1,4 +1,5 @@
 import { parseProposal } from "./proposal-ui.js";
+import {latestPublishedDocuments} from "./document-versions.mjs";
 
 export const hubSections = [
   ["all", "Overview"],
@@ -21,7 +22,7 @@ export const hubSectionFor = (message) => {
 };
 
 export const hubMessages = (messages = [], section = "all") =>
-  section === "all" ? messages : messages.filter((message) => hubSectionFor(message) === section);
+  section === "all" ? latestPublishedDocuments(messages) : latestPublishedDocuments(messages).filter((message) => hubSectionFor(message) === section);
 
 export const renderHubTabs = (container, messages, selected, onSelect, { showEmptySeating = false } = {}) => {
   container.replaceChildren();
