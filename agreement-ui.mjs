@@ -1,4 +1,11 @@
 export const escape = (value = "") => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]);
+import { formattedPageHTML } from "./agreement-formatting.mjs";
+import { signatureDrawingHTML } from "./signature-pad.mjs";
+const drawingsHTML = signature => Object.entries(signature?.drawings || {}).map(([key,drawing]) => {
+  const label = {signatureName:"Signer",representativeOneSignature:"First representative",representativeTwoSignature:"Second representative"}[key];
+  if (!label) return "";
+  try {return `<div class="signature-record"><h3>${label} — drawn signature</h3>${signatureDrawingHTML(drawing.strokes)}<p>${escape(drawing.consent)}</p></div>`;} catch {return "<p>Signature drawing could not be displayed. Contact HMP for the original record.</p>";}
+}).join("");
 
 export function nativeFormIssues(form) {
   return [...form.elements].filter(input => input.willValidate && !input.validity.valid).map(input => {
@@ -26,8 +33,8 @@ export function showFormIssues(form, issues) {
   }
   const list = document.createElement("ul");
   issues.forEach(issue => {
-    const input = [...form.querySelectorAll("input,textarea,select")].find(input =>
-      Number.isInteger(issue.pageIndex) ? input.dataset.agreementPage === String(issue.pageIndex) :
+    const input = [...form.querySelectorAll("input,textarea,select,[data-agreement-editor]")].find(input =>
+      Number.isInteger(issue.pageIndex) ? (input.dataset.agreementPage ?? input.dataset.agreementEditor) === String(issue.pageIndex) :
         (issue.id && input.id === issue.id) || (issue.field && input.name === issue.field));
     const item = document.createElement("li");
     const link = document.createElement(input ? "button" : "span");
@@ -69,12 +76,12 @@ export function installValidationSummaries(root) {
 export function fieldsHTML(fields, values = {}, prefix = "answer", required = true) {
   return fields.map(field => {
     const id = `${prefix}-${field.id}`, value = values[field.id] || "";
-    const attrs = `id="${id}" name="${field.id}" ${required && field.required ? "required" : ""}`;
+    const attrs = `id="${id}" name="${field.id}" ${required && field.required ? "required" : ""} ${field.calculated ? 'readonly aria-readonly="true"' : ""}`;
     let input;
     if (field.options) input = `<select ${attrs}><option value="">Choose an option</option>${field.options.map(option => `<option ${value === option ? "selected" : ""}>${escape(option)}</option>`).join("")}</select>`;
     else if (field.type === "textarea") input = `<textarea ${attrs} rows="3" maxlength="5000">${escape(value)}</textarea>`;
     else input = `<input ${attrs} type="${["money", "decimal"].includes(field.type) ? "number" : field.type}" ${["number", "money", "decimal"].includes(field.type) ? `min="${field.id === "serviceHours" ? "4" : "0"}" max="10000000" step="${field.type === "number" ? "1" : "0.01"}"` : 'maxlength="500"'} value="${escape(value)}">`;
-    return `<label class="agreement-field ${field.type === "textarea" ? "agreement-wide" : ""}" for="${id}"><span>${escape(field.label)}${field.required ? " *" : " (optional)"}</span>${field.help ? `<small>${escape(field.help)}</small>` : ""}${input}</label>`;
+    return `<label class="agreement-field ${field.type === "textarea" || field.id === "serviceHours" ? "agreement-wide" : ""}" for="${id}"><span>${escape(field.label)}${field.calculated ? " (calculated)" : field.required ? " *" : " (optional)"}</span>${field.help ? `<small>${escape(field.help)}</small>` : ""}${input}</label>`;
   }).join("");
 }
 export function answersHTML(fields, values = {}) {
@@ -84,8 +91,8 @@ export function answersHTML(fields, values = {}) {
     return `<div><dt>${escape(field.label)}</dt><dd>${escape(formatted)}</dd></div>`;
   }).join("")}</dl>`;
 }
-export const termsHTML = snapshot => snapshot.pages.map((page, i) => `<section class="agreement-terms-page"><h3>Agreement text · ${i + 1} / ${snapshot.pages.length}</h3><div>${escape(page)}</div></section>`).join("");
-export const completionHTML = agreement => `<section class="agreement-panel"><h2>Completed client details</h2>${answersHTML(agreement.snapshot.clientFields, agreement.clientAnswers)}<h3>${agreement.snapshot.signatureMode === "on-site-three-signatures" ? "HMP attendant electronic signature" : "Electronic signature"}</h3><p class="agreement-signature">${escape(agreement.signature?.name)}</p><p>${escape(agreement.signature?.consent)}</p><p>Signed: ${escape(agreement.completedAt)}${agreement.adminAnswers.hmpSignedAt ? `<br>HMP signed: ${escape(agreement.adminAnswers.hmpSignedAt)}` : ""}</p><p class="agreement-fingerprint">Record ID: ${escape(agreement.id)}<br>SHA-256 record fingerprint: ${escape(agreement.recordHash)}</p></section>`;
+export const termsHTML = snapshot => snapshot.pages.map((page, i) => `<section class="agreement-terms-page"><h3>Agreement text · ${i + 1} / ${snapshot.pages.length}</h3><div>${snapshot.pageFormatting?.[i] ? formattedPageHTML(page,snapshot.pageFormatting[i]) : escape(page)}</div></section>`).join("");
+export const completionHTML = agreement => `<section class="agreement-panel"><h2>Completed client details</h2>${answersHTML(agreement.snapshot.clientFields, agreement.clientAnswers)}<h3>${agreement.snapshot.signatureMode === "on-site-three-signatures" ? "HMP attendant electronic signature" : "Electronic signature"}</h3><p class="agreement-signature">${escape(agreement.signature?.name)}</p><p>${escape(agreement.signature?.consent)}</p>${drawingsHTML(agreement.signature)}<p>Signed: ${escape(agreement.completedAt)}${agreement.adminAnswers.hmpSignedAt ? `<br>HMP signed: ${escape(agreement.adminAnswers.hmpSignedAt)}` : ""}</p><p class="agreement-fingerprint">Record ID: ${escape(agreement.id)}<br>SHA-256 record fingerprint: ${escape(agreement.recordHash)}</p></section>`;
 export function printAgreement(agreement) {
   document.querySelector("#agreement-print")?.remove();
   const section = document.createElement("section");

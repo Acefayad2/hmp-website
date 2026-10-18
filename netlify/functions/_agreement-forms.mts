@@ -1,6 +1,8 @@
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import terms from "../../data/agreement-terms.json" with { type: "json" };
-import { getAgreementTemplate, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
+import { getAgreementTemplate, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
+import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
+import { validateSignatureDrawing } from "../../signature-pad.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -18,6 +20,25 @@ export const snapshotFor = (id: string) => {
   if (!template || !source) throw new Error("Choose an agreement template.");
   return { ...template, ...source, signingConsent };
 };
+// Add the missing field to editable drafts only; never rewrite issued/signed snapshots.
+export function withCurrentDraftFields(row: any) {
+  const snapshot = row.snapshot;
+  if (row.status === "Draft" && snapshot.id === "money-bank-verification" && snapshot.optionalSecondRepresentative !== true) {
+    const current = snapshotFor(snapshot.id);
+    const changedIds = [...secondRepresentativeFields, "receivedInitials", "reconciledInitials"];
+    return {...row, snapshot:{...snapshot, version:current.version, optionalSecondRepresentative:true,
+      clientFields:snapshot.clientFields.map((field: any) => changedIds.includes(field.id) ? current.clientFields.find((item: any) => item.id === field.id) : field)}};
+  }
+  if (row.status !== "Draft" || !["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return row;
+  const currentFields = getAgreementTemplate(snapshot.id).adminFields;
+  const fields = [...snapshot.adminFields];
+  for (const [id,before] of [["serviceStartTime","serviceEndTime"],["retainerAmount","retainerDue"],["finalPaymentAmount","finalPaymentDue"]]) {
+    if (fields.some((field: any) => field.id === id)) continue;
+    const index = fields.findIndex((field: any) => field.id === before);
+    fields.splice(index < 0 ? fields.length : index,0,currentFields.find((field: any) => field.id === id));
+  }
+  return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee)}};
+}
 export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
   if (!title || title.length > 200) throw validationError([{field:"documentTitle", message:"Document title is required (maximum 200 characters)."}]);
@@ -32,7 +53,10 @@ export function editableSnapshot(snapshot: any, body: any) {
     ? [{pageIndex, message:`Agreement page ${pageIndex + 1}: ${typeof page !== "string" || !page.trim() ? "enter the agreement wording" : "shorten the wording to 15,000 characters or fewer"}.`}] : []);
   if (issues.length) throw validationError(issues);
   if (pages.join("").length > 85000) throw new Error("The combined agreement text exceeds 85,000 characters. Shorten the wording before saving.");
-  return {...snapshot, title, pages:pages.map((page: string) => page.trim())};
+  const formatting = body.pageFormatting === undefined ? (body.pages === undefined ? snapshot.pageFormatting : undefined) : body.pageFormatting;
+  if (formatting !== undefined && (!Array.isArray(formatting) || formatting.length !== pages.length)) throw new Error("Agreement formatting must match every page.");
+  const {pageFormatting:previousFormatting, ...rest} = snapshot;
+  return {...rest, title, pages, ...(formatting ? {pageFormatting:formatting.map((runs: unknown, i: number) => validatePageFormatting(pages[i],runs))} : {})};
 }
 export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, string>) {
   if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return snapshot;
@@ -45,6 +69,7 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
     serviceHours:adminAnswers.serviceHours,
     retainerDue:adminAnswers.retainerDue,
     finalPaymentDue:adminAnswers.finalPaymentDue,
+    serviceStartTime:adminAnswers.serviceStartTime,
     serviceEndTime:adminAnswers.serviceEndTime,
     cancellationDeadline:adminAnswers.cancellationDeadline,
     cancellationRefundAmount:`$${Number(adminAnswers.cancellationRefundAmount).toFixed(2)}`,
@@ -52,13 +77,15 @@ export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, strin
     travelClause:adminAnswers.includeTravelFee === "Yes" ? optionalClauses.travelClause : "",
     grandTotalClause:adminAnswers.includeGrandTotal === "Yes" ? "The final total will be presented to the Client at the conclusion of the service." : "",
   };
-  const pages = snapshot.pages.map((page: string) => page.replace(/\{\{([A-Za-z]+)\}\}/g, (_: string, key: string) => {
+  const replace = (key: string) => {
     if (typeof replacements[key] !== "string") throw new Error(`Unrecognized agreement field: ${key}`);
     return replacements[key];
-  }));
+  };
+  const rendered = snapshot.pages.map((page: string, i: number) => replaceFormattedPage(page,snapshot.pageFormatting?.[i],replace));
+  const pages = rendered.map((page: any) => page.text);
   const remaining = agreementTextIssues({...snapshot, pages});
   if (remaining.length) throw validationError(remaining);
-  return {...issued, pages};
+  return {...issued, pages, ...(snapshot.pageFormatting ? {pageFormatting:rendered.map((page: any) => page.formatting)} : {})};
 }
 export const cleanContact = (body: any) => {
   const name = typeof body.clientName === "string" ? body.clientName.trim() : "";
@@ -80,23 +107,39 @@ export function completionPayload(row: any, body: any, userAgent = "", now = new
   const name = typeof body.signatureName === "string" ? body.signatureName.trim() : "";
   if (name.length < 2 || name.length > 200) throw validationError([{field:"signatureName", message:"Type your full name to sign (2–200 characters)."}]);
   const answers = validateAnswers(row.snapshot.clientFields, body.answers);
+  let secondRepresentativeSigned = false;
   if (row.snapshot.signatureMode === "on-site-three-signatures") {
-    const issues = [];
-    if (body.representativeOneConsent !== true) issues.push({field:"representativeOneConsent", message:"The first designated representative must consent to their typed signature."});
-    if (body.representativeTwoConsent !== true) issues.push({field:"representativeTwoConsent", message:"The second designated representative must consent to their typed signature."});
-    if (answers.representativeOneName.toLocaleLowerCase() !== answers.representativeOneSignature.toLocaleLowerCase()) issues.push({field:"representativeOneSignature", message:"First representative signature must match the first designated representative name."});
-    if (answers.representativeTwoName.toLocaleLowerCase() !== answers.representativeTwoSignature.toLocaleLowerCase()) issues.push({field:"representativeTwoSignature", message:"Second representative signature must match the second designated representative name."});
-    if (answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) issues.push({field:"signatureName", message:"HMP attendant signature must match the HMP money attendant name."});
-    if (issues.length) throw validationError(issues);
+    secondRepresentativeSigned = requiresSecondRepresentative(row.snapshot, answers, body.representativeTwoConsent);
+    if (body.representativeOneConsent !== true) throw new Error("The first designated representative must consent to their typed signature.");
+    if (answers.representativeOneName.toLocaleLowerCase() !== answers.representativeOneSignature.toLocaleLowerCase()) throw new Error("First representative signature must match the first representative name.");
+    if (secondRepresentativeSigned) {
+      validateAnswers(row.snapshot.clientFields.filter((field: any) => secondRepresentativeFields.includes(field.id)).map((field: any) => ({...field, required:true})), answers);
+      if (body.representativeTwoConsent !== true) throw new Error("The second designated representative must consent to their typed signature, or leave all second representative fields blank.");
+      if (answers.representativeTwoName.toLocaleLowerCase() !== answers.representativeTwoSignature.toLocaleLowerCase()) throw new Error("Second representative signature must match the second representative name.");
+    }
+    if (answers.attendantName.toLocaleLowerCase() !== name.toLocaleLowerCase()) throw new Error("HMP attendant signature must match the HMP money attendant name.");
+  }
+  const drawings: Record<string, any> = {};
+  if (body.signatureDrawings !== undefined) {
+    if (!body.signatureDrawings || typeof body.signatureDrawings !== "object" || Array.isArray(body.signatureDrawings)) throw new Error("Invalid signature drawings.");
+    const allowed = ["signatureName", ...(row.snapshot.signatureMode === "on-site-three-signatures" ? ["representativeOneSignature", ...(secondRepresentativeSigned ? ["representativeTwoSignature"] : [])] : [])];
+    for (const [key,value] of Object.entries(body.signatureDrawings) as [string, any][]) {
+      if (!allowed.includes(key) || !value || value.consent !== true) throw new Error("Each drawing needs its signer’s details and explicit authorization.");
+      drawings[key] = {strokes:validateSignatureDrawing(value.strokes), consent:"I authorize this drawing as part of my electronic signature."};
+    }
   }
   const signature = { name, consent: row.snapshot.signingConsent, signedAt: now, userAgent: userAgent.slice(0, 500), method: "typed-name-private-link",
-    ...(row.snapshot.signatureMode === "on-site-three-signatures" ? {representativeOneConsent:true, representativeTwoConsent:true} : {}) };
+    ...(Object.keys(drawings).length ? {drawings} : {}),
+    ...(row.snapshot.signatureMode === "on-site-three-signatures" ? {representativeOneConsent:true, representativeTwoConsent:secondRepresentativeSigned} : {}) };
   const recordHash = hash(JSON.stringify({ id: row.id, snapshot: row.snapshot, adminAnswers: row.admin_answers, clientAnswers: answers, signature }));
   return { client_answers: answers, signature, record_hash: recordHash, completed_at: now, updated_at: now, status: "Completed" };
 }
-export const publicAgreement = (row: any) => ({
-  id: row.id, snapshot: row.snapshot, clientName: row.client_name, clientEmail: row.client_email,
-  adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
-  sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
-  recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,
-});
+export const publicAgreement = (storedRow: any) => {
+  const row = withCurrentDraftFields(storedRow);
+  return {
+    id: row.id, snapshot: row.snapshot, clientName: row.client_name, clientEmail: row.client_email,
+    adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
+    sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
+    recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,
+  };
+};

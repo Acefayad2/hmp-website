@@ -15,13 +15,13 @@ The owner explicitly chose online completion/signing and confirmed **four includ
 
 1. Admin chooses a template, enters client name/email and service-specific details, and saves a draft.
 2. Admin reviews the full terms, fills required service fields, enters the representative's typed signature, and explicitly authorizes it before sending.
-3. An email delivers a private 90-day link. It opens the agreement and matching client inputs on desktop or mobile without requiring another account.
+3. An email delivers a private 7-day link. It opens the agreement and matching client inputs on desktop or mobile without requiring another account.
 4. Client reviews the terms, enters event details and consent choices, and submits a typed signature with explicit electronic-record consent.
 5. Admin's existing 10-second synchronization updates the form list. Completed records include answers, exact terms/field snapshot, both typed names, consent, server time, browser information and a record fingerprint. Both sides can print/save the combined record and full terms.
 
 The corresponding answers supply PDF blanks; event-date placeholders refer to the client-entered event date. Agreement wording is not silently shortened. The accessories title is retained from the supplied legal form rather than applying the public-site copy replacement to legal terms.
 
-Existing custom contracts remain available and unchanged. These new forms use their own secure table. Sent forms cannot be edited: void and prepare a new form if needed. Completed forms cannot be overwritten or deleted. Links expire 90 days after issue, including client copy access; Admin retains access to completed records.
+Existing custom contracts remain available and unchanged. These new forms use their own secure table. Sent forms cannot be edited: void and prepare a new form if needed. Completed forms cannot be overwritten or deleted. New links expire 7 days after issue, including client copy access; Admin retains access to completed records. Existing issued deadlines remain unchanged. Admin can renew an expired unfinished form: a fresh token and 7-day deadline replace the expired link without changing terms or signatures. On-site forms renew without email; other forms offer Renew & resend. Failed delivery can retry the same new link. Completed and void records cannot be renewed.
 
 ## Safety
 

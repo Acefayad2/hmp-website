@@ -17,10 +17,10 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261016-client-hub" />
+    <link rel="stylesheet" href="admin.css?v=20261018-client-hub" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
-    <link rel="stylesheet" href="document-message.css?v=20260923-1" />
-    <link rel="stylesheet" href="agreement.css?v=20261016-validation" />
+    <link rel="stylesheet" href="document-message.css?v=20261016-document-cards" />
+    <link rel="stylesheet" href="agreement.css?v=20261018-signatures" />
     <link rel="stylesheet" href="page-search.css?v=20260929-1" />
   </head>
   <body>
@@ -331,7 +331,7 @@
             <section class="agreement-templates" id="receipt-template" aria-labelledby="receipt-template-heading">
               <p class="kicker">After payment</p>
               <h2 id="receipt-template-heading">Payment receipts</h2>
-              <p>Prepare a branded receipt from a paid invoice, then save a PDF to share with your client.</p>
+              <p>Prepare a branded receipt for a partial or full invoice payment, then save a PDF to share with your client.</p>
               <button class="agreement-button" id="create-receipt" type="button">Create payment receipt</button>
             </section>
             <section class="agreement-templates" aria-labelledby="client-forms-heading">
@@ -585,6 +585,7 @@
           <div class="proposal-form-actions">
             <p class="form-message" id="proposal-editor-message" role="status"></p>
             <div>
+              <button class="secondary-button" id="close-proposal-editor-bottom" type="button">Close</button>
               <button class="secondary-button" id="print-proposal" type="button">Preview / PDF</button>
               <button class="secondary-button" id="save-proposal-draft" type="button">Save draft</button>
               <button class="primary-button" type="submit">Send to client portal</button>
@@ -823,6 +824,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261016-validation"></script>
+    <script type="module" src="assets/admin.js?v=20261018-client-hub"></script>
   </body>
 </html>

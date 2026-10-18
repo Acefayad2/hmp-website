@@ -51,6 +51,7 @@ test("admin proposal exits share the dirty guard and successful saves and sends 
   const source = readFileSync(new URL("../src/admin.js", import.meta.url), "utf8");
   assert.match(source, /closeProposalEditor = \(\{ confirmDiscard = true \} = \{\}\)/);
   assert.match(source, /Discard your unsaved proposal changes\?/);
+  assert.match(source, /\$\("#close-proposal-editor-bottom"\)\.addEventListener\("click", \(\) => closeProposalEditor\(\)\)/);
   assert.match(source, /proposalDirtyState\.markSaved\(payload\)/);
   assert.match(source, /closeProposalEditor\(\{ confirmDiscard: false \}\)/);
   assert.match(source, /pendingFiles\([\s\S]*proposalDirtyState\.isDirty\(\)/);
@@ -61,4 +62,14 @@ test("admin proposal exits share the dirty guard and successful saves and sends 
   assert.match(sender, /await loadMessages\(\)\.catch/);
   assert.match(sender, /#admin-message-status[\s\S]*postSendWarnings\.join/);
   assert.match(sender, /activeWorkspaceView === "drafts"[\s\S]*#drafts-status/);
+});
+
+test("proposal footer Close is desktop-only and cannot submit a proposal", () => {
+  const html = readFileSync(new URL("../admin.html", import.meta.url), "utf8");
+  const css = readFileSync(new URL("../admin.css", import.meta.url), "utf8");
+  assert.match(html, /id="close-proposal-editor" type="button">Close/);
+  assert.match(html, /class="proposal-form-actions"[\s\S]*id="close-proposal-editor-bottom" type="button">Close/);
+  assert.equal((html.match(/id="close-proposal-editor-bottom"/g) || []).length, 1);
+  assert.match(css, /#close-proposal-editor-bottom \{ display:none; \}/);
+  assert.match(css, /@media \(min-width:801px\) \{\s*#close-proposal-editor-bottom \{ display:inline-flex;/);
 });

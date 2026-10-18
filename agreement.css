@@ -8,6 +8,17 @@
 .agreement-field { display:grid; gap:7px; font-size:15px; align-content:start; }
 .agreement-field input, .agreement-field textarea, .agreement-field select { width:100%; min-width:0; box-sizing:border-box; border:1px solid #bba6a2; border-radius:10px; padding:12px; background:white; color:#4c3335; font:inherit; font-size:16px; }
 .agreement-field textarea { resize:vertical; }
+.agreement-text-wrapper { position:relative; margin:22px 0; }
+.agreement-rich-editor { min-height:240px; padding:16px; border:1px solid #bba6a2; border-radius:10px; background:#fff; color:#4c3335; font:16px/1.6 Georgia,serif; white-space:pre-wrap; overflow-wrap:anywhere; }
+.agreement-rich-editor p { margin:0; }
+.agreement-format-toolbar { display:flex; flex-wrap:wrap; gap:6px; position:sticky; top:0; z-index:3; padding:8px; border:1px solid #d9c7c0; border-radius:12px; background:#fff8f1; box-shadow:0 4px 12px #4c33351a; visibility:hidden; }
+.agreement-text-wrapper:focus-within .agreement-format-toolbar { visibility:visible; }
+.agreement-format-toolbar button { min-height:40px; padding:7px 10px; border:1px solid #bba6a2; border-radius:8px; background:#fff; color:#4c3335; font:14px/1.2 system-ui,sans-serif; cursor:pointer; }
+.agreement-format-toolbar button:hover { background:#eddfd8; }
+.agreement-format-help { font:14px/1.5 system-ui,sans-serif; }
+.agreement-align-left { text-align:left; }
+.agreement-align-center { text-align:center; }
+.agreement-align-right { text-align:right; }
 .agreement-wide { grid-column:1/-1; }
 .agreement-templates h3 { margin:0; }
 .review-honey { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
@@ -56,6 +67,12 @@
 .agreement-page [hidden], .agreement-dialog [hidden] { display:none!important; }
 .agreement-page :focus-visible, .agreement-dialog :focus-visible, .agreement-template:focus-visible, .agreement-row:focus-visible { outline:3px solid #9b6635; outline-offset:3px; }
 @media(max-width:600px) { .agreement-grid,.agreement-answers { grid-template-columns:1fr; } .agreement-panel,.agreement-templates { padding:18px; } .agreement-dialog { padding:18px; } }
+.signature-pad { min-width:0; padding:16px 0; }
+.signature-pad canvas, .signature-drawing { display:block; width:100%; max-width:650px; aspect-ratio:10/3; background:#fff; border:1px solid #948581; border-radius:8px; }
+.signature-pad canvas { touch-action:none; }
+.signature-pad [hidden] { display:none!important; }
+.signature-pad button[aria-pressed="true"] { background:#603f47; color:white; }
+.signature-record { break-inside:avoid; }
 @media print {
   body.printing-agreement > * { display:none!important; }
   body.printing-agreement > #agreement-print { display:block!important; color:#222; background:white; font:11pt/1.5 Georgia,serif; }

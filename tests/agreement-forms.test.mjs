@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { agreementTemplates, validateAnswers, agreementTextIssues } from "../agreement-schema.mjs";
+import { agreementTemplates, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues } from "../agreement-schema.mjs";
 import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash, issuedSnapshot, editableSnapshot } from "../netlify/functions/_agreement-forms.mts";
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
@@ -37,6 +37,156 @@ const request = (route, method="GET", body, token) => new Request(`https://hmped
 function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:200})) {
   return createAgreementHandler({getUserFn:async()=>admin ? {email:"admin@example.test"} : null, databaseFactory:()=>fakeDatabase(rows), fetchFn:send});
 }
+
+const bankBody = row => ({answers:{...inputFor(row.snapshot.clientFields), representativeOneName:"First Signer", representativeOneSignature:"First Signer", representativeTwoName:"", representativeTwoSignature:"", representativeTwoDate:"", attendantName:"HMP Attendant"}, signatureName:"HMP Attendant", consent:true, representativeOneConsent:true, representativeTwoConsent:false});
+
+test("on-site drawings save, reopen, print and remain immutable with the completed record",async()=>{
+  const row=rowFor("money-bank-verification"),h=handlerFor([row]),token=agreementToken(id,"seed");
+  const drawing={strokes:[[[10,20],[50,60],[90,20]]],consent:true};
+  const body={...bankBody(row),signatureDrawings:{signatureName:drawing,representativeOneSignature:drawing}};
+  assert.equal((await h(request("hmp-agreement","POST",body,token))).status,200);
+  const saved=structuredClone(row);
+  const reopened=await (await h(request("hmp-agreement","GET",undefined,token))).json();
+  assert.deepEqual(reopened.agreement.signature.drawings.signatureName.strokes,drawing.strokes);
+  assert.equal((await h(request("hmp-agreement","POST",{...body,signatureDrawings:{}},token))).status,200);
+  assert.deepEqual(row,saved);
+  assert.equal((await h(request("hmp-agreement-forms","PATCH",{id,action:"save",updatedAt:row.updated_at}))).status,409);
+});
+test("drawing authorization, signer presence and content are validated before persistence",()=>{
+  const row=rowFor("money-bank-verification"),body=bankBody(row),strokes=[[[10,20],[50,60]]];
+  const before=structuredClone(row);
+  for(const drawings of [{signatureName:{strokes,consent:false}},{representativeTwoSignature:{strokes,consent:true}},{other:{strokes,consent:true}},{signatureName:{strokes:"<svg>",consent:true}}]) assert.throws(()=>completionPayload(row,{...body,signatureDrawings:drawings}));
+  const typed=completionPayload(row,body),drawn=completionPayload(row,{...body,signatureDrawings:{signatureName:{strokes,consent:true}}});
+  assert.notEqual(typed.record_hash,drawn.record_hash);assert.deepEqual(row,before);
+});
+
+test("Money Table payment amounts use cents and never accept supplied calculated amounts", () => {
+  assert.deepEqual(moneyTablePaymentAmounts("1154.00"),{retainerAmount:"346.20",finalPaymentAmount:"807.80"});
+  assert.deepEqual(moneyTablePaymentAmounts("0.05"),{retainerAmount:"0.02",finalPaymentAmount:"0.03"});
+  assert.deepEqual(moneyTablePaymentAmounts("0"),{retainerAmount:"0.00",finalPaymentAmount:"0.00"});
+  for (const value of ["", "-1", "bad", "1.234", "10000001"]) assert.deepEqual(moneyTablePaymentAmounts(value),{retainerAmount:"",finalPaymentAmount:""});
+  const fields = snapshotFor("money-collecting").adminFields;
+  const answers = validateAnswers(fields,{serviceFee:"1154.00",retainerAmount:"999",finalPaymentAmount:"1"},false);
+  assert.equal(answers.retainerAmount,"346.20");
+  assert.equal(answers.finalPaymentAmount,"807.80");
+  const html = fieldsHTML(fields,answers,"admin-answer",false);
+  assert.match(html,/name="retainerAmount"\s+readonly aria-readonly="true"/);
+  assert.match(html,/Final payment amount \(USD\) \(calculated\)/);
+  assert.match(answersHTML(fields,answers),/\$346\.20/);
+  assert.match(answersHTML(fields,answers),/\$807\.80/);
+});
+
+test("old Money Table drafts gain calculated amounts but sent and signed records never change", () => {
+  for (const templateId of ["money-collecting","money-collecting-changing"]) for (const status of ["Draft","Sent","Completed"]) {
+    const row = {...rowFor(templateId),status};
+    row.snapshot.adminFields = row.snapshot.adminFields.filter(field => !field.calculated);
+    row.admin_answers = {...row.admin_answers,serviceFee:"1154.00"};
+    delete row.admin_answers.retainerAmount; delete row.admin_answers.finalPaymentAmount;
+    const original = structuredClone(row), result = publicAgreement(row);
+    assert.deepEqual(row,original,"Read must not mutate the stored record");
+    assert.deepEqual(result.snapshot.pages,original.snapshot.pages);
+    assert.equal(result.adminAnswers.retainerAmount,status === "Draft" ? "346.20" : undefined);
+    assert.equal(result.snapshot.adminFields.some(field => field.id === "finalPaymentAmount"),status === "Draft");
+  }
+});
+
+test("Money Table calculated amounts persist on create, recalculate on save and reach the client on share", async () => {
+  const rows = [], handler = handlerFor(rows), templateId="money-collecting-changing";
+  const answers = {...inputFor(snapshotFor(templateId).adminFields),serviceFee:"1154.00",retainerAmount:"9999",finalPaymentAmount:"0"};
+  const created = await handler(request("hmp-agreement-forms","POST",{templateId,clientName:"Payment Test",clientEmail:"client@example.test",answers}));
+  assert.equal(created.status,201);
+  const row = rows[0];
+  assert.equal(row.admin_answers.retainerAmount,"346.20");
+  assert.equal(row.admin_answers.finalPaymentAmount,"807.80");
+  const saved = await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"save",updatedAt:row.updated_at,clientName:row.client_name,clientEmail:row.client_email,answers:{...answers,serviceFee:"1000.01"}}));
+  assert.equal(saved.status,200);
+  assert.equal(row.admin_answers.retainerAmount,"300.00");
+  assert.equal(row.admin_answers.finalPaymentAmount,"700.01");
+  assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"share",updatedAt:row.updated_at,hmpConsent:true}))).status,200);
+  const client = (await (await handler(request("hmp-agreement","GET",null,agreementToken(row.id,row.token_nonce)))).json()).agreement;
+  assert.equal(client.adminAnswers.retainerAmount,"300.00");
+  assert.equal(client.adminAnswers.finalPaymentAmount,"700.01");
+  assert.match(client.snapshot.pages.join("\n"),/30%/);
+});
+
+test("formatting persists through the agreement API and remains locked after sharing", async () => {
+  const row = {...rowFor(),status:"Draft"}, handler = handlerFor([row]);
+  const pages = row.snapshot.pages;
+  const pageFormatting = pages.map((page,i) => i ? [] : [{start:0,end:10,bold:true,align:"center"}]);
+  const saved = await handler(request("hmp-agreement-forms","PATCH",{id,action:"save",updatedAt:row.updated_at,clientName:row.client_name,clientEmail:row.client_email,answers:row.admin_answers,pages,pageFormatting}));
+  assert.equal(saved.status,200);
+  assert.deepEqual(row.snapshot.pageFormatting,pageFormatting);
+  const shared = await handler(request("hmp-agreement-forms","PATCH",{id,action:"share",updatedAt:row.updated_at,hmpConsent:true}));
+  assert.equal(shared.status,200);
+  const client = (await (await handler(request("hmp-agreement","GET",null,agreementToken(id,"seed")))).json()).agreement;
+  assert.deepEqual(client.snapshot.pageFormatting,pageFormatting);
+  const original = structuredClone(row.snapshot);
+  assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"save",updatedAt:row.updated_at,pages,pageFormatting:pages.map(()=>[])}))).status,409);
+  assert.deepEqual(row.snapshot,original);
+});
+
+test("bank form can submit without a second representative and reopens unchanged in Admin and client views", async () => {
+  const row = rowFor("money-bank-verification"), handler = handlerFor([row]), body = bankBody(row);
+  const original = structuredClone(row.snapshot), token = agreementToken(id,"seed");
+  assert.equal(requiresSecondRepresentative(row.snapshot, body.answers), false);
+  const result = await handler(request("hmp-agreement", "POST", body, token));
+  assert.equal(result.status, 200);
+  assert.equal(row.signature.representativeOneConsent, true);
+  assert.equal(row.signature.representativeTwoConsent, false, "Never claim consent from an absent signer");
+  assert.equal(row.signature.name, "HMP Attendant");
+  assert.deepEqual(row.snapshot, original);
+  for (const response of [await handler(request(`hmp-agreement-forms?id=${id}`)), await handler(request("hmp-agreement","GET",null,token))]) {
+    const saved = (await response.json()).agreement;
+    assert.equal(saved.clientAnswers.representativeTwoName, "");
+    assert.equal(saved.signature.representativeTwoConsent, false);
+    const html = answersHTML(saved.snapshot.clientFields, saved.clientAnswers);
+    assert.match(html, /First \/ second designated representative initials at receipt/);
+    assert.match(html, /First \/ second designated representative initials at reconciliation/);
+    assert.match(html, /Second designated representative name<\/dt><dd>Not specified/);
+  }
+});
+
+test("partial second-representative details cannot submit; errors identify missing fields", () => {
+  const row=rowFor("money-bank-verification"), body=bankBody(row);
+  for (const field of secondRepresentativeFields) {
+    const answers={...body.answers,[field]:field.endsWith("Date") ? "2026-12-01" : "Second Signer"};
+    assert.equal(requiresSecondRepresentative(row.snapshot, answers),true);
+    assert.throws(()=>completionPayload(row,{...body,answers}),/Second .* required/);
+  }
+  assert.throws(()=>completionPayload(row,{...body,representativeTwoConsent:true}),/Second designated representative name is required/);
+  assert.throws(()=>completionPayload(row,{...body,representativeOneConsent:false}),/first designated representative must consent/);
+  assert.throws(()=>completionPayload(row,{...body,signatureName:"Wrong Person"}),/HMP attendant signature must match/);
+  const whitespace={...body,answers:{...body.answers,representativeTwoName:"  ",representativeTwoSignature:"  ",representativeTwoDate:"  "}};
+  assert.equal(completionPayload(row,whitespace).signature.representativeTwoConsent,false);
+});
+
+test("old bank drafts gain optional second signer without rewriting custom terms or issued snapshots", async () => {
+  for(const status of ["Draft","Sent","Completed"]) {
+    const row={...rowFor("money-bank-verification"),status};
+    delete row.snapshot.optionalSecondRepresentative;
+    row.snapshot.version="2026-10-12.1";
+    row.snapshot.clientFields=row.snapshot.clientFields.map(f=>secondRepresentativeFields.includes(f.id)?{...f,required:true}:f);
+    row.snapshot.pages=[...row.snapshot.pages,"Custom wording stays."];
+    const original=structuredClone(row),handler=handlerFor([row]);
+    const loaded=(await (await handler(request(`hmp-agreement-forms?id=${id}`))).json()).agreement;
+    assert.deepEqual(row,original,"GET must not mutate storage");
+    assert.deepEqual(loaded.snapshot.pages,original.snapshot.pages);
+    if(status==="Draft") {
+      assert.equal(loaded.snapshot.optionalSecondRepresentative,true);
+      assert.equal(loaded.snapshot.version,"2026-10-16.1");
+      assert.ok(loaded.snapshot.clientFields.filter(f=>secondRepresentativeFields.includes(f.id)).every(f=>!f.required));
+      assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"share",updatedAt:row.updated_at}))).status,200);
+      assert.equal(row.snapshot.optionalSecondRepresentative,true);
+      assert.equal((await handler(request("hmp-agreement","POST",bankBody(row),agreementToken(id,"seed")))).status,200);
+    } else {
+      assert.deepEqual(loaded.snapshot,original.snapshot);
+      if(status==="Sent") {
+        assert.equal(requiresSecondRepresentative(row.snapshot,{}),true);
+        assert.throws(()=>completionPayload(row,bankBody(row)),/Second designated representative name is required/);
+      }
+    }
+  }
+});
 
 test("eight templates retain sourced terms and approved four-revision limit", () => {
   assert.equal(agreementTemplates.length,8);
@@ -133,7 +283,7 @@ test("empty and overlong agreement pages identify each page", () => {
   });
 });
 
-test("on-site bank verification requires all three matching signatures and never emails the form", async () => {
+test("on-site bank verification validates all included signatures and never emails the form", async () => {
   const row={...rowFor("money-bank-verification"),status:"Draft"};
   const handler=handlerFor([row]);
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"send",updatedAt:row.updated_at}))).status,400);
@@ -150,6 +300,66 @@ test("on-site bank verification requires all three matching signatures and never
   assert.equal(row.status,"Completed");
   assert.equal(row.signature.representativeOneConsent,true);
   assert.equal(row.signature.representativeTwoConsent,true);
+});
+for (const templateId of ["money-collecting", "money-collecting-changing"]) {
+  test(`${templateId}: service times survive old draft save, reopen, issue and client completion`, async () => {
+    const row = {...rowFor(templateId), status:"Draft"};
+    row.snapshot = {...row.snapshot, title:"Custom draft title", adminFields:row.snapshot.adminFields.filter(field => field.id !== "serviceStartTime")};
+    row.snapshot.pages = [...row.snapshot.pages];
+    row.snapshot.pages[0] += "\nClient-specific wording stays unchanged.";
+    delete row.admin_answers.serviceStartTime;
+    const original = structuredClone(row.snapshot);
+    const handler = handlerFor([row]);
+    const reopened = await (await handler(request(`hmp-agreement-forms?id=${id}`))).json();
+    const fields = reopened.agreement.snapshot.adminFields;
+    const startIndex = fields.findIndex(field => field.id === "serviceStartTime");
+    assert.equal(fields[startIndex + 1].id, "serviceEndTime");
+    assert.equal(fields[startIndex].type, "time");
+    assert.equal(fields[startIndex].required, true);
+    assert.deepEqual(row.snapshot, original, "Reading a draft must not write to storage");
+    const missing = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"share", updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(missing.status, 400);
+    assert.equal((await missing.json()).error, "Scheduled service start time is required.");
+    assert.equal(row.status, "Draft");
+    assert.throws(() => validateAnswers(fields, {...row.admin_answers, serviceStartTime:"25:00"}), /Scheduled service start time/);
+    // A service may cross midnight; do not assume an end time must be later on the same day.
+    const answers = {...row.admin_answers, serviceStartTime:"20:30", serviceEndTime:"00:30"};
+    const saved = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"save", updatedAt:row.updated_at, clientName:row.client_name, clientEmail:row.client_email, answers}));
+    assert.equal(saved.status, 200);
+    assert.equal(row.admin_answers.serviceStartTime, "20:30");
+    assert.equal(row.snapshot.adminFields.filter(field => field.id === "serviceStartTime").length, 1);
+    assert.equal(row.snapshot.title, original.title);
+    assert.deepEqual(row.snapshot.pages, original.pages);
+    const loaded = await (await handler(request(`hmp-agreement-forms?id=${id}`))).json();
+    assert.equal(loaded.agreement.adminAnswers.serviceStartTime, "20:30");
+    assert.match(fieldsHTML(fields, loaded.agreement.adminAnswers), /name="serviceStartTime"[^>]*value="20:30"/);
+    const shared = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"share", updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(shared.status, 200);
+    const token = agreementToken(id, "seed");
+    const client = await (await handler(request("hmp-agreement", "GET", null, token))).json();
+    const details = answersHTML(client.agreement.snapshot.adminFields, client.agreement.adminAnswers);
+    assert.match(details, /Scheduled service start time<\/dt><dd>20:30/);
+    assert.match(details, /Scheduled service end time<\/dt><dd>00:30/);
+    const completed = await handler(request("hmp-agreement", "POST", {answers:inputFor(row.snapshot.clientFields), signatureName:"Test Client", consent:true}, token));
+    assert.equal(completed.status, 200);
+    assert.equal(row.admin_answers.serviceStartTime, "20:30");
+    assert.equal(row.status, "Completed");
+    assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"save", answers:{serviceStartTime:"10:00"}}))).status, 409);
+  });
+}
+test("older sent and completed money agreements retain their exact snapshots", async () => {
+  for (const status of ["Sent", "Completed"]) {
+    const row = {...rowFor("money-collecting-changing"), status};
+    row.snapshot = {...row.snapshot, adminFields:row.snapshot.adminFields.filter(field => field.id !== "serviceStartTime")};
+    delete row.admin_answers.serviceStartTime;
+    const original = structuredClone(row);
+    const handler = handlerFor([row]);
+    for (const response of [await handler(request(`hmp-agreement-forms?id=${id}`)), await handler(request("hmp-agreement", "GET", null, agreementToken(id,"seed")))]) {
+      assert.equal(response.status, 200);
+      assert.deepEqual((await response.json()).agreement.snapshot, original.snapshot);
+    }
+    assert.deepEqual(row, original);
+  }
 });
 test("completion requires consent, validates all answers, stamps signature and hides access secrets", () => {
   const row=rowFor();
@@ -206,7 +416,7 @@ test("draft creation cannot spoof status, owner, terms or signature; send locks 
   assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"save"}))).status,409);
   await handler(request("hmp-agreement-forms","PATCH",{id:row.id,action:"send"}));
   assert.equal(mail.length,1,"successful delivery retries must not send duplicate emails");
-  assert.equal(mail[0].headers["Idempotency-Key"],`hmp-agreement/${row.id}`);
+  assert.equal(mail[0].headers["Idempotency-Key"],`hmp-agreement/${row.id}/${hash(row.token_nonce)}`);
   assert.deepEqual(JSON.parse(mail[0].body).to,["client@example.test"]);
 });
 
@@ -305,4 +515,103 @@ test("information storage failure does not claim completion", async () => {
   const result = await handler(request("hmp-agreement", "POST", {answers:inputFor(row.snapshot.clientFields)}, agreementToken(id,"seed")));
   assert.equal(result.status, 502); assert.equal(row.status, "Sent");
   assert.match((await result.json()).error, /could not be saved/);
+});
+
+test("new agreements and information forms expire exactly seven days after activation", async (t) => {
+  const now = Date.parse("2026-10-16T18:00:00Z");
+  t.mock.timers.enable({apis:["Date"], now});
+  for (const template of ["guest-seating", informationTemplates[0].id]) {
+    const row = {...rowFor(template), status:"Draft"}, mail = [];
+    const handler = handlerFor([row], true, async (_, options) => {mail.push(JSON.parse(options.body)); return new Response("{}");});
+    const sent = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"send", updatedAt:row.updated_at, hmpConsent:true}));
+    assert.equal(sent.status, 200);
+    assert.equal(Date.parse(row.expires_at), now + 7 * 86400000);
+    assert.match(mail[0].html, /valid for 7 days/);
+    assert.doesNotMatch(mail[0].html, /90 days/);
+    const token = agreementToken(id, row.token_nonce);
+    t.mock.timers.setTime(now + 7 * 86400000 - 1);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, token))).status, 200);
+    t.mock.timers.setTime(now + 7 * 86400000);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, token))).status, 410);
+    assert.equal((await handler(request("hmp-agreement", "POST", {answers:{}}, token))).status, 410);
+    t.mock.timers.setTime(now);
+  }
+});
+
+test("expired forms renew and resend without changing document details; old tokens stay invalid", async () => {
+  for (const template of ["guest-seating", informationTemplates[0].id]) {
+    const row = {...rowFor(template), expires_at:"2000-01-01T00:00:00Z", email_delivered_at:"1999-12-25T00:00:00Z"};
+    const original = structuredClone(row), mail = [];
+    const handler = handlerFor([row], true, async (_, options) => {mail.push(options); return new Response("{}");});
+    const before = Date.now();
+    const result = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:row.updated_at}));
+    assert.equal(result.status, 200);
+    assert.equal(mail.length, 1);
+    assert.ok(Date.parse(row.expires_at) >= before + 7 * 86400000);
+    assert.ok(Date.parse(row.expires_at) <= Date.now() + 7 * 86400000);
+    assert.deepEqual(row.snapshot, original.snapshot);
+    assert.deepEqual(row.admin_answers, original.admin_answers);
+    assert.equal(row.sent_at, original.sent_at);
+    assert.notEqual(row.token_nonce, original.token_nonce);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, agreementToken(id, original.token_nonce)))).status, 410);
+    assert.equal((await handler(request("hmp-agreement", "POST", {answers:{}}, agreementToken(id, original.token_nonce)))).status, 410);
+    assert.equal((await handler(request("hmp-agreement", "GET", null, agreementToken(id, row.token_nonce)))).status, 200);
+    assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:original.updated_at}))).status, 409);
+    assert.equal(mail.length, 1);
+  }
+});
+
+test("renewal rejects unauthorized, stale, void, completed and unexpired requests", async () => {
+  for (const status of ["Draft", "Void", "Completed", "Sent"]) {
+    const row = {...rowFor(), status}, original = structuredClone(row);
+    const handler = handlerFor([row]);
+    assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:row.updated_at}))).status, 409);
+    assert.deepEqual(row, original);
+  }
+  const row = {...rowFor(), expires_at:"2000-01-01T00:00:00Z"}, original = structuredClone(row);
+  assert.equal((await handlerFor([row], false)(request("hmp-agreement-forms", "PATCH", {id, action:"renew", updatedAt:row.updated_at}))).status, 401);
+  assert.equal((await handlerFor([row])(request("hmp-agreement-forms", "PATCH", {id, action:"renew", updatedAt:"stale"}))).status, 409);
+  assert.deepEqual(row, original);
+});
+
+test("on-site renewal stays link-only and failed renewed emails can retry without renewing again", async () => {
+  const row = {...rowFor("money-bank-verification"), expires_at:"2000-01-01T00:00:00Z"};
+  let emails = 0;
+  const handler = handlerFor([row], true, async () => {emails++; return new Response("{}");});
+  assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:row.updated_at}))).status, 400);
+  assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"renew", updatedAt:row.updated_at}))).status, 200);
+  assert.equal(emails, 0);
+  const retryRow = {...rowFor(), expires_at:"2000-01-01T00:00:00Z", email_delivered_at:"1999-12-25"}, mail=[];
+  const retryHandler = handlerFor([retryRow], true, async (_, options) => {mail.push(options); return new Response("{}", {status:mail.length === 1 ? 502 : 200});});
+  const first = await retryHandler(request("hmp-agreement-forms", "PATCH", {id, action:"resend", updatedAt:retryRow.updated_at}));
+  assert.equal(first.status, 502);
+  assert.ok((await first.json()).link);
+  const token = retryRow.token_nonce, expiry = retryRow.expires_at;
+  assert.equal((await retryHandler(request("hmp-agreement-forms", "PATCH", {id, action:"send"}))).status, 200);
+  assert.equal(retryRow.token_nonce, token); assert.equal(retryRow.expires_at, expiry);
+  assert.equal(mail[0].headers["Idempotency-Key"], mail[1].headers["Idempotency-Key"]);
+});
+
+test("retrying an existing active link preserves its promised deadline", async () => {
+  const row = rowFor(), expiry = row.expires_at, seed = row.token_nonce, mail=[];
+  const handler = handlerFor([row], true, async (_, options) => {mail.push(JSON.parse(options.body)); return new Response("{}");});
+  assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id, action:"send"}))).status, 200);
+  assert.equal(row.expires_at, expiry); assert.equal(row.token_nonce, seed);
+  assert.ok(mail[0].html.includes(new Date(expiry).toLocaleString("en-US", {timeZone:"America/New_York", timeZoneName:"short"})));
+});
+
+test("a token rotated between client read and completion cannot submit", async () => {
+  const row = rowFor(), db = fakeDatabase([row]), originalFrom = db.from;
+  db.from = () => {
+    const query = originalFrom(), update = query.update;
+    query.update = function (payload) {
+      row.token_hash = hash("a-different-token");
+      return update.call(this, payload);
+    };
+    return query;
+  };
+  const handler = createAgreementHandler({getUserFn:async()=>null, databaseFactory:()=>db});
+  const response = await handler(request("hmp-agreement", "POST", {answers:inputFor(row.snapshot.clientFields), signatureName:"Test Client", consent:true}, agreementToken(id,"seed")));
+  assert.equal(response.status, 409);
+  assert.equal(row.status, "Sent"); assert.equal(row.signature, undefined);
 });

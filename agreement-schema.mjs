@@ -21,8 +21,11 @@ const moneyTableDetails = [
   field("agreementDate", "Agreement date", "date"),
   field("serviceFee", "HMP service fee", "money"),
   field("serviceHours", "Service hours", "decimal"),
+  {...field("retainerAmount", "30% retainer amount (USD)", "money", false), calculated:"money-table-payment", help:"Calculated from the HMP service fee."},
   field("retainerDue", "30% retainer due date", "date"),
+  {...field("finalPaymentAmount", "Final payment amount (USD)", "money", false), calculated:"money-table-payment", help:"Service fee minus the retainer; not a payment-status balance."},
   field("finalPaymentDue", "Final payment due date", "date"),
+  field("serviceStartTime", "Scheduled service start time", "time"),
   field("serviceEndTime", "Scheduled service end time", "time"),
   field("cancellationDeadline", "Cancellation deadline", "date"),
   field("cancellationRefundAmount", "Refund of final payment before deadline", "money"),
@@ -35,7 +38,7 @@ const moneyTableClient = [...eventFields, field("guestCount", "Estimated number 
 export const agreementTemplates = [
   {
     id: "guest-seating", title: "Guest Seating Experience Services Agreement",
-    adminFields: [field("selectedService", "Selected service / package", "textarea"), field("guestListDue", "Final guest seating list due", "date"), ...setup, ...payment, ...representative],
+    adminFields: [field("selectedService", "Selected service / package", "select", true, ["Guest Arrival", "Arrival + Directory"]), field("guestListDue", "Final guest seating list due", "date"), ...setup, ...payment, ...representative],
     clientFields: [...eventFields, field("guestCount", "Estimated number of guests", "number"), field("vendorAccess", "Venue vendor access time"), marketing],
   },
   {
@@ -91,26 +94,45 @@ export const agreementTemplates = [
   {
     id:"money-bank-verification", title:"Money Table Service: Money Bank Verification",
     signatureMode:"on-site-three-signatures",
+    optionalSecondRepresentative:true,
     adminFields:[],
     clientFields:[
       field("clientName", "Client name"), field("eventDate", "Event date", "date"), field("eventType", "Event type"),
       field("recommendedBank", "Recommended money bank", "money"), field("actualBank", "Actual money bank received", "money"),
-      field("receivedInitials", "Initials at receipt"),
-      field("reconciledBank", "Money bank reconciliation at service conclusion", "money"), field("reconciledInitials", "Initials at reconciliation"),
+      field("receivedInitials", "First / second designated representative initials at receipt"),
+      field("reconciledBank", "Money bank reconciliation at service conclusion", "money"), field("reconciledInitials", "First / second designated representative initials at reconciliation"),
       field("representativeOneName", "First designated representative name"), field("representativeOneSignature", "First representative signature (type full name)"),
       field("representativeOneDate", "First representative signing date", "date"),
-      field("representativeTwoName", "Second designated representative name"), field("representativeTwoSignature", "Second representative signature (type full name)"),
-      field("representativeTwoDate", "Second representative signing date", "date"),
+      field("representativeTwoName", "Second designated representative name", "text", false), field("representativeTwoSignature", "Second representative signature (type full name)", "text", false),
+      field("representativeTwoDate", "Second representative signing date", "date", false),
       field("attendantName", "HMP money attendant name"), field("attendantDate", "HMP attendant signing date", "date"),
     ],
   },
 ];
 export const getAgreementTemplate = (id) => [...agreementTemplates, ...informationTemplates].find((item) => item.id === id);
 
+// Presentation only: keep saved draft wording selectable without rewriting its snapshot.
+export function agreementDraftFields(snapshot, answers = {}) {
+  if (snapshot.id !== "guest-seating") return snapshot.adminFields;
+  const current = getAgreementTemplate(snapshot.id).adminFields.find(field => field.id === "selectedService");
+  return snapshot.adminFields.map(field => {
+    if (field.id !== current.id || field.options) return field;
+    const saved = answers[field.id] || "";
+    return {...field, type:"select", options:[...current.options, ...(saved && !current.options.includes(saved) ? [saved] : [])]};
+  });
+}
+
+export const secondRepresentativeFields = ["representativeTwoName", "representativeTwoSignature", "representativeTwoDate"];
+export function requiresSecondRepresentative(snapshot, values = {}, consent = false) {
+  return snapshot.optionalSecondRepresentative !== true || consent === true ||
+    secondRepresentativeFields.some(id => typeof values[id] === "string" && values[id].trim() !== "");
+}
+
 export function validateAnswers(fields, values, requireAll = true) {
   const answers = {};
   const issues = [];
   for (const field of fields) {
+    if (field.calculated === "money-table-payment") continue;
     const value = typeof values?.[field.id] === "string" ? values[field.id].trim() : "";
     try {
     if (value.length > (field.type === "textarea" ? 5000 : 500)) throw new Error(`${field.label} is too long.`);
@@ -126,6 +148,8 @@ export function validateAnswers(fields, values, requireAll = true) {
     answers[field.id] = value;
   }
   if (issues.length) throw validationError(issues);
+  const payments = moneyTablePaymentAmounts(answers.serviceFee);
+  for (const field of fields) if (field.calculated === "money-table-payment") answers[field.id] = payments[field.id] || "";
   return answers;
 }
 
@@ -136,7 +160,7 @@ export function validationError(issues) {
 }
 
 // Keep the same allowlist on the editor and server; never silently strip draft wording.
-const moneyPlaceholders = new Set(["agreementDate", "serviceFee", "serviceHours", "retainerDue", "finalPaymentDue", "serviceEndTime", "cancellationDeadline", "cancellationRefundAmount", "commissionClause", "travelClause", "grandTotalClause"]);
+const moneyPlaceholders = new Set(["agreementDate", "serviceFee", "serviceHours", "retainerDue", "finalPaymentDue", "serviceStartTime", "serviceEndTime", "cancellationDeadline", "cancellationRefundAmount", "commissionClause", "travelClause", "grandTotalClause"]);
 export function agreementTextIssues(snapshot) {
   if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return [];
   return snapshot.pages.flatMap((page, pageIndex) => {
@@ -151,4 +175,11 @@ export function agreementTextIssues(snapshot) {
     }
     return issues;
   });
+}
+
+export function moneyTablePaymentAmounts(serviceFee) {
+  const value = typeof serviceFee === "string" ? serviceFee.trim() : "";
+  if (!/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000) return {retainerAmount:"", finalPaymentAmount:""};
+  const cents = Math.round(Number(value)*100), retainerCents = Math.round(cents*30/100);
+  return {retainerAmount:(retainerCents/100).toFixed(2), finalPaymentAmount:((cents-retainerCents)/100).toFixed(2)};
 }

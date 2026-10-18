@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "@netlify/identity";
 import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
-import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern } from "./_agreement-forms.mts";
+import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern, withCurrentDraftFields } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
@@ -44,7 +44,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         if (!row || !["Sent", "Completed"].includes(row.status) || !row.expires_at || Date.parse(row.expires_at) <= Date.now()) return json({error:"This link has expired or is no longer available. Please contact HMP for help."}, 410);
         if (request.method === "GET" || row.status === "Completed") return json({agreement:publicAgreement(row), signingConsent:row.snapshot.signingConsent});
         const payload = completionPayload(row, body, request.headers.get("user-agent") || "");
-        const {data: saved, error: saveError} = await db.from(table).update(payload).eq("id", row.id).eq("status", "Sent").gt("expires_at", new Date().toISOString()).select("*").maybeSingle();
+        const {data: saved, error: saveError} = await db.from(table).update(payload).eq("id", row.id).eq("token_hash", hash(token)).eq("status", "Sent").gt("expires_at", new Date().toISOString()).select("*").maybeSingle();
         if (saveError) return json({error:"Your form could not be saved. Please try again."}, 502);
         if (!saved) return json({error:"This form changed or was already completed. Reload to review its current status."}, 409);
         return json({agreement:publicAgreement(saved), signingConsent:row.snapshot.signingConsent});
@@ -74,9 +74,10 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         return json({agreement:publicAgreement(data)}, 201);
       }
       if (!uuidPattern.test(body.id || "")) return json({error:"Invalid agreement"}, 400);
-      const {data: row, error: readError} = await db.from(table).select("*").eq("id", body.id).maybeSingle();
+      const {data: storedRow, error: readError} = await db.from(table).select("*").eq("id", body.id).maybeSingle();
       if (readError) return json({error:"Agreement could not be loaded."}, 502);
-      if (!row) return json({error:"Agreement not found."}, 404);
+      if (!storedRow) return json({error:"Agreement not found."}, 404);
+      const row = withCurrentDraftFields(storedRow);
       if (row.status === "Completed" || row.status === "Void") return json({error:"This agreement is locked. Create a new form for any changes."}, 409);
       if (body.action === "void") {
         const {data, error} = await db.from(table).update({status:"Void", updated_at:new Date().toISOString()}).eq("id", row.id).in("status", ["Draft", "Sent"]).select("*").maybeSingle();
@@ -92,35 +93,47 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         return json({agreement:publicAgreement(data)});
       }
       const information = row.snapshot.kind === "information";
-      const shareOnly = body.action === "share";
-      if (body.action !== "send" && !shareOnly) return json({error:"Invalid action"}, 400);
+      const renewing = body.action === "renew" || body.action === "resend";
+      const shareOnly = body.action === "share" || body.action === "renew";
+      if (body.action !== "send" && !shareOnly && !renewing) return json({error:"Invalid action"}, 400);
       if (row.snapshot.signatureMode === "on-site-three-signatures" && !shareOnly) return json({error:"Money Bank Verification is completed on-site; open its private link on the shared device."}, 400);
       const resendKey = Netlify.env.get("RESEND_API_KEY");
       const from = Netlify.env.get("HMP_CONTRACT_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
       if (!shareOnly && (!resendKey || !from)) return json({error:"Save the draft first. A verified HMP email sender is required before sending."}, 503);
       let issued = row;
+      if (renewing) {
+        if (row.status !== "Sent" || !(Date.parse(row.expires_at) <= Date.now())) return json({error:"Only an expired, unfinished form can be renewed. Reload its current status."}, 409);
+        const now = new Date().toISOString(), seed = nonce();
+        const {data, error} = await db.from(table).update({updated_at:now,
+          expires_at:new Date(Date.now() + 7 * 86400000).toISOString(),
+          token_nonce:seed, token_hash:hash(agreementToken(row.id, seed)), email_delivered_at:null})
+          .eq("id", row.id).eq("status", "Sent").eq("updated_at", body.updatedAt || "")
+          .eq("token_hash", row.token_hash).select("*").maybeSingle();
+        if (error || !data) return json({error:"This form changed. Close and reopen it before renewing."}, 409);
+        issued = data;
+      }
       if (row.status === "Draft") {
         const completeAnswers = validateAnswers(row.snapshot.adminFields, row.admin_answers);
         if (!information && !["client-only", "on-site-three-signatures"].includes(row.snapshot.signatureMode) && body.hmpConsent !== true) return json({error:"The HMP representative must authorize their electronic signature."}, 400);
         const now = new Date().toISOString();
         const {data, error} = await db.from(table).update({status:"Sent", sent_at:now, updated_at:now,
-          expires_at:new Date(Date.now() + 90 * 86400000).toISOString(),
+          expires_at:new Date(Date.now() + 7 * 86400000).toISOString(),
           snapshot:information ? row.snapshot : issuedSnapshot(row.snapshot, completeAnswers),
           admin_answers:information || ["client-only", "on-site-three-signatures"].includes(row.snapshot.signatureMode) ? row.admin_answers : {...row.admin_answers, hmpSignedAt:now, hmpConsent:"I authorize my typed name as my electronic signature for HMP on this agreement."}})
           .eq("id", row.id).eq("status", "Draft").eq("updated_at", body.updatedAt || "").select("*").maybeSingle();
         if (error || !data) return json({error:"The draft changed. Close and reopen it before sending."}, 409);
         issued = data;
       }
-      if (Date.parse(issued.expires_at) <= Date.now()) return json({error:"This form has expired. Void it and create a new form."}, 409);
+      if (!(Date.parse(issued.expires_at) > Date.now())) return json({error:"This form has expired. Close and reopen it, then choose Renew & resend (7 days), or Renew link (7 days) for on-site forms."}, 409);
       const link = privateLink(issued);
       if (shareOnly) return json({agreement:publicAgreement(issued), link});
       if (issued.email_delivered_at) return json({agreement:publicAgreement(issued), link, warning:"This form was already emailed. Copy the private link if the client needs it again."});
       // A stable key prevents duplicate email if a network request is retried.
-      const response = await fetchFn("https://api.resend.com/emails", {method:"POST", headers:{Authorization:`Bearer ${resendKey}`, "Content-Type":"application/json", "Idempotency-Key":`hmp-agreement/${issued.id}`},
+      const response = await fetchFn("https://api.resend.com/emails", {method:"POST", headers:{Authorization:`Bearer ${resendKey}`, "Content-Type":"application/json", "Idempotency-Key":`hmp-agreement/${issued.id}/${hash(issued.token_nonce)}`},
         body:JSON.stringify({from, to:[issued.client_email], reply_to:"info@hmpeds.com", subject:`Complete your ${issued.snapshot.title} — HMP`,
-          html:`<div style="font-family:Georgia,serif;background:#fff8f1;color:#5f3f41;padding:32px"><h1>Ready for your review</h1><p>Hello ${escape(issued.client_name)},</p><p>Please ${information ? "complete" : "review, complete, and sign"} your ${escape(issued.snapshot.title)} online.</p><p><a style="display:inline-block;padding:16px 24px;background:#5f3f41;color:#fff8f1;border-radius:28px" href="${escape(link)}">${information ? "Complete your form" : "Complete and sign form"}</a></p><p>This private link expires in 90 days. Please do not forward it. You can save or print your completed form.</p><p>Questions? Reply to connect with an event specialist.</p></div>`})});
+          html:`<div style="font-family:Georgia,serif;background:#fff8f1;color:#5f3f41;padding:32px"><h1>Ready for your review</h1><p>Hello ${escape(issued.client_name)},</p><p>Please ${information ? "complete" : "review, complete, and sign"} your ${escape(issued.snapshot.title)} online.</p><p><a style="display:inline-block;padding:16px 24px;background:#5f3f41;color:#fff8f1;border-radius:28px" href="${escape(link)}">${information ? "Complete your form" : "Complete and sign form"}</a></p><p>New and renewed private links are valid for 7 days. This link expires on ${escape(new Date(issued.expires_at).toLocaleString("en-US", {timeZone:"America/New_York", timeZoneName:"short"}))}. Please complete it before then, and contact HMP for a new link if it expires. Please do not forward it. You can save or print your completed form.</p><p>Questions? Reply to connect with an event specialist.</p></div>`})});
       if (!response.ok) return json({error:"The form is ready, but email delivery failed. Reopen it to retry or copy its private link.", agreement:publicAgreement(issued), link}, 502);
-      const {error: emailUpdateError} = await db.from(table).update({email_delivered_at:new Date().toISOString()}).eq("id", issued.id).eq("status", "Sent");
+      const {error: emailUpdateError} = await db.from(table).update({email_delivered_at:new Date().toISOString()}).eq("id", issued.id).eq("token_hash", issued.token_hash).eq("status", "Sent");
       return json({agreement:publicAgreement(issued), link, ...(emailUpdateError ? {warning:"Email sent; delivery status could not be recorded."} : {})});
     } catch (error) {
       return json({error:error instanceof Error ? error.message : "The request could not be completed.", ...(error instanceof Error && "issues" in error ? {issues:error.issues} : {})}, 400);

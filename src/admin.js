@@ -42,8 +42,7 @@ import {
 import {
   parseProposal,
   printProposal,
-  renderProposalCard,
-  renderProposalPreview,
+  renderProposalMessage,
   serializeProposal,
 } from "../proposal-ui.js";
 
@@ -575,7 +574,7 @@ const renderAdminMessages = (thread) => {
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
-      article.append(renderProposalPreview(proposal));
+      article.append(renderProposalMessage(proposal));
     } else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
     if (message.sender === "admin") {
@@ -2353,6 +2352,7 @@ $("#proposal-workspace-create").addEventListener("click", () => {
 $("#close-manual-inquiry").addEventListener("click", () => $("#manual-inquiry-dialog").close());
 $("#manual-inquiry-form").addEventListener("submit", createManualInquiry);
 $("#close-proposal-editor").addEventListener("click", () => closeProposalEditor());
+$("#close-proposal-editor-bottom").addEventListener("click", () => closeProposalEditor());
 $("#proposal-form").addEventListener("submit", sendProposal);
 $("#save-proposal-draft").addEventListener("click", saveProposalDraft);
 window.addEventListener("hmp-drafts-changed", () => {

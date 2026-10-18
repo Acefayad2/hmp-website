@@ -1,7 +1,7 @@
 import { parseProposal } from "./proposal-ui.js";
 
 export const hubSections = [
-  ["all", "All"],
+  ["all", "Overview"],
   ["messages", "Messages"],
   ["proposals", "Proposals"],
   ["invoices", "Invoices"],

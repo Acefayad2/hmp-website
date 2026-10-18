@@ -27,8 +27,8 @@ test("client and admin message threads start with messages, with full proposals 
   const proposal = readFileSync(new URL("../proposal-ui.js", import.meta.url), "utf8");
   assert.match(client, /let activeHubSection = "messages"/);
   assert.match(admin, /let activeHubSection = "messages"/);
-  assert.match(client, /article\.append\(renderProposalPreview\(proposal\)\)/);
-  assert.match(admin, /article\.append\(renderProposalPreview\(proposal\)\)/);
+  assert.match(client, /article\.append\(renderProposalMessage\(proposal\)\)/);
+  assert.match(admin, /article\.append\(renderProposalMessage\(proposal\)\)/);
   assert.match(proposal, /open\.textContent = "View proposal"/);
   assert.match(proposal, /dialog\.showModal\(\)/);
 });

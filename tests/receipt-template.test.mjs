@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { createReceipt, receiptHTML } from "../receipt-template.mjs";
 
 const invoice = { id: "test-invoice", invoiceNumber: "HMP-1001", status: "Paid", currency: "USD", clientName: "Test Client", clientEmail: "test@example.test", eventName: "Test event", eventDate: "2026-09-24", eventAddress: "Venue\nLaurel, MD", items: [{ description: "Guest seating\nArrival and directory", amount: 1000 }], subtotal: 1000, discountAmount: 100, taxAmount: 54, total: 954, notes: "Do not copy invoice notes", paymentTerms: "Do not request payment again" };
-const details = { paymentDate: "2026-09-24", paymentMethod: "Bank transfer", reference: "REF-123", confirmed: true };
+const details = { amountPaid: "954.00", paymentDate: "2026-09-24", paymentMethod: "Bank transfer", reference: "REF-123", confirmed: true };
 const make = (record = invoice, fields = details) => createReceipt(record, fields, "2026-09-25");
 
 test("receipt uses saved invoice amounts and client/event details without mutating the invoice", () => {
@@ -19,10 +19,47 @@ test("receipt uses saved invoice amounts and client/event details without mutati
   assert.equal(invoice.status, "Paid");
 });
 
-test("draft, sent, void and invalid invoices cannot produce a paid receipt", () => {
-  for (const status of ["Draft", "Sent", "Void", ""]) assert.throws(() => make({ ...invoice, status }), /Paid/);
+test("draft, void, deleted and invalid invoices cannot produce a receipt", () => {
+  for (const status of ["Draft", "Void", ""]) assert.throws(() => make({ ...invoice, status }), /Sent or Paid/);
+  assert.throws(() => make({ ...invoice, deletedAt: "2026-09-25" }), /Sent or Paid/);
   for (const total of [NaN, Infinity, -1, 0, "954"]) assert.throws(() => make({ ...invoice, total }), /valid receipt details/);
   assert.throws(() => make({ ...invoice, currency: "EUR" }), /valid receipt details/);
+});
+
+test("partial payments use the entered cumulative amount, even if the invoice was marked Paid", () => {
+  for (const status of ["Sent", "Paid"]) {
+    const record = { ...invoice, status };
+    const receipt = make(record, { ...details, amountPaid: "400.50" });
+    assert.equal(receipt.amountPaid, 400.5);
+    assert.equal(receipt.balance, 553.5);
+    assert.equal(receipt.total, 954);
+    assert.equal(record.status, status);
+    const html = receiptHTML(receipt);
+    assert.match(html, /Partial payment received/);
+    assert.match(html, /Amount paid to date/);
+    assert.match(html, /\$400\.50/);
+    assert.match(html, /\$553\.50/);
+    assert.doesNotMatch(html, /Paid in full|acknowledges full payment|No payment is due/);
+  }
+});
+
+test("only a zero calculated balance shows Paid in full, regardless of saved status", () => {
+  const receipt = make({ ...invoice, status: "Sent" });
+  assert.equal(receipt.balance, 0);
+  assert.match(receiptHTML(receipt), /Paid in full/);
+  assert.doesNotMatch(receiptHTML(receipt), /Partial payment received/);
+});
+
+test("an actual positive amount no greater than the invoice total is required", () => {
+  for (const amountPaid of [undefined, null, "", " ", "0", "0.001", "-1", "954.01", "400.555", "1e2", "0x10", "1,000", "bad", NaN, Infinity, true, [], {}]) {
+    assert.throws(() => make(invoice, { ...details, amountPaid }), /Amount paid to date/);
+  }
+  assert.equal(make(invoice, { ...details, amountPaid: 400.5 }).balance, 553.5);
+});
+
+test("balance calculations use cents so tiny floating point remainders do not mislabel receipts", () => {
+  assert.equal(make({ ...invoice, total: 0.3 }, { ...details, amountPaid: "0.10" }).balance, 0.2);
+  assert.equal(make(invoice, { ...details, amountPaid: "953.99" }).balance, 0.01);
 });
 
 test("actual payment details and explicit confirmation are required", () => {

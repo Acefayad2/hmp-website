@@ -11,7 +11,7 @@ export const normalizeServiceHours = (value) => typeof value === "string" && /^n
   ? "N/A" : number(value, 240);
 
 export const normalizeProposal = (value = {}) => ({
-  title: text(value.title, 160) || "Service Proposal",
+  title: /^invoice$/i.test(text(value.title, 160)) ? "Proposal" : text(value.title, 160) || "Service Proposal",
   clientName: text(value.clientName, 200),
   celebrationType: text(value.celebrationType, 200),
   eventDate: text(value.eventDate, 10),
@@ -100,6 +100,23 @@ export const printProposal = (proposal) => {
   return true;
 };
 
+export const renderProposalMessage = (proposal) => {
+  const value = normalizeProposal(proposal);
+  const card = document.createElement("section");
+  card.className = "sent-document sent-proposal";
+  const heading = document.createElement("h3");
+  heading.textContent = value.title;
+  const amount = document.createElement("p");
+  amount.className = "sent-document-total";
+  amount.textContent = `HMP service fee: ${money(value.serviceFee)}`;
+  const details = document.createElement("details");
+  const summary = document.createElement("summary");
+  summary.textContent = "View proposal";
+  details.append(summary, renderProposalCard(value));
+  card.append(heading, amount, details);
+  return card;
+};
+
 export const renderProposalCard = (proposal, { showActions = true } = {}) => {
   const value = normalizeProposal(proposal);
   const article = document.createElement("article");
@@ -135,7 +152,7 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
   article.append(header, prepared, details);
   const serviceItems = [
     ...(value.associates ? [`${value.associates} Money Associate${value.associates === 1 ? "" : "s"}`] : []),
-    ...(value.machines ? [`${value.machines} money counting machine${value.machines === 1 ? "" : "s"}`] : []),
+    ...(value.machines ? [`${value.machines} Money Counting Machine${value.machines === 1 ? "" : "s"}`] : []),
     ...lines(value.serviceDetails),
   ];
   if (serviceItems.length) article.append(listSection("Service details", serviceItems));
