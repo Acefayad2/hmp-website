@@ -31,7 +31,9 @@ export function withCurrentDraftFields(row: any) {
   }
   if (row.status !== "Draft" || !["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return row;
   const currentFields = getAgreementTemplate(snapshot.id).adminFields;
-  const fields = [...snapshot.adminFields];
+  const fields = snapshot.adminFields.map((field: any) => field.id === "retainerPercent"
+    ? {...field, options:currentFields.find((item: any) => item.id === field.id).options}
+    : field);
   for (const [id,before] of [["serviceStartTime","serviceEndTime"],["retainerAmount","retainerDue"],["finalPaymentAmount","finalPaymentDue"]]) {
     if (fields.some((field: any) => field.id === id)) continue;
     const index = fields.findIndex((field: any) => field.id === before);

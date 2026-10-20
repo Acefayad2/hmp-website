@@ -37,13 +37,13 @@ const offeringDetails = {
     category: "Event Accessories",
     parentUrl: "/celebration-accessories",
     title: "Lux-Framed Premium LED Welcome Sign",
-    summary: "Welcome guests with a refined digital display in a 27-inch or 32-inch format.",
+    summary: "Welcome guests with a refined digital display in a 32-inch format.",
     heading: "Make the first message memorable.",
     description:
-      "The Lux-Framed Premium LED Welcome Sign gives your arrival area a polished digital focal point. The display can be prepared to complement your event and presented in the size that best fits the venue.",
+      "The Lux-Framed Premium LED Welcome Sign gives your arrival area a polished digital focal point. The display can be prepared to complement your event and positioned to suit the venue.",
     price: "$250",
     features: [
-      "Available in 27-inch and 32-inch sizes",
+      "Available in a 32-inch size",
       "Framed presentation for an elevated finish",
       "Customized welcome display for the event",
     ],
@@ -62,7 +62,7 @@ const offeringDetails = {
     features: [
       "RSVP-based attendance confirmation",
       "Customized Premium LED Signage",
-      "27-inch or 32-inch display options",
+      "32-inch display",
     ],
     image: "/assets/modern-guest-arrival.webp",
     imageAlt: "Premium guest arrival display at an elegant event entrance",
@@ -79,7 +79,7 @@ const offeringDetails = {
     features: [
       "Attendance confirmation and seating lookup",
       "One coordinated arrival experience",
-      "Customized 27-inch or 32-inch Premium LED Signage",
+      "Customized 32-inch Premium LED Signage",
     ],
     image: "/assets/hmp-hero-welcome.webp",
     imageAlt: "Complete digital guest arrival and table directory experience",

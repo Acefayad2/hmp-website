@@ -645,3 +645,97 @@ test("a token rotated between client read and completion cannot submit", async (
   assert.equal(response.status, 409);
   assert.equal(row.status, "Sent"); assert.equal(row.signature, undefined);
 });
+
+test("Money Table retainer dropdown and calculations support every integer from 30 through 100", () => {
+  const options = Array.from({length:71}, (_, index) => String(index + 30));
+  for (const templateId of ["money-collecting", "money-collecting-changing"]) {
+    const snapshot = snapshotFor(templateId);
+    const field = snapshot.adminFields.find(field => field.id === "retainerPercent");
+    assert.deepEqual(field.options, options);
+    assert.equal(field.required, false);
+    assert.equal(field.default, "30");
+    const html = fieldsHTML([field], {retainerPercent:""});
+    assert.match(html, /<option value=""[^>]*>Choose an option<\/option>/);
+    for (const percentage of options) {
+      const answers = validateAnswers(snapshot.adminFields, {...inputFor(snapshot.adminFields), serviceFee:"1000.01", retainerPercent:percentage});
+      const expectedRetainer = Math.round(100001 * Number(percentage) / 100);
+      assert.equal(answers.retainerAmount, (expectedRetainer / 100).toFixed(2));
+      assert.equal(answers.finalPaymentAmount, ((100001 - expectedRetainer) / 100).toFixed(2));
+      assert.match(html, new RegExp(`<option[^>]*>${percentage}<\\/option>`));
+      assert.match(issuedSnapshot(snapshot, answers).pages.join("\n"), new RegExp(`${percentage}% Non-Refundable Retainer`));
+    }
+    for (const value of ["0", "29", "101", "-30", "30.5", "30.0", "030", "1e2", "NaN", "100%", "custom"]) {
+      assert.throws(() => validateAnswers(snapshot.adminFields, {retainerPercent:value}, false), /Retainer percentage.*invalid/);
+      assert.deepEqual(moneyTablePaymentAmounts("1000.01", value), {retainerAmount:"", finalPaymentAmount:""});
+    }
+    assert.deepEqual(moneyTablePaymentAmounts("1000.01", "100"), {retainerAmount:"1000.01", finalPaymentAmount:"0.00"});
+    const paidInFull = validateAnswers(snapshot.adminFields, {serviceFee:"1000.01", retainerPercent:"100", retainerAmount:"1", finalPaymentAmount:"999"}, false);
+    assert.equal(paidInFull.finalPaymentAmount, "0.00");
+    assert.match(answersHTML(snapshot.adminFields, paidInFull), /\$0\.00/);
+    assert.throws(() => validateAnswers(snapshot.adminFields, {...inputFor(snapshot.adminFields), retainerPercent:"100", retainerDue:""}), /Retainer due date is required/);
+  }
+});
+
+test("legacy Money Table drafts gain the expanded dropdown without changing any stored snapshot or issued record", async () => {
+  const options = Array.from({length:71}, (_, index) => String(index + 30));
+  for (const templateId of ["money-collecting", "money-collecting-changing"]) {
+    for (const status of ["Draft", "Sent", "Completed", "Void"]) {
+      const row = {...rowFor(templateId), status};
+      row.snapshot.adminFields = row.snapshot.adminFields.map(field => field.id === "retainerPercent" ? {...field, options:["30", "50"]} : field);
+      row.snapshot.pages[0] += "\nHistorical 27-inch signage wording stays unchanged.";
+      row.admin_answers = {...row.admin_answers, serviceFee:"1000.01", retainerPercent:"50", retainerAmount:"500.01", finalPaymentAmount:"500.00"};
+      row.signature = {name:"Original signer", signedAt:"2026-10-01T12:00:00Z"};
+      row.record_hash = "original-hash";
+      const before = structuredClone(row);
+      const result = publicAgreement(row);
+      assert.deepEqual(row, before, "Reading must never mutate a stored row");
+      assert.deepEqual(result.snapshot.pages, before.snapshot.pages);
+      assert.deepEqual(result.signature, before.signature);
+      assert.equal(result.recordHash, before.record_hash);
+      assert.deepEqual(result.snapshot.adminFields.find(field => field.id === "retainerPercent").options, status === "Draft" ? options : ["30", "50"]);
+      if (status !== "Draft") {
+        assert.deepEqual(result.snapshot, before.snapshot);
+        assert.deepEqual(result.adminAnswers, before.admin_answers);
+        continue;
+      }
+      const handler = handlerFor([row]);
+      const saved = await handler(request("hmp-agreement-forms", "PATCH", {id, action:"save", updatedAt:row.updated_at, clientName:row.client_name, clientEmail:row.client_email, answers:{...row.admin_answers, retainerPercent:"100"}}));
+      assert.equal(saved.status, 200);
+      assert.equal(row.admin_answers.retainerAmount, "1000.01");
+      assert.equal(row.admin_answers.finalPaymentAmount, "0.00");
+      assert.deepEqual(row.snapshot.pages, before.snapshot.pages);
+    }
+  }
+});
+
+test("Money Table API create, save, share and client view preserve expanded percentages and custom terms", async () => {
+  for (const templateId of ["money-collecting", "money-collecting-changing"]) {
+    const rows = [], handler = handlerFor(rows);
+    const answers = {...inputFor(snapshotFor(templateId).adminFields), serviceFee:"1000.01", retainerPercent:"31"};
+    const created = await handler(request("hmp-agreement-forms", "POST", {templateId, clientName:"Range Test", clientEmail:"client@example.test", answers}));
+    assert.equal(created.status, 201);
+    const row = rows[0];
+    assert.equal(row.admin_answers.retainerAmount, "310.00");
+    const save = (retainerPercent, extra = {}) => handler(request("hmp-agreement-forms", "PATCH", {id:row.id, action:"save", updatedAt:row.updated_at, clientName:row.client_name, clientEmail:row.client_email, answers:{...answers, retainerPercent, ...extra}}));
+    for (const invalid of ["29", "101", "30.5"]) {
+      const before = structuredClone(row);
+      assert.equal((await save(invalid)).status, 400);
+      assert.deepEqual(row, before);
+    }
+    assert.equal((await save("", {customPaymentTerms:"Custom installment schedule.", retainerDue:""})).status, 200);
+    const custom = publicAgreement(row);
+    assert.equal(custom.adminAnswers.retainerPercent, "");
+    assert.equal(custom.adminAnswers.retainerAmount, "");
+    assert.equal(custom.adminAnswers.finalPaymentAmount, "");
+    assert.equal(custom.adminAnswers.customPaymentTerms, "Custom installment schedule.");
+    assert.equal((await save("99")).status, 200);
+    assert.equal(row.admin_answers.retainerAmount, "990.01");
+    assert.equal(row.admin_answers.finalPaymentAmount, "10.00");
+    assert.equal((await save("100", {retainerAmount:"999", finalPaymentAmount:"1"})).status, 200);
+    assert.equal((await handler(request("hmp-agreement-forms", "PATCH", {id:row.id, action:"share", updatedAt:row.updated_at, hmpConsent:true}))).status, 200);
+    const client = (await (await handler(request("hmp-agreement", "GET", null, agreementToken(row.id, row.token_nonce)))).json()).agreement;
+    assert.equal(client.adminAnswers.retainerAmount, "1000.01");
+    assert.equal(client.adminAnswers.finalPaymentAmount, "0.00");
+    assert.match(client.snapshot.pages.join("\n"), /100% Non-Refundable Retainer/);
+  }
+});
