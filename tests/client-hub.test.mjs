@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import { hubMessages, hubSectionFor } from "../client-hub.js";
 import { createMessagesHandler } from "../netlify/functions/hmp-messages.mts";
 
@@ -57,6 +58,12 @@ const request = (body, origin="https://hmpeds.com") => new Request("https://hmpe
 });
 const body = {action:"share-form",conversationId,formId};
 const handler = (db,user={email:"admin@example.test"},fetchFn=fetch) => createMessagesHandler({getUserFn:async()=>user,databaseFactory:()=>db,fetchFn});
+
+test("personalized client heading capitalizes Event Hub and uses textContent", () => {
+  const source = readFileSync(new URL("../conversation.js", import.meta.url), "utf8");
+  assert.ok(source.includes('$("#conversation-title").textContent = `${data.conversation.clientName}’s Event Hub`;'));
+  assert.ok(!source.includes('`${data.conversation.clientName}’s event hub`'));
+});
 
 test("client hub groups messages, proposals, invoices, contracts, forms, and Guest Seating", () => {
   const messages = [
