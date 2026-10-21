@@ -35,6 +35,8 @@ export default async () => {
   const url=Netlify.env.get("SUPABASE_URL"),key=Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if(!url || !key) throw new Error("Completion alert database is not configured");
   const db=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-  console.log("Completion alerts",await deliverCompletionAlerts(db));
+  const result=await deliverCompletionAlerts(db);
+  console.log("Completion alerts",result);
+  return Response.json(result);
 };
 export const config:Config={schedule:"* * * * *"};
