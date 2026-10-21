@@ -2,6 +2,16 @@
 
 Admin → Forms → Payment receipts → Create payment receipt.
 
+## Standalone receipts (no invoice)
+
+Select **Standalone receipt (no invoice)** under Receipt type. Enter the client name and service/payment description. A receipt number is generated once and retained when the draft is saved and reopened; it can be edited to match HMP's own reference. Client email and event details are optional. Enter the actual cumulative amount received, payment date and method, then confirm receipt of payment before previewing or printing.
+
+**Service total** is optional. When supplied, the receipt calculates the remaining balance and labels partial/full payment. When omitted, it says **Payment received**, omits the balance and explicitly does not assert full payment. Standalone receipts do not contain an invoice number, invoice tax breakdown or invoice payment instructions. They work even when no invoices exist or the invoice list cannot be loaded. Switching receipt types clears payment confirmation and the preview.
+
+Standalone drafts are stored in the existing private receipt-drafts table with no invoice link. They reopen under **Drafts → Payment receipts** with their client name and standalone receipt number. Existing invoice-linked drafts keep their original behavior. No schema or access changes are needed, and no invoice/payment record is created or updated. Printing still does not send a message or email automatically.
+
+## Invoice-linked receipts
+
 - Select an invoice saved as **Sent**, **Partially paid**, or **Paid in full** in Invoices & Contracts. Draft invoices can be linked to receipt drafts, but cannot produce an issued receipt until sent. Voided and deleted invoices cannot be receipted.
 - Enter the actual payment date and method, an optional non-sensitive reference, and an optional client-facing note.
 - Enter **Amount paid to date**: the total actually received for this invoice, including earlier installments. This is not just the latest payment. The field starts blank, even for an invoice marked Paid.
