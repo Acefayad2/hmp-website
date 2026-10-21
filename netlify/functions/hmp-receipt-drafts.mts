@@ -12,7 +12,8 @@ const table = "hmp_admin_receipt_drafts";
 const columns = "id,invoice_id,payload,revision,created_at,updated_at,invoice:hmp_admin_invoices(invoice_number,client_name,event_name)";
 const normalize = row => ({ id: row.id, invoiceId: row.invoice_id, payload: row.payload, revision: row.revision,
   createdAt: row.created_at, updatedAt: row.updated_at, invoiceNumber: row.invoice?.invoice_number || "",
-  clientName: row.invoice?.client_name || "", eventName: row.invoice?.event_name || "",
+  clientName: row.payload?.receiptMode === "standalone" ? row.payload.clientName || "" : row.invoice?.client_name || "",
+  eventName: row.payload?.receiptMode === "standalone" ? row.payload.eventName || "" : row.invoice?.event_name || "",
 });
 
 export const createReceiptDraftHandler = ({ getUserFn = getUser, databaseFactory = createClient } = {}) => async (request: Request) => {
@@ -44,6 +45,7 @@ export const createReceiptDraftHandler = ({ getUserFn = getUser, databaseFactory
   let payload;
   try { payload = receiptDraftPayload(body.payload); }
   catch (error) { return json({ error: error instanceof Error ? error.message : "Invalid receipt draft" }, 400); }
+  if (payload.receiptMode === "standalone" && invoiceId) return json({ error: "A standalone receipt must not be linked to an invoice." }, 400);
   if (invoiceId) {
     const { data, error } = await db.from("hmp_admin_invoices").select("id,status,deleted_at").eq("id", invoiceId).maybeSingle();
     if (error) return json({ error: "Invoice could not be verified" }, 502);

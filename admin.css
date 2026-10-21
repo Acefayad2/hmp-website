@@ -748,6 +748,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .receipt-header h2 { font-size: 20px; }
   .receipt-details { grid-template-columns: 1fr; gap: 16px; }
 }
+@media screen and (max-width: 600px) {
+  .receipt-standalone .receipt-header { flex-direction: column; gap: 16px; }
+  .receipt-standalone .receipt-header h2 { font-size: 18px; }
+}
 @media print {
   body.printing-receipt > * { display: none !important; }
   body.printing-receipt > #receipt-print { display: block !important; }

@@ -17,7 +17,7 @@ export function collectDraftGroups({ proposals = [], invoices = [], contracts = 
       detail: row.eventName || "Event not named", updatedAt: row.updatedAt || row.createdAt,
     })) },
     { kind: "receipt", title: "Payment receipts", rows: receipts.map(row => ({
-      id: row.id, title: row.invoiceNumber ? `Receipt for ${row.invoiceNumber}` : "Payment receipt — invoice not selected",
+      id: row.id, title: row.payload?.receiptMode === "standalone" ? `Standalone receipt${row.payload.receiptNumber ? ` — ${row.payload.receiptNumber}` : ""}` : row.invoiceNumber ? `Receipt for ${row.invoiceNumber}` : "Payment receipt — invoice not selected",
       client: row.clientName || "Client not selected", detail: row.eventName || row.payload?.reference || "Unfinished receipt",
       updatedAt: row.updatedAt || row.createdAt,
     })) },

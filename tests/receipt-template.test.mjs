@@ -1,11 +1,36 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createReceipt, receiptHTML } from "../receipt-template.mjs";
+import { createReceipt, createStandaloneReceipt, receiptHTML } from "../receipt-template.mjs";
 import { receiptDraftPayload } from "../receipt-draft.mjs";
 
 const invoice = { id: "test-invoice", invoiceNumber: "HMP-1001", status: "Paid", currency: "USD", clientName: "Test Client", clientEmail: "test@example.test", eventName: "Test event", eventDate: "2026-09-24", eventAddress: "Venue\nLaurel, MD", items: [{ description: "Guest seating\nArrival and directory", amount: 1000 }], subtotal: 1000, discountAmount: 100, taxAmount: 54, total: 954, notes: "Do not copy invoice notes", paymentTerms: "Do not request payment again" };
 const details = { amountPaid: "954.00", paymentDate: "2026-09-24", paymentMethod: "Bank transfer", reference: "REF-123", confirmed: true };
 const make = (record = invoice, fields = details) => createReceipt(record, fields, "2026-09-25");
+const standalone = { ...details, receiptNumber: "R-QA-001", clientName: "QA Client", serviceDescription: "Event services", amountPaid: "400.50" };
+
+test("standalone receipt works without an invoice or total and makes no balance/full-payment claim", () => {
+  const receipt = createStandaloneReceipt(standalone, "2026-09-25");
+  assert.equal(receipt.total, null); assert.equal(receipt.balance, null); assert.equal(receipt.amountPaid, 400.5);
+  const html = receiptHTML(receipt);
+  assert.match(html, /Payment received/); assert.match(html, /\$400\.50/);
+  assert.doesNotMatch(html, /Paid in full|Partial payment received|Balance remaining|Invoice total|<dt>Invoice|NaN|undefined/);
+});
+
+test("standalone totals calculate partial/full payments in cents without fabricating invoice fields", () => {
+  const partial = createStandaloneReceipt({ ...standalone, serviceTotal: "954.00" }, "2026-09-25");
+  assert.equal(partial.balance, 553.5); assert.match(receiptHTML(partial), /Partial payment received/);
+  const full = createStandaloneReceipt({ ...standalone, serviceTotal: "400.50" }, "2026-09-25");
+  assert.equal(full.balance, 0); assert.match(receiptHTML(full), /Paid in full/);
+  assert.doesNotMatch(receiptHTML(full), /<dt>Tax|<dt>Discount|<dt>Invoice/);
+  assert.equal(createStandaloneReceipt({ ...standalone, amountPaid: "0.10", serviceTotal: "0.30" }, "2026-09-25").balance, 0.2);
+});
+
+test("standalone receipts validate all required fields, dates, money, confirmation and bounded content", () => {
+  for (const key of ["receiptNumber", "clientName", "serviceDescription", "paymentDate", "paymentMethod", "amountPaid"]) assert.throws(() => createStandaloneReceipt({ ...standalone, [key]: "" }, "2026-09-25"));
+  for (const patch of [{ confirmed: false }, { confirmed: "yes" }, { serviceTotal: "300" }, { serviceTotal: "0" }, { serviceTotal: "1e3" }, { serviceTotal: "99999999999999999" }, { eventDate: "2026-02-30" }, { clientEmail: "bad" }, { clientName: "x".repeat(161) }, { serviceDescription: {} }, { amountPaid: "-1" }, { paymentDate: "2026-09-26" }]) assert.throws(() => createStandaloneReceipt({ ...standalone, ...patch }, "2026-09-25"));
+  const html = receiptHTML(createStandaloneReceipt({ ...standalone, clientName: "<script>bad</script>", serviceDescription: "<img onerror=bad>" }, "2026-09-25"));
+  assert.match(html, /&lt;script&gt;/); assert.doesNotMatch(html, /<script>|<img onerror/);
+});
 
 test("receipt uses saved invoice amounts and client/event details without mutating the invoice", () => {
   const receipt = make();

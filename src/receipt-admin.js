@@ -1,5 +1,5 @@
 import { agreementRequest, escape } from "../agreement-ui.mjs";
-import { createReceipt, localDate, paymentMethods, receiptHTML } from "../receipt-template.mjs";
+import { createReceipt, createStandaloneReceipt, localDate, paymentMethods, receiptHTML } from "../receipt-template.mjs";
 import { receiptDraftPayload } from "../receipt-draft.mjs";
 import { invoiceStatusLabel, receiptableStatuses } from "../invoice-status.mjs";
 
@@ -8,10 +8,28 @@ dialog.className = "agreement-dialog receipt-dialog";
 dialog.id = "receipt-editor";
 dialog.setAttribute("aria-labelledby", "receipt-editor-title");
 document.body.append(dialog);
-let invoices = [], selected = null, busy = false, dirty = false;
+let invoices = [], selected = null, busy = false, dirty = false, invoicesLoaded = false;
 let activeDraft = null;
 const $ = selector => dialog.querySelector(selector);
 const message = text => { $("#receipt-status").textContent = text; };
+const standalone = () => $("[name=receiptMode]")?.value === "standalone";
+function updateMode() {
+  const manual = standalone();
+  $("#receipt-invoice-field").hidden = manual;
+  $("#receipt-invoice").disabled = manual || !invoices.length;
+  $("#receipt-invoice").required = !manual;
+  $("#receipt-standalone-fields").hidden = !manual;
+  $("#receipt-standalone-fields").querySelectorAll("input,textarea").forEach(control => { control.disabled = !manual; });
+  $("#receipt-preview-button").disabled = !manual && (!selected || selected.status === "Draft");
+  $("#receipt-print-button").disabled = $("#receipt-preview-button").disabled;
+  $("#receipt-save-draft").disabled = !manual && !invoicesLoaded;
+  const total = manual ? $("[name=serviceTotal]").value : selected?.total;
+  if (total) $("[name=amountPaid]").max = String(total); else $("[name=amountPaid]").removeAttribute("max");
+  $("#receipt-amount-help").hidden = false;
+  $("#receipt-amount-help").textContent = manual
+    ? "Enter the total actually received for this service so far, including earlier payments. An optional service total lets the receipt calculate a balance; leave it blank if the total is not known."
+    : selected ? `Invoice total: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(selected.total)}. Enter the total received for this invoice so far, including earlier payments—not just the latest installment. The remaining balance is calculated in the receipt preview.` : "Choose an invoice, or select Standalone receipt to continue without one.";
+}
 const canClose = () => !busy && (!dirty || confirm("Close without saving your latest changes? Choose Cancel, then Save draft to keep them in Drafts → Payment receipts."));
 dialog.addEventListener("cancel", event => { if (!canClose()) event.preventDefault(); else dirty = false; });
 window.addEventListener("beforeunload", event => { if (dirty) { event.preventDefault(); event.returnValue = ""; } });
@@ -22,26 +40,36 @@ export async function openReceiptDraft(draft = null) {
   if (dialog.open) return;
   activeDraft = draft;
   dialog.innerHTML = `<header><div><p>CLIENT RECEIPT</p><h2 id="receipt-editor-title">Payment receipt</h2></div><button class="agreement-button secondary" type="button" id="receipt-close">Close</button></header>
-    <p>Choose a sent, partially paid, or fully paid invoice to issue a receipt. Enter the amount actually paid to date, then print or save a PDF to share with the client by email or Messages.</p>
+    <p>Choose an invoice-linked or standalone receipt. Enter the amount actually paid to date, then print or save a PDF to share with the client by email or Messages.</p>
     <p>Save unfinished details privately under Drafts → Payment receipts, even before an invoice is ready. Saving or printing does not send anything, charge the client, or change the invoice's payment status.</p>
-    <form id="receipt-form"><label class="agreement-field">Invoice<select id="receipt-invoice" required disabled><option value="">Loading invoices…</option></select></label>
+    <form id="receipt-form"><label class="agreement-field">Receipt type<select name="receiptMode"><option value="invoice">Invoice-linked receipt</option><option value="standalone">Standalone receipt (no invoice)</option></select></label>
+    <label class="agreement-field" id="receipt-invoice-field">Invoice<select id="receipt-invoice" required disabled><option value="">Loading invoices…</option></select></label>
+    <div id="receipt-standalone-fields" class="agreement-grid" hidden>
+      <label class="agreement-field agreement-wide">Receipt number<input name="receiptNumber" maxlength="60" required disabled></label>
+      <label class="agreement-field">Client name<input name="clientName" maxlength="160" required disabled></label>
+      <label class="agreement-field">Client email (optional)<input name="clientEmail" type="email" maxlength="254" disabled></label>
+      <label class="agreement-field">Event name (optional)<input name="eventName" maxlength="200" disabled></label>
+      <label class="agreement-field">Event date (optional)<input name="eventDate" type="date" disabled></label>
+      <label class="agreement-field agreement-wide">Service / payment description<textarea name="serviceDescription" rows="3" maxlength="1000" required disabled></textarea></label>
+      <label class="agreement-field agreement-wide">Service total ($, optional)<input name="serviceTotal" type="number" inputmode="decimal" min="0.01" step="0.01" disabled></label>
+    </div>
     <p id="receipt-amount-help" hidden></p>
     <div id="receipt-fields"><div class="agreement-grid"><label class="agreement-field">Payment received date<input name="paymentDate" type="date" required max="${localDate()}"></label><label class="agreement-field">Payment method<select name="paymentMethod" required><option value="">Choose a method</option>${paymentMethods.map(method => `<option>${escape(method)}</option>`).join("")}</select></label><label class="agreement-field agreement-wide">Payment reference (optional)<input name="reference" maxlength="120" placeholder="Transaction or check reference - no card or bank account numbers"></label><label class="agreement-field agreement-wide">Client-facing receipt note (optional)<textarea name="note" rows="3" maxlength="1000"></textarea></label></div>
     <label class="agreement-field">Amount paid to date ($)<input name="amountPaid" type="number" inputmode="decimal" min="0.01" step="0.01" required aria-describedby="receipt-amount-help"></label>
     <label class="agreement-checkbox"><input name="confirmed" type="checkbox" required><span>I confirm that the amount paid to date entered above has actually been received.</span></label></div>
     <div class="agreement-actions"><button class="agreement-button secondary" type="button" id="receipt-save-draft" disabled>Save draft</button><button class="agreement-button secondary" type="submit" id="receipt-preview-button" disabled>Preview receipt</button><button class="agreement-button" type="button" id="receipt-print-button" disabled>Print / Save PDF</button></div><p id="receipt-status" class="agreement-status" role="status"></p></form><div id="receipt-preview" hidden></div>`;
-  selected = null; dirty = false; busy = false;
+  invoices = []; invoicesLoaded = false; selected = null; dirty = false; busy = false;
+  $("[name=receiptNumber]").value = `R-${crypto.randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
+  $("[name=receiptMode]").value = draft?.payload?.receiptMode === "standalone" ? "standalone" : "invoice";
+  $("[name=receiptMode]").onchange = () => { $("[name=confirmed]").checked = false; updateMode(); clearPreview(); dirty = true; };
+  $("[name=serviceTotal]").oninput = updateMode;
   $("#receipt-close").onclick = () => { if (canClose()) { dirty = false; dialog.close(); } };
   $("#receipt-invoice").onchange = () => {
     selected = invoices.find(invoice => invoice.id === $("#receipt-invoice").value) || null;
-    $("#receipt-preview-button").disabled = !selected || selected.status === "Draft";
-    $("#receipt-print-button").disabled = !selected || selected.status === "Draft";
     $("[name=confirmed]").checked = false;
-    $("[name=amountPaid]").max = selected ? String(selected.total) : "";
-    $("#receipt-amount-help").hidden = !selected;
-    $("#receipt-amount-help").textContent = selected ? `Invoice total: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(selected.total)}. Enter the total received for this invoice so far, including earlier payments—not just the latest installment. The remaining balance is calculated in the receipt preview.` : "";
+    updateMode();
     clearPreview(); dirty = true;
-    if (selected?.status === "Draft") message("You can save this receipt as a draft now. Send the invoice before previewing or issuing the receipt.");
+    if (!standalone() && selected?.status === "Draft") message("You can save this receipt as a draft now. Send the invoice before previewing or issuing the receipt.");
   };
   $("#receipt-form").oninput = () => { dirty = true; clearPreview(); };
   $("#receipt-form").onsubmit = event => { event.preventDefault(); prepare(false); };
@@ -51,6 +79,7 @@ export async function openReceiptDraft(draft = null) {
   try {
     const result = await agreementRequest("/api/hmp-invoices");
     invoices = result.invoices.filter(invoice => ["Draft", ...receiptableStatuses].includes(invoice.status) && !invoice.deletedAt);
+    invoicesLoaded = true;
     $("#receipt-invoice").innerHTML = `<option value="">Choose an invoice (can be added later for a draft)</option>${invoices.map(invoice => `<option value="${escape(invoice.id)}">${escape(invoice.invoiceNumber)} · ${escape(invoice.clientName)} · ${escape(invoiceStatusLabel(invoice.status))}</option>`).join("")}`;
     $("#receipt-invoice").disabled = !invoices.length;
     $("#receipt-save-draft").disabled = false;
@@ -58,14 +87,18 @@ export async function openReceiptDraft(draft = null) {
       $("#receipt-invoice").value = draft.invoiceId || "";
       $("#receipt-invoice").onchange();
       for (const [key, value] of Object.entries(receiptDraftPayload(draft.payload))) $(`[name=${key}]`).value = value;
+      updateMode();
       dirty = false;
       if (draft.invoiceId && !selected) message("The draft's invoice is no longer available. Your payment details are preserved; choose an eligible invoice before preparing a receipt.");
       else if (selected?.status !== "Draft") message("Draft reopened. Review the amount and confirm payment was received before issuing a receipt.");
-    } else message(invoices.length ? "" : "No eligible invoices are available. You can still save an unfinished receipt draft and add an invoice later.");
+    } else message(invoices.length ? "" : "No eligible invoices are available. Choose Standalone receipt to create one without an invoice, or save an invoice-linked draft for later.");
   } catch (error) {
     $("#receipt-invoice").innerHTML = '<option value="">Invoices unavailable</option>';
-    message(error.message);
+    if (draft) for (const [key, value] of Object.entries(receiptDraftPayload(draft.payload))) $(`[name=${key}]`).value = value;
+    $("#receipt-save-draft").disabled = false;
+    message(`${error.message} You can still choose Standalone receipt; no invoice will be linked.`);
   }
+  updateMode();
 }
 
 async function saveDraft() {
@@ -79,7 +112,7 @@ async function saveDraft() {
     const payload = receiptDraftPayload(values);
     const { draft } = await agreementRequest("/api/hmp-receipt-drafts", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: activeDraft?.id, revision: activeDraft?.revision, invoiceId: selected?.id || null, payload }),
+      body: JSON.stringify({ id: activeDraft?.id, revision: activeDraft?.revision, invoiceId: values.receiptMode === "standalone" ? null : selected?.id || null, payload }),
     });
     activeDraft = draft;
     dirty = false;
@@ -96,18 +129,23 @@ function clearPreview() {
 }
 
 async function prepare(print) {
-  if (busy || !selected) return;
+  if (busy || (!standalone() && !selected)) return;
   busy = true;
   const controls = [...dialog.querySelectorAll("input,select,textarea,button")];
   const previous = controls.map(control => control.disabled);
   const values = Object.fromEntries(new FormData($("#receipt-form")));
   controls.forEach(control => { control.disabled = true; });
   try {
-    // Re-read the protected invoice endpoint so an outdated or voided invoice cannot be receipted.
-    const { invoices: latest } = await agreementRequest("/api/hmp-invoices");
-    const invoice = latest.find(item => item.id === selected.id);
-    if (!invoice || invoice.deletedAt || invoice.updatedAt !== selected.updatedAt) throw new Error("This invoice has changed. Close and reopen the receipt to review the latest details.");
-    const receipt = createReceipt(invoice, { ...values, confirmed: values.confirmed === "on" });
+    let receipt;
+    const details = { ...values, confirmed: values.confirmed === "on" };
+    if (values.receiptMode === "standalone") receipt = createStandaloneReceipt(details);
+    else {
+      // Re-read the protected invoice endpoint so an outdated or voided invoice cannot be receipted.
+      const { invoices: latest } = await agreementRequest("/api/hmp-invoices");
+      const invoice = latest.find(item => item.id === selected.id);
+      if (!invoice || invoice.deletedAt || invoice.updatedAt !== selected.updatedAt) throw new Error("This invoice has changed. Close and reopen the receipt to review the latest details.");
+      receipt = createReceipt(invoice, details);
+    }
     $("#receipt-preview").innerHTML = receiptHTML(receipt);
     $("#receipt-preview").hidden = false;
     if (print) {
