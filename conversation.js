@@ -158,7 +158,7 @@ const loadConversation = async ({ quiet = false } = {}) => {
     if (!response.ok) throw new Error(data.error || "Conversation unavailable");
     $("#client-pin-form").hidden = true;
     $("#client-sign-out").hidden = false;
-    $("#conversation-title").textContent = `${data.conversation.clientName}’s event hub`;
+    $("#conversation-title").textContent = `${data.conversation.clientName}’s Event Hub`;
     $("#summary-service").textContent = eventServiceLabel(data.conversation.service);
     $("#summary-date").textContent = formatDate(data.conversation.celebrationDate);
     $("#conversation-summary").hidden = false;
