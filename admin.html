@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261020-inquiry-details" />
+    <link rel="stylesheet" href="admin.css?v=20261020-notifications" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20261016-document-cards" />
     <link rel="stylesheet" href="agreement.css?v=20261018-signatures" />
@@ -95,11 +95,16 @@
               <p id="dashboard-date"></p>
             </div>
             <div class="header-actions">
+              <button class="secondary-button" id="notifications-button" type="button" aria-haspopup="dialog">Notifications</button>
               <button class="primary-button" id="add-inquiry-button" type="button">Add inquiry</button>
               <span class="sync-state" id="sync-state" role="status" aria-live="polite">Live updates on</span>
             </div>
           </header>
 
+          <dialog id="notifications-dialog" aria-labelledby="notifications-title">
+            <div class="dialog-heading"><div><p class="kicker">Client updates</p><h2 id="notifications-title">Notifications</h2></div><button type="button" data-notifications-close>Close</button></div>
+            <div class="notifications-content"><p>New completed forms and signed agreements appear here. Email alerts are also sent to HMP; provider acceptance does not guarantee inbox delivery.</p><button type="button" class="secondary-button" data-notifications-refresh>Refresh</button><p role="status" data-notification-status>Loading notifications…</p><ul class="notifications-list" data-notification-list></ul></div>
+          </dialog>
           <section class="metrics" aria-label="Inquiry summary">
             <button type="button" class="metric metric-featured" data-inquiry-filter="new" aria-pressed="true" aria-controls="inquiry-list">
               <span>Inquiries</span><strong id="metric-new">—</strong><small>New and ongoing inquiries</small>
@@ -825,6 +830,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261020-inquiry-details"></script>
+    <script type="module" src="assets/admin.js?v=20261020-notifications"></script>
   </body>
 </html>

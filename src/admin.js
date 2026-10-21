@@ -1,4 +1,5 @@
 import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
+import { mountAdminNotifications } from "./admin-notifications.js";
 import {mountDocumentVersions} from "./document-versions.js";
 import {latestDocumentRows} from "../document-versions.mjs";
 import { installValidationSummaries } from "../agreement-ui.mjs";
@@ -62,6 +63,10 @@ const passwordMessage = $("#password-message");
 const inquiryList = $("#inquiry-list");
 const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
+const adminNotifications = mountAdminNotifications({
+  button: $("#notifications-button"), dialog: $("#notifications-dialog"),
+  openDocument: row => row.kind === "form_completed" ? openInformationDraft(row.agreementId) : openAgreementDraft(row.agreementId),
+});
 
 let inquiries = [];
 let activeInquiryFilter = "new";
@@ -2130,6 +2135,7 @@ const loadActiveWorkspace = () => {
 const syncActiveWorkspace = async () => {
   if (dashboardSyncInProgress || document.hidden || dashboard.hidden) return;
   dashboardSyncInProgress = true;
+  void adminNotifications.refresh();
   try {
     await loadActiveWorkspace();
     $("#sync-state").textContent = `Live · Updated ${new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", second: "2-digit" }).format(new Date())}`;
@@ -2152,6 +2158,8 @@ const enterDashboard = async (user) => {
   authShell.hidden = true;
   dashboard.hidden = false;
   $("#viewer-email").textContent = user.email || "HMP Admin";
+  void adminNotifications.refresh();
+  if (new URLSearchParams(location.search).get("notifications") === "1") adminNotifications.open();
   $("#dashboard-date").textContent = new Intl.DateTimeFormat("en-US", {
     weekday: "long",
     month: "long",

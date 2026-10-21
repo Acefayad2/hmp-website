@@ -1,4 +1,5 @@
 import type { Config, Context } from "@netlify/functions";
+import { hmpSender } from "./_email-contact.mts";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -128,7 +129,7 @@ export default async (request: Request, _context: Context) => {
     }
     return json({
       contracts: (data || []).map((record) => normalizeContract(record)),
-      emailConfigured: Boolean(Netlify.env.get("RESEND_API_KEY") && (Netlify.env.get("HMP_CONTRACT_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL"))),
+      emailConfigured: Boolean(Netlify.env.get("RESEND_API_KEY") && hmpSender("contract")),
       updatedAt: new Date().toISOString(),
     });
   }

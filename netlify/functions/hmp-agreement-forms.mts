@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
 import { getUser } from "@netlify/identity";
 import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
@@ -100,7 +101,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       if (body.action !== "send" && !shareOnly && !renewing) return json({error:"Invalid action"}, 400);
       if (row.snapshot.signatureMode === "on-site-three-signatures" && !shareOnly) return json({error:"Money Bank Verification is completed on-site; open its private link on the shared device."}, 400);
       const resendKey = Netlify.env.get("RESEND_API_KEY");
-      const from = Netlify.env.get("HMP_CONTRACT_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
+      const from = hmpSender("contract");
       if (!shareOnly && (!resendKey || !from)) return json({error:"Save the draft first. A verified HMP email sender is required before sending."}, 503);
       let issued = row;
       if (renewing) {
@@ -133,7 +134,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       if (issued.email_delivered_at) return json({agreement:publicAgreement(issued), link, warning:"This form was already emailed. Copy the private link if the client needs it again."});
       // A stable key prevents duplicate email if a network request is retried.
       const response = await fetchFn("https://api.resend.com/emails", {method:"POST", headers:{Authorization:`Bearer ${resendKey}`, "Content-Type":"application/json", "Idempotency-Key":`hmp-agreement/${issued.id}/${hash(issued.token_nonce)}`},
-        body:JSON.stringify({from, to:[issued.client_email], reply_to:"info@hmpeds.com", subject:`Complete your ${issued.snapshot.title} — HMP`,
+        body:JSON.stringify({from, to:[issued.client_email], reply_to:hmpReplyTo(), subject:`Complete your ${issued.snapshot.title} — HMP`,
           html:`<div style="font-family:Georgia,serif;background:#fff8f1;color:#5f3f41;padding:32px"><h1>Ready for your review</h1><p>Hello ${escape(issued.client_name)},</p><p>Please ${information ? "complete" : "review, complete, and sign"} your ${escape(issued.snapshot.title)} online.</p><p><a style="display:inline-block;padding:16px 24px;background:#5f3f41;color:#fff8f1;border-radius:28px" href="${escape(link)}">${information ? "Complete your form" : "Complete and sign form"}</a></p><p>New and renewed private links are valid for 7 days. This link expires on ${escape(new Date(issued.expires_at).toLocaleString("en-US", {timeZone:"America/New_York", timeZoneName:"short"}))}. Please complete it before then, and contact HMP for a new link if it expires. Please do not forward it. You can save or print your completed form.</p><p>Questions? Reply to connect with an event specialist.</p></div>`})});
       if (!response.ok) return json({error:"The form is ready, but email delivery failed. Reopen it to retry or copy its private link.", agreement:publicAgreement(issued), link}, 502);
       const {error: emailUpdateError} = await db.from(table).update({email_delivered_at:new Date().toISOString()}).eq("id", issued.id).eq("token_hash", issued.token_hash).eq("status", "Sent");

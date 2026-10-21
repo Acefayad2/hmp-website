@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { hmpSender, hmpAlertRecipient } from "./_email-contact.mts";
 import {latestPublishedDocuments} from "../../document-versions.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
@@ -43,8 +44,8 @@ const sendAdminNotification = async (
   messageId: string,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
-  const from = Netlify.env.get("HMP_INQUIRY_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
-  const to = Netlify.env.get("HMP_INQUIRY_ADMIN_EMAIL") || "info@hmpeds.com";
+  const from = hmpSender();
+  const to = hmpAlertRecipient();
   if (!apiKey || !from) return false;
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",

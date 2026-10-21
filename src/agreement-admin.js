@@ -60,8 +60,8 @@ export async function openAgreementDraft(id) {
   try {
     const data = await agreementRequest(`${endpoint}?id=${encodeURIComponent(id)}`);
     active = data.agreement; link = data.link || ""; dirty = false;
-    renderEditor(); dialog.showModal();
-  } catch(error) { $("#agreement-list-message").textContent = error.message; }
+    renderEditor(); dialog.showModal(); return true;
+  } catch(error) { $("#agreement-list-message").textContent = error.message; return false; }
 }
 $("#agreement-list").addEventListener("click", event => {
   const button = event.target.closest("[data-agreement-id]");

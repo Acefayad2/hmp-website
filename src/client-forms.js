@@ -46,8 +46,8 @@ export async function openInformationDraft(id) {
   busy = true;
   try {
     const data = await agreementRequest(`${endpoint}?id=${encodeURIComponent(id)}`);
-    active = data.agreement; link = data.link || ""; dirty = false; render(); dialog.showModal();
-  } catch(error) {$("#information-list-message").textContent = error.message;}
+    active = data.agreement; link = data.link || ""; dirty = false; render(); dialog.showModal(); return true;
+  } catch(error) {$("#information-list-message").textContent = error.message; return false;}
   finally {busy = false;}
 }
 $("#information-list").addEventListener("click", event => {

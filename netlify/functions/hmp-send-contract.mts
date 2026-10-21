@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
@@ -60,7 +61,7 @@ const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><he
         </div>
         <p style="margin:28px 0 0;color:#756467;font-size:12px">Please review this agreement and reply to this email with any questions. Electronic signature collection is not enabled in this version.</p>
       </div>
-      <div style="padding:22px 34px;background:#5f3f41;color:#eadbd7;font-size:12px">HMP Luxury Event Services &nbsp; | &nbsp; info@hmpeds.com &nbsp; | &nbsp; 301-471-0990</div>
+      <div style="padding:22px 34px;background:#5f3f41;color:#eadbd7;font-size:12px">HMP Luxury Event Services &nbsp; | &nbsp; ${escapeHTML(hmpReplyTo())} &nbsp; | &nbsp; 301-471-0990</div>
     </div>
   </div>
 </body></html>`;
@@ -72,7 +73,7 @@ export const createSendContractHandler = ({getUserFn=getUser,databaseFactory=get
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
   if (!isSameOriginMutation(request)) return json({error:"Invalid request origin"},403);
   const resendKey = Netlify.env.get("RESEND_API_KEY");
-  const fromEmail = Netlify.env.get("HMP_CONTRACT_FROM_EMAIL") || Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
+  const fromEmail = hmpSender("contract");
   if (!resendKey || !fromEmail) return json({ error: "Email delivery is not configured yet", code: "EMAIL_NOT_CONFIGURED" }, 503);
   let body: Record<string, unknown>;
   try { body = await request.json(); } catch { return json({ error: "Invalid request" }, 400); }
@@ -100,7 +101,7 @@ export const createSendContractHandler = ({getUserFn=getUser,databaseFactory=get
     body: JSON.stringify({
       from: fromEmail,
       to: [recipient],
-      reply_to: Netlify.env.get("HMP_CONTRACT_REPLY_TO") || Netlify.env.get("HMP_INVOICE_REPLY_TO") || "info@hmpeds.com",
+      reply_to: hmpReplyTo(),
       subject: `Contract ${contract.contract_number} from HMP Luxury Event Services`,
       html: renderEmail(contract).replace("</body>",`<p style="text-align:center"><a href="${escapeHTML(prepared.clientUrl)}">View contract in your private conversation</a></p></body>`),
     }),

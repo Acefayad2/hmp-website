@@ -155,6 +155,16 @@ button, a { -webkit-tap-highlight-color: transparent; }
 
 dialog { width: min(720px, calc(100% - 32px)); max-height: calc(100dvh - 32px); padding: 0; overflow: auto; border: 0; border-radius: 20px; color: var(--ink); background: var(--ivory); box-shadow: 0 34px 90px rgba(46,32,34,.28); }
 dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
+.notifications-content { padding: 24px; }
+#notifications-dialog .dialog-heading { flex-wrap: wrap; gap: 16px; }
+#notifications-dialog .dialog-heading h2 { font-size: clamp(28px, 6vw, 48px); overflow-wrap: anywhere; }
+.notifications-content .secondary-button, #notifications-button { color: var(--plum); border-color: var(--plum); background: var(--ivory); }
+.notifications-content .secondary-button:hover, #notifications-button:hover { background: var(--rose); }
+.notifications-list { padding: 0; list-style: none; }
+.admin-notification { padding: 20px 0; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.admin-notification p { margin: 8px 0; }
+.admin-notification button { margin: 8px 12px 0 0; }
+.notification-meta { font-size: 13px; color: var(--muted); }
 .dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 30px; color: #fff; background: var(--plum); }
 .dialog-heading .kicker { margin: 0 0 10px; color: #e5b980; }
 .dialog-heading h2 { margin: 0; font: 600 45px/.95 var(--serif); }

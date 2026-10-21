@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
 import { timingSafeEqual } from "node:crypto";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -133,9 +134,7 @@ export const sendReplyNotification = async (
   fetchFn = fetch,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
-  const from =
-    Netlify.env.get("HMP_INQUIRY_FROM_EMAIL") ||
-    Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
+  const from = hmpSender();
   const recipient = cleanText(inquiry.email, 320).toLowerCase();
   if (!apiKey || !from) throw new Error("Email notifications are not configured. Contact HMP support to check the email sender.");
   if (!emailPattern.test(recipient)) throw new Error("The client needs a valid email address before a notification can be sent.");
@@ -157,7 +156,7 @@ export const sendReplyNotification = async (
     body: JSON.stringify({
       from,
       to: [recipient],
-      reply_to: "info@hmpeds.com",
+      reply_to: hmpReplyTo(),
       subject: isProposal ? "Your HMP service proposal is ready" : "HMP replied to your event conversation",
       html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">${isProposal ? "Your service proposal is ready." : "You have a new reply."}</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>${isProposal ? "HMP prepared a personalized service proposal for your event. Open your private portal to review the details and pricing." : "An HMP Event Concierge team member replied to your private event conversation."}</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">${isProposal ? "View My Proposal" : "Open Client Portal"}</a></p><p style="color:#8b7272;font-size:13px">This private link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
     }),
@@ -198,9 +197,7 @@ const sendAccessLink = async (
   fetchFn: typeof fetch = fetch,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
-  const from =
-    Netlify.env.get("HMP_INQUIRY_FROM_EMAIL") ||
-    Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
+  const from = hmpSender();
   const recipient = cleanText(inquiry.email, 320).toLowerCase();
   if (!apiKey || !from || !emailPattern.test(recipient)) return false;
   const response = await fetchFn("https://api.resend.com/emails", {
@@ -209,7 +206,7 @@ const sendAccessLink = async (
     body: JSON.stringify({
       from,
       to: [recipient],
-      reply_to: "info@hmpeds.com",
+      reply_to: hmpReplyTo(),
       subject: "Your new private HMP conversation link",
       html: `<style>@import url("https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap");</style><div style="margin:0;background:#f8f1eb;padding:32px 16px;color:#4d3232;font-family:'Droid Serif',Georgia,serif"><div style="max-width:620px;margin:0 auto;background:#fff;border:1px solid #eadbd6;border-radius:20px;overflow:hidden"><div style="background:#734949;padding:28px;color:#fff"><p style="margin:0 0 8px;font-size:12px;letter-spacing:2px;text-transform:uppercase">HMP Luxury Event Services</p><h1 style="margin:0;font-family:Georgia,serif;font-size:30px;font-weight:500">Your new private link is ready.</h1></div><div style="padding:30px 28px;font-size:16px;line-height:1.7"><p>Hello ${escapeHtml(inquiry.client_name)},</p><p>Here is your new link to continue your private conversation with the HMP team. Your previous link and PIN are no longer active. Open this new link to choose your own 6-digit PIN. If you ever need to reset it, contact the HMP team.</p><p><a href="${escapeHtml(link)}" style="display:inline-block;background:#b67c42;color:#fff;text-decoration:none;padding:14px 22px;border-radius:999px;font-weight:bold">Open Client Portal</a></p><p style="color:#8b7272;font-size:13px">This link is unique to your inquiry. Please do not forward it.</p></div></div></div>`,
     }),
