@@ -4,6 +4,25 @@ import { readFileSync } from "node:fs";
 import { activeInformationTemplates, informationTemplates } from "../information-form-schema.mjs";
 import { informationSummary } from "../information-form-ui.mjs";
 import { fieldsHTML } from "../agreement-ui.mjs";
+import { informationClientHeading } from "../information-client.mjs";
+
+test("client intake heading omits internal service labels and Prepared for, including saved snapshots", () => {
+  for (const template of activeInformationTemplates) {
+    const record = {snapshot:structuredClone(template), clientName:"Example Client", adminAnswers:{eventName:"White Wedding"}};
+    const original = structuredClone(record);
+    assert.equal(informationClientHeading(record), "<p>Example Client · White Wedding</p>");
+    assert.deepEqual(record, original);
+    record.status = "Completed";
+    record.snapshot.version = "2026-10-13.1";
+    assert.equal(informationClientHeading(record), "<p>Example Client · White Wedding</p>");
+    record.adminAnswers.eventName = "";
+    assert.equal(informationClientHeading(record), "<p>Example Client</p>");
+    record.clientName = "<img src=x>";
+    record.adminAnswers.eventName = "<script>bad()</script>";
+    assert.equal(informationClientHeading(record), "<p>&lt;img src=x&gt; · &lt;script&gt;bad()&lt;/script&gt;</p>");
+  }
+  assert.equal(informationClientHeading({snapshot:{id:"legacy",subtitle:"Legacy details"},clientName:"Client",adminAnswers:{}}), "<p>Legacy details</p><p>Prepared for Client</p>");
+});
 
 test("only the two renamed intake forms are offered; retired records remain supported", () => {
   assert.deepEqual(activeInformationTemplates.map(t => [t.id, t.title, t.subtitle]), [
