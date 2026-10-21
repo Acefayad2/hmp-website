@@ -1,6 +1,6 @@
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, checkFormInputs, showFormIssues } from "./agreement-ui.mjs";
 import { requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "./agreement-schema.mjs";
-import { renderInformationForm } from "./information-client.mjs";
+import { renderInformationForm } from "./information-client.mjs?v=20261020-intake-heading";
 import { mountSignaturePad } from "./signature-pad.mjs";
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const message = document.querySelector("#agreement-message"), content = document.querySelector("#agreement-content");

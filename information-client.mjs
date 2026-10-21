@@ -2,6 +2,12 @@ import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues }
 import { validateAnswers } from "./agreement-schema.mjs";
 import { informationSummary, printInformation } from "./information-form-ui.mjs";
 
+export function informationClientHeading(record) {
+  const intake = ["money-changing-details", "money-collecting-details"].includes(record.snapshot.id);
+  const subtitle = !intake && record.snapshot.subtitle ? `<p>${escape(record.snapshot.subtitle)}</p>` : "";
+  return `${subtitle}<p>${intake ? "" : "Prepared for "}${escape(record.clientName)}${record.adminAnswers.eventName ? ` · ${escape(record.adminAnswers.eventName)}` : ""}</p>`;
+}
+
 export function renderInformationForm(record, headers) {
   const content = document.querySelector("#agreement-content"), message = document.querySelector("#agreement-message");
   let busy = false, dirty = false;
@@ -11,7 +17,7 @@ export function renderInformationForm(record, headers) {
   content.hidden = false;
   function render() {
     const completed = record.status === "Completed";
-    content.innerHTML = `${record.snapshot.subtitle ? `<p>${escape(record.snapshot.subtitle)}</p>` : ""}<p>Prepared for ${escape(record.clientName)}${record.adminAnswers.eventName ? ` · ${escape(record.adminAnswers.eventName)}` : ""}</p><p style="white-space:pre-line">${escape(record.snapshot.description)}</p>
+    content.innerHTML = `${informationClientHeading(record)}<p style="white-space:pre-line">${escape(record.snapshot.description)}</p>
       ${completed ? `<section class="agreement-panel">${informationSummary(record, false)}</section><button type="button" class="agreement-button secondary" id="information-print">Print / save my responses</button>` : `<form id="information-client-form" class="agreement-panel"><p>* Required. Answers are saved when you select Submit information. Keep this page open until you see confirmation.</p><div class="agreement-grid">${fieldsHTML(record.snapshot.clientFields, {email:record.clientEmail,...record.clientAnswers})}</div><p>Only share public payment handles or QR codes—never bank account numbers, passwords, or login codes.</p><button class="agreement-button" type="submit">Submit information</button><p id="information-save-status" class="agreement-status" role="status"></p></form>`}`;
     message.textContent = completed ? "Your responses have been saved and are available to HMP. Contact HMP if anything needs correcting." : "";
     message.classList.toggle("success", completed);
