@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
 import { getUser } from "@netlify/identity";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
@@ -89,7 +90,7 @@ export const renderEmail = (invoice: Record<string, any>) => {
           ${invoice.payment_terms ? `<p style="margin:24px 0 0;color:#756467"><strong style="color:#2e2022">Payment terms:</strong> ${escapeHTML(invoice.payment_terms)}</p>` : ""}
         </div>
         <div style="padding:22px 34px;background:#5f3f41;color:#eadbd7;font-size:12px">
-          HMP Luxury Event Services &nbsp; | &nbsp; info@hmpeds.com &nbsp; | &nbsp; 301-471-0990
+          HMP Luxury Event Services &nbsp; | &nbsp; ${escapeHTML(hmpReplyTo())} &nbsp; | &nbsp; 301-471-0990
         </div>
       </div>
     </div>
@@ -104,7 +105,7 @@ export const createSendInvoiceHandler = ({getUserFn=getUser,databaseFactory=getD
   if (!isSameOriginMutation(request)) return json({error:"Invalid request origin"},403);
 
   const resendKey = Netlify.env.get("RESEND_API_KEY");
-  const fromEmail = Netlify.env.get("HMP_INVOICE_FROM_EMAIL");
+  const fromEmail = hmpSender("invoice");
   if (!resendKey || !fromEmail) {
     return json({ error: "Email delivery is not configured yet", code: "EMAIL_NOT_CONFIGURED" }, 503);
   }
@@ -145,7 +146,7 @@ export const createSendInvoiceHandler = ({getUserFn=getUser,databaseFactory=getD
     body: JSON.stringify({
       from: fromEmail,
       to: [recipient],
-      reply_to: Netlify.env.get("HMP_INVOICE_REPLY_TO") || "info@hmpeds.com",
+      reply_to: hmpReplyTo(),
       subject: `Invoice ${invoice.invoice_number} from HMP Luxury Event Services`,
       html: renderEmail(invoice).replace("</body>",`<p style="text-align:center"><a href="${escapeHTML(prepared.clientUrl)}">View invoice in your private conversation</a></p></body>`),
     }),

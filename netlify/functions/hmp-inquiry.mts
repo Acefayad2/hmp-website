@@ -1,4 +1,5 @@
 import type { Config, Context } from "@netlify/functions";
+import { hmpSender, hmpReplyTo, hmpAlertRecipient } from "./_email-contact.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   conversationToken,
@@ -75,13 +76,9 @@ const sendInquiryEmails = async (
   conversationUrl: string,
 ) => {
   const apiKey = Netlify.env.get("RESEND_API_KEY");
-  const fromEmail =
-    Netlify.env.get("HMP_INQUIRY_FROM_EMAIL") ||
-    Netlify.env.get("HMP_INVOICE_FROM_EMAIL") ||
-    "HMP Luxury Event Services <inquiries@hmpeds.com>";
-  const adminEmail =
-    Netlify.env.get("HMP_INQUIRY_ADMIN_EMAIL") || "info@hmpeds.com";
-  const replyTo = "info@hmpeds.com";
+  const fromEmail = hmpSender();
+  const adminEmail = hmpAlertRecipient();
+  const replyTo = hmpReplyTo();
 
   if (!apiKey || !fromEmail) {
     console.error("Inquiry email delivery is not configured");
