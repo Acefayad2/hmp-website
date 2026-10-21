@@ -13,6 +13,7 @@ import { hubMessages, renderHubTabs } from "../client-hub.js";
 import { clientActivityItems } from "../client-activity.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles, inquiryStatusGroup } from "./inquiry-filters.mjs";
+import { inquiryDetailsHTML } from "./inquiry-details.js";
 import "./admin-search.js";
 import { matchesSearch, searchText } from "../page-search.js";
 import { insertMessageSignature } from "./message-signature.mjs";
@@ -343,43 +344,8 @@ const renderInquiries = () => {
     : "";
 };
 
-const detailFields = [
-  ["Received", "receivedAt", true],
-  ["Status", "status"],
-  ["Priority", "priority"],
-  ["Client email", "email"],
-  ["Client phone", "phone"],
-  ["Event date", "celebrationDate"],
-  ["Second date", "secondDate"],
-  ["Service", "service"],
-  ["Event type", "celebrationType"],
-  ["Location / address", "location"],
-  ["Guest count", "guestCount"],
-  ["Preferred contact", "contactMethod"],
-  ["Service time", "serviceTime"],
-  ["Parking fee", "parkingFee"],
-  ["Referral source", "referralSource"],
-  ["Referral detail", "sourceDetail"],
-  ["Follow-up date", "followUpDate"],
-  ["Owner", "owner"],
-  ["Source", "source"],
-  ["Submission ID", "id"],
-];
-
 const renderDetailGrid = (item) => {
-  const hydrated = {
-    ...item,
-    serviceTime: [item.startTime, item.endTime].filter(Boolean).join(" – "),
-  };
-  $("#detail-grid").innerHTML = detailFields
-    .filter(([, key]) => hydrated[key] !== "" && hydrated[key] !== null && hydrated[key] !== undefined)
-    .map(([label, key, includeTime]) => {
-      const value = key.toLowerCase().includes("date") || key === "receivedAt"
-        ? formatDate(hydrated[key], includeTime)
-        : hydrated[key];
-      return `<div><dt>${escapeHTML(label)}</dt><dd>${escapeHTML(value)}</dd></div>`;
-    })
-    .join("");
+  $("#detail-grid").innerHTML = inquiryDetailsHTML(item, {formatDate, escapeHTML});
 };
 
 const updateInquiryActions = (item) => {

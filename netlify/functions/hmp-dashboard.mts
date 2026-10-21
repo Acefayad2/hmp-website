@@ -32,7 +32,13 @@ const getDatabase = () => {
   return database;
 };
 
-const normalizeInquiry = (record: Record<string, unknown>) => ({
+export const normalizeInquiry = (record: Record<string, unknown>) => {
+  const raw = record.raw_payload && typeof record.raw_payload === "object" && !Array.isArray(record.raw_payload)
+    ? record.raw_payload as Record<string, unknown> : {};
+  // Only return known client answers, never the unrestricted raw payload.
+  const answer = (key: string) => typeof raw[key] === "string" ? (raw[key] as string).trim()
+    : typeof raw[key] === "number" && Number.isFinite(raw[key]) ? raw[key] : "";
+  return {
   id: record.submission_id || "",
   receivedAt: record.received_at || "",
   status: record.status || "New",
@@ -42,11 +48,20 @@ const normalizeInquiry = (record: Record<string, unknown>) => ({
   phone: record.phone || "",
   contactMethod: record.preferred_contact || "",
   celebrationDate: record.celebration_date || "",
-  secondDate: record.second_date || "",
+  secondDate: record.second_date || answer("second-date"),
   service: record.service || "",
   location: record.location || "",
-  startTime: record.start_time || "",
-  endTime: record.end_time || "",
+  startTime: record.start_time || answer("start-time"),
+  endTime: record.end_time || answer("end-time"),
+  vendorExitTime: answer("vendor-exit-time"),
+  secondLocation: answer("second-location"),
+  secondGuestCount: answer("second-guest-count"),
+  secondStartTime: answer("second-start-time"),
+  secondEndTime: answer("second-end-time"),
+  secondVendorExitTime: answer("second-vendor-exit-time"),
+  serviceOption: answer("service-option"),
+  multipleServicesDetail: answer("multiple-services-detail"),
+  otherServiceDetail: answer("other-service-detail"),
   guestCount: record.guest_count ?? "",
   parkingFee: record.parking_fee || "",
   celebrationType: record.celebration_type || "",
@@ -57,7 +72,8 @@ const normalizeInquiry = (record: Record<string, unknown>) => ({
   owner: record.owner || "",
   internalNotes: record.internal_notes || "",
   source: record.source || "Website",
-});
+  };
+};
 
 const statuses = new Set(["New", "Contacted", "Quoted", "Booked", "Closed", "Archived"]);
 const priorities = new Set(["Low", "Normal", "High", "Urgent"]);
