@@ -1,4 +1,6 @@
 import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
+import { chooseDocumentSharing, copySharedLink } from "./document-sharing.js";
+import {linkExpiration} from "../document-expiry.mjs";
 import { mountAdminNotifications } from "./admin-notifications.js";
 import {mountDocumentVersions} from "./document-versions.js";
 import {latestDocumentRows} from "../document-versions.mjs";
@@ -544,7 +546,7 @@ const renderAdminMessages = (thread) => {
     if (message.sender === "admin") appendLinkedText(copy, message.body);
     else copy.textContent = message.body;
     article.append(meta);
-    const documentCard=message.sender === "admin" ? renderDocumentCard(message.document) : null;
+    const documentCard=message.sender === "admin" ? renderDocumentCard(message.document, {enforceExpiry:false}) : null;
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
@@ -818,9 +820,14 @@ const createManualInquiry = async (event) => {
 
 const sendProposal = async (event) => {
   event.preventDefault();
-  if (!activeThreadId || !event.currentTarget.reportValidity()) return;
+  const form = event.currentTarget;
+  if (!activeThreadId || !form.reportValidity()) return;
   const conversationId = activeThreadId;
   const proposal = proposalPayload();
+  const copy = event.submitter?.value === "copy";
+  const sharing = await chooseDocumentSharing({copy});
+  if (!sharing) return;
+  proposal.linkExpiresAt = linkExpiration(sharing.expirationDate);
   if (proposal.calendarUrl && !normalizeCalendarUrl(proposal.calendarUrl)) {
     setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");
     return;
@@ -830,7 +837,7 @@ const sendProposal = async (event) => {
     setMessage($("#proposal-editor-message"), "Shorten the service details or notes before sending.");
     return;
   }
-  const buttons = event.currentTarget.querySelectorAll("button");
+  const buttons = form.querySelectorAll("button");
   buttons.forEach((button) => { button.disabled = true; });
   setMessage($("#proposal-editor-message"), "Sending proposal securely…");
   try {
@@ -849,13 +856,16 @@ const sendProposal = async (event) => {
         message,
         requestId: crypto.randomUUID(),
         attachments: [],
+        portalOnly: true,
+        expirationDate: sharing.expirationDate,
       }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Proposal could not be sent.");
     const sentDraftId = activeProposalDraftId;
     closeProposalEditor({ confirmDiscard: false });
-    showMessageNotificationStatus(data,"Proposal");
+    setMessage($("#admin-message-status"),"Proposal shared in the client portal. No email was sent.",true);
+    if(copy) await copySharedLink(data.clientUrl,$("#admin-message-status"));
     const postSendWarnings = [];
     if (sentDraftId) {
       try {
@@ -1530,7 +1540,7 @@ const openInvoiceEditor = (invoice = null) => {
   const number = invoice?.invoiceNumber || "New invoice";
   $("#editor-invoice-number").textContent = number;
   $("#invoice-number-display").textContent = invoice?.invoiceNumber || "Draft";
-  $("#send-invoice").textContent = invoice?.status === "Sent" ? "Send again" : "Send invoice";
+  $("#send-invoice").textContent = "Send to Client Portal";
   setMessage($("#invoice-editor-message"), "");
   renderInvoiceItems();
   const inactive = Boolean(invoice?.archivedAt || invoice?.deletedAt);
@@ -1653,7 +1663,7 @@ const openContractEditor = (contract = null) => {
   });
   $("#editor-contract-number").textContent = contract?.contractNumber || "New contract";
   $("#contract-number-display").textContent = contract?.contractNumber || "Draft";
-  $("#send-contract").textContent = contract?.status === "Sent" ? "Send again" : "Send contract";
+  $("#send-contract").textContent = "Send to Client Portal";
   setMessage($("#contract-editor-message"), "");
   lockIssuedDocumentControls($("#contract-form"),contract,"contract");
   if(contract&&contract.status!=="Draft")setMessage($("#contract-editor-message"),"Issued content is preserved. Choose Create revision to change it.");
@@ -1766,26 +1776,28 @@ const saveContract = async ({ quiet = false } = {}) => {
   }
 };
 
-const copyDocumentLink = async (kind) => {
+const copyDocumentLink = async (kind, copy = true) => {
   const invoice = kind === "invoice";
   const message = $(invoice ? "#invoice-editor-message" : "#contract-editor-message");
   const button = $(invoice ? "#copy-invoice-link" : "#copy-contract-link");
   const saved = await (invoice ? saveInvoice({ quiet: true }) : saveContract({ quiet: true }));
   if (!saved) return;
+  const sharing = await chooseDocumentSharing({copy});
+  if (!sharing) return;
   button.disabled = true;
   setMessage(message, "Preparing a private client link…");
   try {
     const response = await fetch("/api/hmp-documents/share", {
       method: "POST", credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind, id: saved.id }),
+      body: JSON.stringify({ kind, id: saved.id, ...sharing }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Client link could not be prepared.");
     if(invoice){await loadInvoices();openInvoiceEditor(invoices.find(item=>item.id===saved.id));}
     else{await loadContracts();openContractEditor(contracts.find(item=>item.id===saved.id));}
-    await copyText(data.clientUrl);
-    setMessage(message, "Private client link copied. Text it only to this client; they will need their portal PIN. No email was sent.", true);
+    setMessage(message, "Document shared in the client portal. No email was sent.", true);
+    if (copy) await copySharedLink(data.clientUrl, message);
     loadMessages().catch(() => {});
   } catch (error) {
     setMessage(message, error.message || "Client link could not be copied.");
@@ -2439,7 +2451,7 @@ window.addEventListener("beforeprint", () => {
 window.addEventListener("afterprint", () => {
   document.querySelectorAll("#invoice-sheet .invoice-print-text").forEach((node) => node.remove());
 });
-$("#send-invoice").addEventListener("click", sendInvoice);
+$("#send-invoice").addEventListener("click", () => copyDocumentLink("invoice", false));
 $("#copy-invoice-link").addEventListener("click", () => copyDocumentLink("invoice"));
 $("#invoice-form").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2497,7 +2509,7 @@ $("#print-contract").addEventListener("click", () => {
   window.print();
   document.body.classList.remove("printing-contract");
 });
-$("#send-contract").addEventListener("click", sendContract);
+$("#send-contract").addEventListener("click", () => copyDocumentLink("contract", false));
 $("#copy-contract-link").addEventListener("click", () => copyDocumentLink("contract"));
 $("#contract-form").addEventListener("submit", async (event) => {
   event.preventDefault();

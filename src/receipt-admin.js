@@ -2,6 +2,7 @@ import { agreementRequest, escape } from "../agreement-ui.mjs";
 import { createReceipt, createStandaloneReceipt, localDate, paymentMethods, receiptHTML } from "../receipt-template.mjs";
 import { receiptDraftPayload } from "../receipt-draft.mjs";
 import { invoiceStatusLabel, receiptableStatuses } from "../invoice-status.mjs";
+import { chooseDocumentSharing, copySharedLink } from "./document-sharing.js";
 
 const dialog = document.createElement("dialog");
 dialog.className = "agreement-dialog receipt-dialog";
@@ -40,7 +41,7 @@ export async function openReceiptDraft(draft = null) {
   if (dialog.open) return;
   activeDraft = draft;
   dialog.innerHTML = `<header><div><p>CLIENT RECEIPT</p><h2 id="receipt-editor-title">Payment receipt</h2></div><button class="agreement-button secondary" type="button" id="receipt-close">Close</button></header>
-    <p>Choose an invoice-linked or standalone receipt. Enter the amount actually paid to date, then print or save a PDF to share with the client by email or Messages.</p>
+    <p>Choose an invoice-linked or standalone receipt. Enter the amount actually paid to date, then send it to the client portal, copy a private link, or print a PDF.</p>
     <p>Save unfinished details privately under Drafts → Payment receipts, even before an invoice is ready. Saving or printing does not send anything, charge the client, or change the invoice's payment status.</p>
     <form id="receipt-form"><label class="agreement-field">Receipt type<select name="receiptMode"><option value="invoice">Invoice-linked receipt</option><option value="standalone">Standalone receipt (no invoice)</option></select></label>
     <label class="agreement-field" id="receipt-invoice-field">Invoice<select id="receipt-invoice" required disabled><option value="">Loading invoices…</option></select></label>
@@ -75,6 +76,9 @@ export async function openReceiptDraft(draft = null) {
   $("#receipt-form").onsubmit = event => { event.preventDefault(); prepare(false); };
   $("#receipt-print-button").onclick = () => { if ($("#receipt-form").reportValidity()) prepare(true); };
   $("#receipt-save-draft").onclick = saveDraft;
+  $("#receipt-form .agreement-actions").insertAdjacentHTML("beforeend", '<button class="agreement-button" type="button" id="receipt-share">Send to Client Portal</button><button class="agreement-button secondary" type="button" id="receipt-copy">Copy Private Link</button>');
+  $("#receipt-share").onclick = () => shareReceipt(false);
+  $("#receipt-copy").onclick = () => shareReceipt(true);
   dialog.showModal();
   try {
     const result = await agreementRequest("/api/hmp-invoices");
@@ -99,6 +103,27 @@ export async function openReceiptDraft(draft = null) {
     message(`${error.message} You can still choose Standalone receipt; no invoice will be linked.`);
   }
   updateMode();
+}
+
+async function shareReceipt(copy) {
+  if (busy || !$("#receipt-form").reportValidity()) return;
+  const values = Object.fromEntries(new FormData($("#receipt-form")));
+  if (values.receiptMode !== "standalone" && (!selected || selected.status === "Draft")) return message("Choose a sent invoice before sharing its receipt.");
+  busy = true;
+  try {
+    const sharing = await chooseDocumentSharing({copy, choosePortal:true, clientEmail:values.receiptMode === "standalone" ? values.clientEmail : selected.clientEmail});
+    if (!sharing) return;
+    message("Saving receipt to the selected client portal…");
+    const data = await agreementRequest("/api/hmp-documents/share", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+      kind:"receipt", ...sharing, invoiceId:values.receiptMode === "standalone" ? null : selected.id,
+      invoiceUpdatedAt:values.receiptMode === "standalone" ? null : selected.updatedAt,
+      details:{...values,confirmed:values.confirmed === "on"},
+    })});
+    dirty = false;
+    message("Receipt saved in the client's portal under Receipts. No email was sent and no payment status was changed.");
+    if (copy) await copySharedLink(data.clientUrl, $("#receipt-status"));
+  } catch (error) { message(error.message); }
+  finally { busy = false; }
 }
 
 async function saveDraft() {

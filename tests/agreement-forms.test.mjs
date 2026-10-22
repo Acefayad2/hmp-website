@@ -5,9 +5,20 @@ import { snapshotFor, completionPayload, publicAgreement, agreementToken, hash, 
 import { createAgreementHandler } from "../netlify/functions/hmp-agreement-forms.mts";
 import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
 import { informationTemplates } from "../information-form-schema.mjs";
+import {expiryDateAfter,linkExpiration} from "../document-expiry.mjs";
 
 globalThis.Netlify = {env:{get:name => ({SUPABASE_URL:"https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY:"test-only-secret", HMP_ADMIN_EMAILS:"admin@example.test", RESEND_API_KEY:"test-only-resend", HMP_CONTRACT_FROM_EMAIL:"forms@example.test"})[name]}};
 const id = "11111111-1111-4111-8111-111111111111";
+
+test("custom calendar expiration applies to issued and completed forms without replacing signed content",async()=>{
+  const row={...rowFor(),status:"Completed",signature:{name:"Original"},record_hash:"original-hash"};
+  const original=structuredClone(row),handler=handlerFor([row]),date=expiryDateAfter(12);
+  const response=await handler(request("hmp-agreement-forms","PATCH",{id,action:"access",updatedAt:row.updated_at,expirationDate:date}));
+  assert.equal(response.status,200);assert.equal(row.expires_at,linkExpiration(date));
+  assert.deepEqual({...row,expires_at:original.expires_at},original);
+  assert.equal((await handler(request("hmp-agreement-forms","PATCH",{id,action:"access",updatedAt:row.updated_at,expirationDate:expiryDateAfter(31)}))).status,400);
+  assert.equal((await handlerFor([row],false)(request("hmp-agreement-forms","PATCH",{id,action:"access",expirationDate:date}))).status,401);
+});
 const inputFor = fields => Object.fromEntries(fields.map(f => [f.id, f.options?.[0] || ({date:"2026-12-01", time:"17:00", "datetime-local":"2026-12-01T17:00", money:"100", number:"2", decimal:"4.5", email:"client@example.test"}[f.type] || "Example value") ]));
 const rowFor = (templateId = "guest-seating") => {
   const snapshot = snapshotFor(templateId);

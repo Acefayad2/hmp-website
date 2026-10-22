@@ -73,8 +73,8 @@ export async function recordSentDocument(client: any, kind: "invoice" | "contrac
   if (error) throw new Error("Email sent, but its conversation copy could not be saved. Retry this send without changing the document.");
 }
 
-export async function recordSharedDocument(client: any, kind: "invoice" | "contract", record: any, conversation: any, recipient: string, owner: string) {
-  const snapshot = documentSnapshot(kind, record);
+export async function recordSharedDocument(client: any, kind: "invoice" | "contract", record: any, conversation: any, recipient: string, owner: string, expiresAt?: string) {
+  const snapshot = {...documentSnapshot(kind, record), ...(expiresAt ? {expiresAt} : {})};
   const { error } = await client.rpc("hmp_record_shared_document", {
     p_kind: kind, p_document_id: record.id, p_conversation_id: conversation.id,
     p_message_id: stableId(`shared-document/${kind}/${record.id}/${recipient}/${JSON.stringify(snapshot)}`),

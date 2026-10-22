@@ -3,6 +3,7 @@ import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues }
 import { informationSummary, printInformation } from "../information-form-ui.mjs";
 import { loadBankVerificationForms } from "./agreement-admin.js";
 import {mountDocumentVersions} from "./document-versions.js";
+import {chooseDocumentSharing, copySharedLink} from "./document-sharing.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -57,10 +58,10 @@ $("#information-list").addEventListener("click", event => {
 function render() {
   const draft = active.status === "Draft";
   dialog.innerHTML = `<header><div><p>CLIENT INFORMATION · ${escape(active.status)}</p><h2 id="information-editor-title">${escape(active.snapshot.title)}</h2>${active.snapshot.subtitle ? `<p>${escape(active.snapshot.subtitle)}</p>` : ""}</div><button class="agreement-button secondary" id="information-close" type="button">Close</button></header>
-    <form id="information-admin-form">${draft ? "<p>Prepare this form for a client. Create a private link to share in Messages, or email it directly. Responses are stored in HMP—not Google Forms.</p>" : ""}
+    <form id="information-admin-form">${draft ? "<p>Prepare this form for a client. Choose Send to Client Portal or Copy Private Link. Email is available through Messages. Responses are stored in HMP—not Google Forms.</p>" : ""}
     ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label>${fieldsHTML(active.snapshot.adminFields, active.adminAnswers)}</div><label class="agreement-field">Form introduction<textarea name="documentDescription" required maxlength="5000" rows="5">${escape(active.snapshot.description)}</textarea></label>` : informationSummary(active, false)}
     ${draft ? `<details class="agreement-panel"><summary>Preview client questions</summary><ul>${active.snapshot.clientFields.map(f => `<li><strong>${escape(f.label)}</strong><p>${escape(f.help || "")}</p></li>`).join("")}</ul></details>` : ""}
-    ${link ? `<label class="agreement-field">Private client link<input id="information-private-link" readonly value="${escape(link)}"></label><p>Share only with this client. Link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.</p>` : "<p>New private links are valid for 7 days.</p>"}
+    ${link ? `<label class="agreement-field">Private client link<input id="information-private-link" readonly value="${escape(link)}"></label><p>Share only with this client. Link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.</p>` : "<p>Choose a calendar expiration date when sharing (up to 30 days).</p>"}
     <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<button type="button" class="agreement-button secondary" id="information-copy">Copy link</button><a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
@@ -80,8 +81,34 @@ function render() {
     catch {$("#information-private-link").select(); $("#information-status").textContent = "Link selected. Copy it manually.";}
   });
   $("#information-print")?.addEventListener("click", () => printInformation(active));
+  // Sharing is portal-first; email remains available through Messages only.
+  dialog.querySelector('[data-information-action="send"]')?.remove();
+  dialog.querySelector('[data-information-action="resend"]')?.remove();
+  dialog.querySelector('[data-information-action="share"]')?.remove();
+  $("#information-copy")?.remove();
+  if (active.status !== "Void") {
+    const actions = form.querySelector(".agreement-actions");
+    for (const copy of [false,true]) {
+      const button = document.createElement("button"); button.type="button"; button.className="agreement-button secondary";
+      button.textContent=copy ? "Copy Private Link" : "Send to Client Portal";
+      button.onclick=()=>shareInformation(copy); actions.prepend(button);
+    }
+  }
 }
-async function perform(action) {
+async function shareInformation(copy) {
+  if (busy || (active.status === "Draft" && !checkFormInputs($("#information-admin-form")))) return;
+  try {
+    const email = active.status === "Draft" ? $("#information-admin-form").elements.clientEmail.value : active.clientEmail;
+    const sharing = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt});
+    if (!sharing) return;
+    await perform(active.status === "Draft" ? "share" : "access",sharing);
+    if (!link) return;
+    if (!copy) await agreementRequest("/api/hmp-messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"share-form",formId:active.id,conversationId:sharing.conversationId})});
+    $("#information-status").textContent = "Form shared in the selected client portal. No email was sent.";
+    if (copy) await copySharedLink(link,$("#information-status"));
+  } catch(error) { $("#information-status").textContent=error.message; }
+}
+async function perform(action, sharing = {}) {
   if (busy) return;
   if (action === "send" && !confirm("Email this private form to the client shown above?")) return;
   if (action === "resend" && !confirm(`Create and email a new 7-day link to ${active.clientEmail}? The expired link stays disabled and the form details will not change.`)) return;
@@ -97,16 +124,17 @@ async function perform(action) {
     }
     let warning = "";
     if (action !== "save") {
-      const data = await agreementRequest(endpoint, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action, updatedAt:active.updatedAt})});
+      const data = await agreementRequest(endpoint, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action, updatedAt:active.updatedAt, ...sharing})});
       active = data.agreement; link = data.link || ""; warning = data.warning || ""; dirty = false;
     }
     render();
-    $("#information-status").textContent = warning || ({save:"Draft saved.",share:"Private link ready for 7 days. No email has been sent.",send:"Client form emailed.",resend:"New 7-day link emailed. The expired link remains disabled.",void:"Form voided. Its link is disabled."}[action]);
+    $("#information-status").textContent = warning || ({save:"Draft saved.",share:"Private link ready. No email has been sent.",send:"Client form emailed.",resend:"New 7-day link emailed. The expired link remains disabled.",void:"Form voided. Its link is disabled."}[action]);
     await loadInformationForms();
     window.dispatchEvent(new Event("hmp-drafts-changed"));
   } catch (error) {
     if (error.data?.agreement) {active = error.data.agreement; link = error.data.link || ""; dirty = false; render(); await loadInformationForms();}
     $("#information-status").textContent = error.message;
     showFormIssues($("#information-admin-form"), error.issues || error.data?.issues || [{message:error.message}]);
+    link = "";
   } finally {busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(el => el.disabled = false);}
 }

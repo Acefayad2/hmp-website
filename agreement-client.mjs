@@ -2,6 +2,7 @@ import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, prin
 import { requiresSecondRepresentative, secondRepresentativeFields, validateAnswers } from "./agreement-schema.mjs";
 import { renderInformationForm } from "./information-client.mjs?v=20261020-intake-heading";
 import { mountSignaturePad } from "./signature-pad.mjs";
+import {expiryLabel} from "./document-expiry.mjs";
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 const message = document.querySelector("#agreement-message"), content = document.querySelector("#agreement-content");
 let agreement, consentText, dirty = false, busy = false;
@@ -20,6 +21,7 @@ function render() {
     <div class="agreement-actions"><button type="button" class="agreement-button secondary" id="print-agreement">${completed ? "Print / save completed form" : "Print agreement terms"}</button></div>`;
   document.querySelector("#print-agreement").onclick = () => printAgreement(agreement);
   const form = document.querySelector("#client-agreement-form");
+  if (agreement.expiresAt) { const expiry=document.createElement("p"); expiry.textContent=`Link expires: ${expiryLabel(agreement.expiresAt)}.`; content.prepend(expiry); }
   if (form) form.noValidate = true;
   const pads = {};
   if (form) {

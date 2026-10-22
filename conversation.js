@@ -9,9 +9,9 @@ import {
   updateAttachmentSummary,
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-2";
-import { parseProposal, renderProposalMessage } from "./proposal-ui.js?v=20261016-proposal-label";
-import { renderDocumentCard } from "./document-message-ui.js?v=20261016-document-cards";
-import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261018";
+import { parseProposal, renderProposalMessage } from "./proposal-ui.js?v=20261022-sharing";
+import { renderDocumentCard } from "./document-message-ui.js?v=20261022-sharing";
+import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261022-sharing";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
 
@@ -25,6 +25,8 @@ let loadVersion = 0;
 let pinMode = "login";
 let renderedMessageSignature = "";
 let activeHubSection = "messages";
+const linkedSection = new URLSearchParams(location.hash.slice(1)).get("section");
+if (["proposals","invoices","contracts","forms","receipts"].includes(linkedSection)) activeHubSection = linkedSection;
 
 const getMessageSignature = (messages = []) => JSON.stringify(messages.map((message) => [
   message.id,

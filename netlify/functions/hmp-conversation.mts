@@ -1,6 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpAlertRecipient } from "./_email-contact.mts";
 import {latestPublishedDocuments} from "../../document-versions.mjs";
+import {clientMessageAccess} from "../../document-expiry.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
 import { portalPinId, requireClientPin } from "./_client-pin.mts";
@@ -93,7 +94,15 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
   if (request.method === "GET") {
     const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at,edited_at,revision_root_id");
     if (error) return json({ error: "Conversation is temporarily unavailable." }, 502);
-    const signedMessages = await Promise.all(latestPublishedDocuments(messages || []).map(async (message) => ({
+    const currentMessages = await Promise.all(latestPublishedDocuments(messages || []).map(async message => {
+      if (message.document?.kind !== "form") return message;
+      const match = /#token=([A-Za-z0-9_-]{43})$/.exec(message.document.url || "");
+      const resolved = match ? await client.rpc("hmp_resolve_agreement_revision",{p_token_hash:tokenHash(match[1])}) : null;
+      // Never return an obsolete form capability when a form is void/expired.
+      if (!resolved?.data || resolved.error) return {...message,body:"",attachments:[],document:{kind:"form",id:message.document.id,expired:true}};
+      return {...message,document:{...message.document,expiresAt:resolved.data.expires_at,status:resolved.data.status}};
+    }));
+    const signedMessages = await Promise.all(currentMessages.map(message => clientMessageAccess(message)).map(async (message) => ({
       ...message,
       signedAttachments: await signAttachments(client, message.attachments),
     })));

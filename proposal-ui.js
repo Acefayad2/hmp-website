@@ -26,6 +26,7 @@ export const normalizeProposal = (value = {}) => ({
   additionalInformation: text(value.additionalInformation, 600),
   serviceFee: number(value.serviceFee),
   validUntil: text(value.validUntil, 10),
+  ...(value.linkExpiresAt ? {linkExpiresAt:text(value.linkExpiresAt,32)} : {}),
   paymentTerms: text(value.paymentTerms, 600),
   calendarUrl: normalizeCalendarUrl(value.calendarUrl),
 });
@@ -104,6 +105,7 @@ export const renderProposalMessage = (proposal) => {
   const value = normalizeProposal(proposal);
   const card = document.createElement("section");
   card.className = "sent-document sent-proposal";
+  if(value.linkExpiresAt){const expiry=document.createElement("p");expiry.textContent=`Link expires: ${new Date(value.linkExpiresAt).toLocaleString("en-US",{timeZone:"America/New_York",timeZoneName:"short"})}.`;card.append(expiry);}
   const heading = document.createElement("h3");
   heading.textContent = value.title;
   const amount = document.createElement("p");

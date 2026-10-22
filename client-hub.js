@@ -6,6 +6,7 @@ export const hubSections = [
   ["messages", "Messages"],
   ["proposals", "Proposals"],
   ["invoices", "Invoices"],
+  ["receipts", "Receipts"],
   ["contracts", "Contracts"],
   ["forms", "Forms"],
   ["seating", "Guest Seating"],
@@ -14,6 +15,8 @@ export const hubSections = [
 export const hubSectionFor = (message) => {
   if (message?.sender !== "admin") return "messages";
   if (message?.document?.kind === "invoice") return "invoices";
+  if (message?.document?.kind === "receipt") return "receipts";
+  if (message?.document?.kind === "proposal") return "proposals";
   if (message?.document?.kind === "contract") return "contracts";
   if (message?.document?.kind === "form") return "forms";
   if (message?.document?.kind === "seating") return "seating";

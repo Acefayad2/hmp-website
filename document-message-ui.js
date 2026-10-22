@@ -1,3 +1,5 @@
+import { receiptHTML } from "./receipt-template.mjs";
+import { expired, expiryLabel } from "./document-expiry.mjs";
 const money = value => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(value) || 0);
 const fieldLabels = {
   client_name:"Prepared for",issue_date:"Issue date",due_date:"Due date",effective_date:"Effective date",
@@ -16,14 +18,37 @@ export function printDocumentCopy(copy) {
   if (!popup) return false;
   const container = document.createElement("div");
   container.append(card);
-  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>HMP Document Copy</title><link rel="stylesheet" href="${location.origin}/document-message.css?v=20261016-document-cards"></head><body class="document-print-body">${container.innerHTML}</body></html>`);
+  popup.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>HMP Document Copy</title><link rel="stylesheet" href="${location.origin}/document-message.css?v=20261022"><link rel="stylesheet" href="${location.origin}/agreement.css"></head><body class="document-print-body">${container.innerHTML}</body></html>`);
   popup.document.close();
   window.setTimeout(() => { popup.focus(); popup.print(); }, 700);
   return true;
 }
 
-export function renderDocumentCard(copy, { showActions = true, expanded = false } = {}) {
-  if (!copy || !["invoice","contract","form","seating"].includes(copy.kind)) return null;
+export function renderDocumentCard(copy, { showActions = true, expanded = false, enforceExpiry = true } = {}) {
+  if (!copy || !["invoice","contract","form","seating","receipt","proposal"].includes(copy.kind)) return null;
+  if (copy.expired || (enforceExpiry && expired(copy.expiresAt))) {
+    const card = document.createElement("section"); card.className = "sent-document";
+    const text = document.createElement("p");
+    text.textContent = `This ${copy.kind} link expired${copy.expiresAt ? ` on ${expiryLabel(copy.expiresAt)}` : ""}. Please contact HMP for access.`;
+    card.append(text); return card;
+  }
+  const addExpiry = card => {
+    if (copy.expiresAt) { const text = document.createElement("p"); text.textContent = `Link expires: ${expiryLabel(copy.expiresAt)}.`; card.append(text); }
+    return card;
+  };
+  if (copy.kind === "receipt") {
+    const card = document.createElement("section"); card.className = "sent-document";
+    const heading = document.createElement("h3"); heading.textContent = `Payment receipt ${copy.number || ""}`; card.append(heading);
+    const details = document.createElement("details"), summary = document.createElement("summary");
+    summary.textContent = "View receipt"; details.open = expanded; details.append(summary);
+    const content = document.createElement("div"); content.innerHTML = receiptHTML(copy.receipt); details.append(content);
+    if (showActions) {
+      const button = document.createElement("button"), status = document.createElement("p"); button.type = "button"; button.textContent = "Print / Save PDF";
+      button.onclick = () => { status.textContent = printDocumentCopy(copy) ? "" : "Allow pop-ups, then try again."; };
+      details.append(button, status);
+    }
+    card.append(details); return addExpiry(card);
+  }
   if (copy.kind === "seating") {
     const card = document.createElement("section"); card.className = "sent-document";
     const heading = document.createElement("h3"); heading.textContent = "Guest Seating Experience";
@@ -33,7 +58,7 @@ export function renderDocumentCard(copy, { showActions = true, expanded = false 
       const link = document.createElement("a"); link.href = copy.url; link.textContent = "Open Guest Seating portal";
       link.target = "_blank"; link.rel = "noopener noreferrer"; card.append(link);
     }
-    return card;
+    return addExpiry(card);
   }
   if (copy.kind === "form") {
     const card=document.createElement("section");card.className="sent-document";
@@ -44,7 +69,7 @@ export function renderDocumentCard(copy, { showActions = true, expanded = false 
       const link=document.createElement("a");link.href=copy.url;link.textContent="Open form";
       link.target="_blank";link.rel="noopener noreferrer";card.append(link);
     }
-    return card;
+    return addExpiry(card);
   }
   const kind=copy.kind === "invoice" ? "Invoice" : "Contract";
   const card=document.createElement("section");card.className="sent-document";
@@ -85,5 +110,5 @@ export function renderDocumentCard(copy, { showActions = true, expanded = false 
     });
     actions.append(button,status);content.append(actions);
   }
-  details.append(content);card.append(heading,amount,details);return card;
+  details.append(content);card.append(heading,amount,details);return addExpiry(card);
 }
