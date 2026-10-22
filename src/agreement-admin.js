@@ -4,6 +4,7 @@ import { searchText } from "../page-search.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, nativeFormIssues, showFormIssues } from "../agreement-ui.mjs";
 import { agreementEditorHTML, mountAgreementEditors, readAgreementEditor } from "./agreement-text-editor.js";
 import {mountDocumentVersions} from "./document-versions.js";
+import {chooseDocumentSharing, copySharedLink} from "./document-sharing.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -38,7 +39,7 @@ export async function loadAgreementForms() {
     const agreements = data.agreements.filter(row => agreementTemplates.some(t => t.id === row.template_id && t.id !== "money-bank-verification"));
     message.classList.add("neutral");
     message.textContent = agreements.length ? "" : "No agreement records yet. Choose a template above to get started.";
-    $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at, row.document_title))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.document_title || agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · email not confirmed" : ""}</span></button>`).join("");
+    $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at, row.document_title))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.document_title || agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · awaiting client" : ""}</span></button>`).join("");
   } catch (error) { message.classList.remove("neutral"); message.textContent = error.message; }
 }
 export async function loadBankVerificationForms() {
@@ -87,7 +88,7 @@ function renderEditor() {
   }
   form.noValidate = true;
   const expired = active.status === "Sent" && Date.parse(active.expiresAt) <= Date.now();
-  form.insertAdjacentHTML("afterbegin", `<p>${active.expiresAt ? `Private link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.` : "New private links are valid for 7 days."}</p>`);
+  form.insertAdjacentHTML("afterbegin", `<p>${active.expiresAt ? `Private link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.` : "Choose a calendar expiration date when sharing (up to 30 days)."}</p>`);
   if (expired) {
     $("#agreement-send")?.remove();
     $("#agreement-copy")?.remove();
@@ -125,6 +126,29 @@ function renderEditor() {
     try {await navigator.clipboard.writeText(link); $("#agreement-editor-status").textContent = "Private link copied. Share it only with this client.";}
     catch {$("#agreement-editor-status").textContent = "Copying was blocked by your browser. Please use the emailed link.";}
   });
+  for (const id of ["agreement-send","agreement-share","agreement-copy","agreement-renew"]) $(`#${id}`)?.remove();
+  if (active.status !== "Void") {
+    const actions = form.querySelector(".agreement-actions");
+    for (const copy of [false,true]) {
+      if (!copy && active.snapshot.signatureMode === "on-site-three-signatures") continue;
+      const button = document.createElement("button"); button.type="button"; button.className="agreement-button secondary";
+      button.textContent=copy ? "Copy Private Link" : "Send to Client Portal";
+      button.onclick=()=>shareAgreement(copy); actions.prepend(button);
+    }
+  }
+}
+async function shareAgreement(copy) {
+  if (busy) return;
+  try {
+    const email = active.status === "Draft" ? $("#agreement-admin-form").elements.clientEmail.value : active.clientEmail;
+    const sharing = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt});
+    if (!sharing) return;
+    await perform(active.status === "Draft" ? "share" : "access",sharing);
+    if (!link) return;
+    if (!copy) await agreementRequest("/api/hmp-messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"share-form",formId:active.id,conversationId:sharing.conversationId})});
+    $("#agreement-editor-status").textContent="Form shared in the selected client portal. No email was sent.";
+    if (copy) await copySharedLink(link,$("#agreement-editor-status"));
+  } catch(error) { $("#agreement-editor-status").textContent=error.message; }
 }
 function formValues() {
   const values = Object.fromEntries(new FormData($("#agreement-admin-form")));
@@ -132,7 +156,7 @@ function formValues() {
   pages.forEach((page,i) => {if (!page.text.trim() || page.text.length > 15000) throw new Error(`Agreement page ${i+1} must contain text and be no longer than 15,000 characters.`);});
   return {title:values.documentTitle, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
 }
-async function perform(action) {
+async function perform(action, sharing = {}) {
   if (busy) return;
   const status = $("#agreement-editor-status");
   let sendConsent = false;
@@ -165,8 +189,8 @@ async function perform(action) {
       active = data.agreement; dirty = false;
     }
     let warning = "";
-    if (["send", "share", "void", "renew", "resend"].includes(action)) {
-      const data = await agreementRequest(endpoint, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action, updatedAt:active.updatedAt, hmpConsent:sendConsent})});
+    if (["send", "share", "void", "renew", "resend", "access"].includes(action)) {
+      const data = await agreementRequest(endpoint, {method:"PATCH", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action, updatedAt:active.updatedAt, hmpConsent:sendConsent, ...sharing})});
       active = data.agreement; link = data.link || ""; warning = data.warning || ""; dirty = false;
     }
     renderEditor();
@@ -182,5 +206,6 @@ async function perform(action) {
     const issues = error.issues || error.data?.issues;
     $("#agreement-editor-status").textContent = issues ? "Review the highlighted items above. Your entries are still here." : error.message;
     showFormIssues($("#agreement-admin-form"), issues || [{message:error.message}]);
+    link = "";
   } finally { busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(item => item.disabled = false); dialog.querySelectorAll("[data-agreement-editor]").forEach(item => item.setAttribute("contenteditable","true")); }
 }

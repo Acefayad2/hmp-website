@@ -1,6 +1,7 @@
 import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues } from "./agreement-ui.mjs";
 import { validateAnswers } from "./agreement-schema.mjs";
 import { informationSummary, printInformation } from "./information-form-ui.mjs";
+import {expiryLabel} from "./document-expiry.mjs";
 
 export function informationClientHeading(record) {
   const intake = ["money-changing-details", "money-collecting-details"].includes(record.snapshot.id);
@@ -21,6 +22,7 @@ export function renderInformationForm(record, headers) {
       ${completed ? `<section class="agreement-panel">${informationSummary(record, false)}</section><button type="button" class="agreement-button secondary" id="information-print">Print / save my responses</button>` : `<form id="information-client-form" class="agreement-panel"><p>* Required. Answers are saved when you select Submit information. Keep this page open until you see confirmation.</p><div class="agreement-grid">${fieldsHTML(record.snapshot.clientFields, {email:record.clientEmail,...record.clientAnswers})}</div><p>Only share public payment handles or QR codes—never bank account numbers, passwords, or login codes.</p><button class="agreement-button" type="submit">Submit information</button><p id="information-save-status" class="agreement-status" role="status"></p></form>`}`;
     message.textContent = completed ? "Your responses have been saved and are available to HMP. Contact HMP if anything needs correcting." : "";
     message.classList.toggle("success", completed);
+    if (record.expiresAt) { const expiry=document.createElement("p"); expiry.textContent=`Link expires: ${expiryLabel(record.expiresAt)}.`; content.prepend(expiry); }
     document.querySelector("#information-print")?.addEventListener("click", () => printInformation(record));
     const form = document.querySelector("#information-client-form");
     if (form) form.noValidate = true;
@@ -33,7 +35,7 @@ export function renderInformationForm(record, headers) {
         const answers = validateAnswers(record.snapshot.clientFields, Object.fromEntries(new FormData(form)));
         busy = true; form.querySelectorAll("input,textarea,select,button").forEach(el => el.disabled = true);
         status.textContent = "Saving your information…";
-        const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({agreementId:agreement.id,answers})});
+        const data = await agreementRequest("/api/hmp-agreement", {method:"POST", headers, body:JSON.stringify({agreementId:record.id,answers})});
         record = data.agreement; dirty = false; render();
         message.scrollIntoView({block:"center", behavior:"smooth"});
       } catch (error) {status.textContent = `${error.message} Your entries are still here; please try again.`; showFormIssues(form, error.issues || error.data?.issues || [{message:error.message}]);}

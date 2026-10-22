@@ -17,7 +17,7 @@ export function latestPublishedDocuments(messages=[]) {
   const keyFor=message=>{
     if(message.sender!=="admin")return null;
     const copy=message.document;
-    if(["invoice","contract","form"].includes(copy?.kind)&&copy.id)return `${copy.kind}/${copy.revisionRootId||copy.id}`;
+    if(["invoice","contract","form","receipt"].includes(copy?.kind)&&copy.id)return `${copy.kind}/${copy.revisionRootId||copy.id}`;
     if(parseProposal(message.body))return `proposal/${message.revisionRootId||message.revision_root_id||message.id}`;
     return null;
   };

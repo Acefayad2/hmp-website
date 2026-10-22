@@ -7,6 +7,7 @@ import { readMessageHistory } from "./_message-history.mts";
 import { privateLink } from "./_agreement-forms.mts";
 import { stableId } from "./_document-messages.mts";
 import { normalizeServiceHours } from "../../proposal-ui.js";
+import {linkExpiration, businessDate} from "../../document-expiry.mjs";
 import { normalizeCalendarUrl } from "../../calendar-link.js";
 import {
   clientConversationUrl,
@@ -103,6 +104,7 @@ export const normalizeAdminMessage = (value: unknown) => {
     additionalInformation: cleanText(proposal.additionalInformation, 600),
     serviceFee: number(proposal.serviceFee, 1_000_000),
     validUntil: cleanText(proposal.validUntil, 10),
+    ...(proposal.linkExpiresAt ? {linkExpiresAt:cleanText(proposal.linkExpiresAt,32)} : {}),
     paymentTerms: cleanText(proposal.paymentTerms, 600),
     calendarUrl: normalizeCalendarUrl(proposal.calendarUrl),
   };
@@ -553,6 +555,13 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     let message = "";
     try {
       message = normalizeAdminMessage(body.message);
+      if (message.startsWith(proposalPrefix)) {
+        const proposal = JSON.parse(message.slice(proposalPrefix.length));
+        if (body.expirationDate || proposal.linkExpiresAt) {
+          proposal.linkExpiresAt = linkExpiration(body.expirationDate || businessDate(new Date(proposal.linkExpiresAt)));
+          message = proposalPrefix + JSON.stringify(proposal);
+        }
+      }
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Message is invalid" }, 400);
     }
@@ -567,6 +576,9 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       .eq("id", conversationId)
       .maybeSingle();
     if (!conversation) return json({ error: "Conversation not found" }, 404);
+    const portalOnly = body.portalOnly === true && message.startsWith(proposalPrefix);
+    if (portalOnly && (conversation.revoked_at || !(Date.parse(conversation.token_expires_at)>Date.now()))) return json({error:"This client link is inactive. Create an active link in Messages before sharing."},409);
+    const sharedLink = portalOnly ? clientConversationUrl(conversation.id,conversation.token_nonce)+"&section=proposals" : "";
     let attachments;
     try {
       attachments = parseAttachments(body.attachments, conversationId, requestId);
@@ -583,7 +595,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const now = new Date().toISOString();
     const { data: inserted, error } = await client
       .from("hmp_client_messages")
-      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message, attachments, email_notification_error: "Email notification not yet confirmed. Retry if this status persists." })
+      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message, attachments, email_notification_error: portalOnly ? null : "Email notification not yet confirmed. Retry if this status persists." })
       .select("id,sender,sender_name,body,attachments,created_at")
       .single();
     if (error?.code === "23505") {
@@ -594,13 +606,13 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         .eq("conversation_id", conversationId)
         .eq("sender", "admin")
         .maybeSingle();
-      if (existing) return json({ ok: true, duplicate: true, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, attachments: existing.attachments, createdAt: existing.created_at }, ...await notifyStoredMessage(client,inquiry,conversation,existing,fetchFn) });
+      if (existing) return json({ ok: true, duplicate: true, clientUrl:sharedLink, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, attachments: existing.attachments, createdAt: existing.created_at }, ...(portalOnly ? {} : await notifyStoredMessage(client,inquiry,conversation,existing,fetchFn)) });
     }
     if (error || !inserted) return json({ error: "Message could not be sent" }, 502);
     await completeAttachmentUploads(client, attachments);
     await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
-    const notification = await notifyStoredMessage(client,inquiry,conversation,inserted,fetchFn);
-    return json({ ok: true, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, ...notification });
+    const notification = portalOnly ? {} : await notifyStoredMessage(client,inquiry,conversation,inserted,fetchFn);
+    return json({ ok: true, clientUrl:sharedLink, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, ...notification });
   }
 
   return json({ error: "Invalid action" }, 400);

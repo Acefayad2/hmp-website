@@ -6,6 +6,7 @@ import { validateAnswers } from "../../agreement-schema.mjs";
 import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern, withCurrentDraftFields } from "./_agreement-forms.mts";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
 import {latestDocumentRows} from "../../document-versions.mjs";
+import {linkExpiration} from "../../document-expiry.mjs";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]!);
@@ -81,6 +82,14 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       if (readError) return json({error:"Agreement could not be loaded."}, 502);
       if (!storedRow) return json({error:"Agreement not found."}, 404);
       const row = withCurrentDraftFields(storedRow);
+      // Access metadata may change without modifying the signed/issued content.
+      if (body.action === "access") {
+        if (!["Sent","Completed"].includes(row.status)) return json({error:"Issue this form before sharing its link."},409);
+        const expiresAt = linkExpiration(body.expirationDate);
+        const {data,error} = await db.from(table).update({expires_at:expiresAt}).eq("id",row.id).eq("status",row.status).eq("updated_at",body.updatedAt || "").select("*").maybeSingle();
+        if(error || !data) return json({error:"Link expiration could not be updated. Reopen the form and try again."},409);
+        return json({agreement:publicAgreement(data),link:privateLink(data)});
+      }
       if (row.status === "Completed" || row.status === "Void") return json({error:"This agreement is locked. Create a new form for any changes."}, 409);
       if (body.action === "void") {
         const {data, error} = await db.from(table).update({status:"Void", updated_at:new Date().toISOString()}).eq("id", row.id).in("status", ["Draft", "Sent"]).select("*").maybeSingle();
@@ -99,6 +108,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       const renewing = body.action === "renew" || body.action === "resend";
       const shareOnly = body.action === "share" || body.action === "renew";
       if (body.action !== "send" && !shareOnly && !renewing) return json({error:"Invalid action"}, 400);
+      const expiresAt = body.expirationDate === undefined ? new Date(Date.now() + 7 * 86400000).toISOString() : linkExpiration(body.expirationDate);
       if (row.snapshot.signatureMode === "on-site-three-signatures" && !shareOnly) return json({error:"Money Bank Verification is completed on-site; open its private link on the shared device."}, 400);
       const resendKey = Netlify.env.get("RESEND_API_KEY");
       const from = hmpSender("contract");
@@ -108,7 +118,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         if (row.status !== "Sent" || !(Date.parse(row.expires_at) <= Date.now())) return json({error:"Only an expired, unfinished form can be renewed. Reload its current status."}, 409);
         const now = new Date().toISOString(), seed = nonce();
         const {data, error} = await db.from(table).update({updated_at:now,
-          expires_at:new Date(Date.now() + 7 * 86400000).toISOString(),
+          expires_at:expiresAt,
           token_nonce:seed, token_hash:hash(agreementToken(row.id, seed)), email_delivered_at:null})
           .eq("id", row.id).eq("status", "Sent").eq("updated_at", body.updatedAt || "")
           .eq("token_hash", row.token_hash).select("*").maybeSingle();
@@ -120,7 +130,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         if (!information && !["client-only", "on-site-three-signatures"].includes(row.snapshot.signatureMode) && body.hmpConsent !== true) return json({error:"The HMP representative must authorize their electronic signature."}, 400);
         const now = new Date().toISOString();
         const {data, error} = await db.from(table).update({status:"Sent", sent_at:now, updated_at:now,
-          expires_at:new Date(Date.now() + 7 * 86400000).toISOString(),
+          expires_at:expiresAt,
           prepared_snapshot:row.snapshot,
           snapshot:information ? row.snapshot : issuedSnapshot(row.snapshot, completeAnswers),
           admin_answers:information || ["client-only", "on-site-three-signatures"].includes(row.snapshot.signatureMode) ? row.admin_answers : {...row.admin_answers, hmpSignedAt:now, hmpConsent:"I authorize my typed name as my electronic signature for HMP on this agreement."}})
