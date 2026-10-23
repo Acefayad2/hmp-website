@@ -1,5 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpAlertRecipient } from "./_email-contact.mts";
+import { loadSmsDeliveries } from "./hmp-sms.mts";
 import {latestPublishedDocuments} from "../../document-versions.mjs";
 import {clientMessageAccess} from "../../document-expiry.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -106,6 +107,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
       ...message,
       signedAttachments: await signAttachments(client, message.attachments),
     })));
+    const smsDeliveries = await loadSmsDeliveries(client, signedMessages.map((message) => message.id));
     return json({
       conversation: {
         clientName: inquiry.client_name || "Client",
@@ -124,6 +126,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
         attachments: message.signedAttachments,
         createdAt: message.created_at,
         editedAt: message.edited_at || null,
+        textMessage: smsDeliveries.has(message.id),
       })),
     });
   }

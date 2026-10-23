@@ -37,7 +37,7 @@ function open(row) {
   form.elements.clientEmail.value=row?.client_email || "";
   form.querySelectorAll("input,button").forEach(el=>el.disabled=false);
   // An existing request's contact is immutable, so retries cannot go to another person.
-  form.querySelectorAll("input").forEach(el=>el.readOnly=Boolean(row));
+  form.querySelectorAll("input").forEach(el => { el.readOnly = Boolean(row) && el.name !== "clientPhone"; });
   message.textContent=""; dialog.showModal();
 }
 $("#request-review-button").addEventListener("click",()=>open());
@@ -59,15 +59,42 @@ form.addEventListener("submit",async event=>{
   event.preventDefault(); if(busy || !form.reportValidity())return;
   const values=Object.fromEntries(new FormData(form));
   const shareOnly=event.submitter?.dataset.reviewRequestAction==="share";
+  const textOnly=event.submitter?.dataset.reviewRequestAction==="text";
+  if (textOnly && !String(values.clientPhone || "").trim()) {
+    message.textContent = "Enter a mobile number to text this review link.";
+    return;
+  }
+  if (textOnly && !window.confirm(`Text the review link to ${values.clientName} at ${values.clientPhone}? No email will be sent.`)) return;
   busy=true; form.querySelectorAll("input,button").forEach(el=>el.disabled=true);
-  message.textContent=shareOnly ? "Creating private link…" : "Sending review request…";
+  message.textContent=textOnly ? "Creating the private link and sending the text…" : shareOnly ? "Creating private link…" : "Sending review request…";
   let sent=false;
   try {
-    const data=await request({id:requestId,...values,...(shareOnly ? {action:"share"} : {})}); sent=true;
-    if(shareOnly) {
+    const data=await request({id:requestId,...values,...(shareOnly || textOnly ? {action:"share"} : {})});
+    if (textOnly) {
+      if (!data.clientUrl) throw new Error("The review link was created, but it could not be read for texting.");
+      const smsResponse = await fetch("/api/hmp-sms", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: values.clientPhone,
+          contactName: values.clientName,
+          content: `Hello ${String(values.clientName).trim()}, HMP would love your feedback. This private link is only for you: ${data.clientUrl}`,
+          requestId: crypto.randomUUID(),
+        }),
+      });
+      const sms = await smsResponse.json().catch(() => ({}));
+      if (!smsResponse.ok) throw new Error(sms.error || "The review link was created, but the text could not be sent. Use Copy link in the list below.");
+      sent = true;
+      message.textContent = `Review link texted to ${sms.to || values.clientPhone}. No email was sent.`;
+    } else if(shareOnly) {
+      sent=true;
       try {await navigator.clipboard.writeText(data.clientUrl); message.textContent="Private link copied. Text it only to this client. No email was sent.";}
       catch {message.textContent="Link created. Use Copy link in the review request list below.";}
-    } else message.textContent=data.warning || (data.alreadySent ? "This review request was already sent." : "Review request emailed. The client’s submission will need your approval before publication.");
+    } else {
+      sent=true;
+      message.textContent=data.warning || (data.alreadySent ? "This review request was already sent." : "Review request emailed. The client’s submission will need your approval before publication.");
+    }
     await loadReviewRequests();
   } catch(error) {message.textContent=error.message;}
   finally {
@@ -75,7 +102,7 @@ form.addEventListener("submit",async event=>{
     if(!sent) {
       form.querySelectorAll("input,button").forEach(el=>el.disabled=false);
       // Preserve ID and original contact for safe retry after uncertain delivery.
-      form.querySelectorAll("input").forEach(el=>el.readOnly=true);
+      form.querySelectorAll("input").forEach(el => { el.readOnly = el.name !== "clientPhone"; });
     }
   }
 });

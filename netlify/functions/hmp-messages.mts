@@ -24,6 +24,7 @@ import {
   signAttachments,
   verifyAttachmentsExist,
 } from "./_conversation-attachments.mts";
+import { loadSmsDeliveries } from "./hmp-sms.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -239,13 +240,14 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const conversationIds = conversationRows.map((row) => row.id);
     const [{ data: inquiryRows, error: inquiryError }, { data: messageRows, error: messageError }] = await Promise.all([
       inquiryIds.length
-        ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,service,celebration_date,status").in("submission_id", inquiryIds)
+        ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,phone,service,celebration_date,status").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [], error: null }),
       readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,edited_at,email_notified_at,email_notification_error,revision_root_id"),
     ]);
     // A database/schema failure is not an empty conversation. Keep the UI's
     // existing data and surface a retryable error instead of hiding messages.
     if (inquiryError || messageError) return json({ error: "Messages are temporarily unavailable. Please try again." }, 502);
+    const smsDeliveries = await loadSmsDeliveries(client, (messageRows || []).map((message) => message.id));
     const signedMessageRows = await Promise.all((messageRows || []).map(async (message) => ({
       ...message,
       signedAttachments: await signAttachments(client, message.attachments),
@@ -258,6 +260,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         inquiryId: row.inquiry_id,
         clientName: inquiry.client_name || "Client",
         clientEmail: inquiry.email || "",
+        clientPhone: inquiry.phone || "",
         service: inquiry.service || "Event inquiry",
         celebrationDate: inquiry.celebration_date || "",
         inquiryStatus: inquiry.status || "New",
@@ -280,6 +283,8 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
             editedAt: message.edited_at || null,
             emailNotifiedAt: message.email_notified_at || null,
             emailNotificationError: message.email_notification_error || "",
+            smsSentAt: smsDeliveries.get(message.id)?.created_at || null,
+            smsTo: smsDeliveries.get(message.id)?.to_number || "",
           })),
       };
     });
@@ -428,6 +433,15 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     if (action === "edit-message") {
       if (existing.document || String(existing.body || "").startsWith(proposalPrefix)) {
         return json({ error: "Proposal and document messages cannot be edited here" }, 400);
+      }
+      try {
+        const { data: sentText, error: textError } = await client.from("hmp_sms_messages")
+          .select("status").eq("message_id", messageId).eq("status", "sent").maybeSingle();
+        if (!textError && sentText?.status === "sent") {
+          return json({ error: "A text that was already sent cannot be edited." }, 400);
+        }
+      } catch {
+        // A missing delivery log must not block edits of ordinary portal replies.
       }
       const message = cleanText(body.message, 4000);
       if (!message) return json({ error: "Enter a message" }, 400);

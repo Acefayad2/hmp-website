@@ -378,8 +378,20 @@ const openInquiry = (id) => {
   $("#detail-service").textContent = eventServiceLabel(item.service) || "Service not specified";
   $("#detail-actions").innerHTML = [
     item.email ? `<a href="mailto:${encodeURIComponent(item.email)}">Email client</a>` : "",
+    item.phone ? `<button type="button" id="text-inquiry-client">Text client</button>` : "",
     item.phone ? `<a href="tel:${escapeHTML(item.phone.replace(/[^+\d]/g, ""))}">Call ${escapeHTML(item.phone)}</a>` : "",
   ].join("");
+  const textForm = $("#inquiry-text-form");
+  textForm.hidden = true;
+  $("#inquiry-text-body").value = "";
+  setMessage($("#inquiry-text-status"), "");
+  $("#inquiry-text-recipient").textContent = item.phone
+    ? `To ${item.phone}. This sends from the HMP text number and is saved in the client conversation.`
+    : "";
+  $("#text-inquiry-client")?.addEventListener("click", () => {
+    textForm.hidden = false;
+    $("#inquiry-text-body").focus();
+  });
   renderDetailGrid(item);
   const note = $("#detail-note");
   note.hidden = !item.additionalInformation;
@@ -397,6 +409,7 @@ const openInquiry = (id) => {
   $("#create-conversation-link").textContent = thread ? "Renew private link" : "Create private link";
   $("#copy-conversation-link").hidden = !thread;
   $("#open-conversation").hidden = !thread;
+  $("#text-current-link").hidden = !(thread?.active && item.phone);
   setMessage($("#conversation-link-message"), thread
     ? "A secure client hub link is active for this inquiry."
     : "");
@@ -497,6 +510,7 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.editedAt,
   message.emailNotifiedAt,
   message.emailNotificationError,
+  message.smsSentAt,
   message.document,
   (message.attachments || []).map((attachment) => [
     attachment.id,
@@ -556,7 +570,7 @@ const renderAdminMessages = (thread) => {
     if (message.sender === "admin") {
       const actions = document.createElement("div");
       actions.className = "admin-message-actions";
-      if (message.body && !proposal && !message.document) {
+      if (message.body && !proposal && !message.document && !message.smsSentAt) {
         const edit = document.createElement("button");
         edit.type = "button";
         edit.textContent = "Edit";
@@ -571,6 +585,12 @@ const renderAdminMessages = (thread) => {
       remove.addEventListener("click", () => deleteAdminMessage(thread.id, message.id));
       actions.append(remove);
       article.append(actions);
+    }
+    if (message.smsSentAt) {
+      const textStatus = document.createElement("p");
+      textStatus.className = "message-email-status";
+      textStatus.textContent = "Text sent";
+      article.append(textStatus);
     }
     if (message.sender === "admin" && (message.emailNotifiedAt || message.emailNotificationError)) {
       const status=document.createElement("p");
@@ -1002,7 +1022,11 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation-placeholder").hidden = true;
   $("#admin-conversation").hidden = false;
   $("#admin-conversation-name").textContent = thread.clientName;
-  $("#admin-conversation-email").textContent = thread.clientEmail;
+  $("#admin-conversation-email").textContent = [thread.clientEmail, thread.clientPhone].filter(Boolean).join(" · ");
+  const textButton = $("#send-admin-text");
+  textButton.disabled = !thread.clientPhone;
+  textButton.title = thread.clientPhone ? `Text ${thread.clientPhone}` : "Add a phone number on the inquiry before texting";
+  $("#text-active-link").disabled = !thread.clientPhone || !thread.active;
   $("#admin-conversation-service").textContent = eventServiceLabel(thread.service);
   $("#copy-active-link").textContent = thread.active ? "Copy client link" : "Link expired";
   $("#copy-active-link").disabled = !thread.active;
@@ -1025,7 +1049,7 @@ const renderMessageThreads = () => {
     button.type = "button";
     button.className = "thread-row";
     button.dataset.threadId = thread.id;
-    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.service,
+    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.clientPhone, thread.service,
       (thread.messages || []).map(message => [message.body, message.createdAt,
         (message.attachments || []).map(file => file.name), message.document?.number,
         message.document?.event_name, message.document?.notes]));
@@ -1055,7 +1079,7 @@ const renderClientActivity = () => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "activity-client";
-    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.service, thread.celebrationDate);
+    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.clientPhone, thread.service, thread.celebrationDate);
     button.setAttribute("aria-pressed", String(thread.id === activeActivityThreadId));
     const name = document.createElement("strong");
     name.textContent = thread.clientName;
@@ -2341,7 +2365,131 @@ $("#insert-message-signature").addEventListener("click", () => {
   input.setSelectionRange(input.value.length, input.value.length);
   setMessage($("#admin-message-status"), "Signature added to the draft. Review it before sending.", true);
 });
+const postStaffText = async (payload) => {
+  const response = await fetch("/api/hmp-sms", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, requestId: payload.requestId || crypto.randomUUID() }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Text could not be sent.");
+  return data;
+};
+
+const fillLinkText = (target, name, url) => {
+  target.value = `Hello ${name || "there"}, here is your private HMP client hub: ${url}`.slice(0, 1600);
+  target.focus();
+};
+
+const sendAdminText = async () => {
+  if (!activeThreadId || $("#admin-message-attachments").disabled) return;
+  const input = $("#admin-message-input");
+  const message = input.value.trim();
+  const attachmentInput = $("#admin-message-attachments");
+  if (pendingFiles(attachmentInput).length) {
+    setMessage($("#admin-message-status"), "Remove attachments before sending a text. Files still go out with Send reply.");
+    return;
+  }
+  if (!message) {
+    setMessage($("#admin-message-status"), "Enter the text to send.");
+    return;
+  }
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  if (!thread?.clientPhone) {
+    setMessage($("#admin-message-status"), "This client has no phone number on the inquiry.");
+    return;
+  }
+  if (!window.confirm(`Text ${thread.clientName} at ${thread.clientPhone}?`)) return;
+  const submit = $("#admin-message-form").querySelector("button[type=submit]");
+  const button = $("#send-admin-text");
+  button.disabled = true;
+  submit.disabled = true;
+  input.readOnly = true;
+  setAttachmentBusy(attachmentInput, $("#admin-message-attachment-previews"), true);
+  setMessage($("#admin-message-status"), "Sending text…");
+  try {
+    const data = await postStaffText({ conversationId: activeThreadId, content: message });
+    input.value = "";
+    let refreshWarning = "";
+    try { await loadMessages(); } catch { refreshWarning = " Refresh Messages to see it in the conversation."; }
+    const warning = data.historyWarning ? ` ${data.historyWarning}` : "";
+    setMessage($("#admin-message-status"), `Text sent to ${data.to || thread.clientPhone}. It is saved in this conversation.${warning}${refreshWarning}`, !data.historyWarning && !refreshWarning);
+  } catch (error) {
+    setMessage($("#admin-message-status"), error.message || "Text could not be sent.");
+  } finally {
+    submit.disabled = false;
+    input.readOnly = false;
+    setAttachmentBusy(attachmentInput, $("#admin-message-attachment-previews"), false);
+    const current = messageThreads.find((candidate) => candidate.id === activeThreadId);
+    button.disabled = !current?.clientPhone;
+  }
+};
+
+const sendInquiryText = async (event) => {
+  event.preventDefault();
+  const item = inquiries.find((inquiry) => inquiry.id === activeInquiryId);
+  const input = $("#inquiry-text-body");
+  const message = input.value.trim();
+  if (!item?.phone) {
+    setMessage($("#inquiry-text-status"), "This inquiry has no phone number.");
+    return;
+  }
+  if (!message) {
+    setMessage($("#inquiry-text-status"), "Enter the text to send.");
+    return;
+  }
+  if (!window.confirm(`Text ${item.name || "this client"} at ${item.phone}?`)) return;
+  const button = event.currentTarget.querySelector("button[type=submit]");
+  button.disabled = true;
+  input.readOnly = true;
+  setMessage($("#inquiry-text-status"), "Sending text…");
+  try {
+    const data = await postStaffText({ inquiryId: item.id, content: message });
+    input.value = "";
+    try { await loadMessages(); } catch { /* The text was still sent. */ }
+    const thread = messageThreads.find((candidate) => candidate.inquiryId === item.id);
+    if (thread) {
+      activeConversationUrl = thread.clientUrl;
+      $("#create-conversation-link").textContent = "Renew private link";
+      $("#copy-conversation-link").hidden = false;
+      $("#open-conversation").hidden = false;
+      $("#text-current-link").hidden = !(thread.active && item.phone);
+    }
+    const warning = data.historyWarning ? ` ${data.historyWarning}` : "";
+    const saved = data.savedToConversation ? " Saved in the client conversation." : " Saved in the text log.";
+    setMessage($("#inquiry-text-status"), `Text sent to ${data.to || item.phone}.${saved}${warning}`, !data.historyWarning);
+  } catch (error) {
+    setMessage($("#inquiry-text-status"), error.message || "Text could not be sent.");
+  } finally {
+    button.disabled = false;
+    input.readOnly = false;
+  }
+};
+
 $("#admin-message-form").addEventListener("submit", sendAdminMessage);
+$("#send-admin-text").addEventListener("click", sendAdminText);
+$("#inquiry-text-form").addEventListener("submit", sendInquiryText);
+$("#text-current-link").addEventListener("click", () => {
+  const item = inquiries.find((inquiry) => inquiry.id === activeInquiryId);
+  if (!item?.phone || !activeConversationUrl) return;
+  $("#inquiry-text-form").hidden = false;
+  fillLinkText($("#inquiry-text-body"), item.name, activeConversationUrl);
+  setMessage($("#inquiry-text-status"), "Review the text, then click Send text. This does not email a new link.", true);
+});
+$("#text-active-link").addEventListener("click", () => {
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  if (!thread?.active || !thread.clientUrl) {
+    setMessage($("#admin-message-status"), "Create an active client link before texting it.");
+    return;
+  }
+  if (!thread.clientPhone) {
+    setMessage($("#admin-message-status"), "This client has no phone number on the inquiry.");
+    return;
+  }
+  fillLinkText($("#admin-message-input"), thread.clientName, thread.clientUrl);
+  setMessage($("#admin-message-status"), "Review the text, then click Send text. This does not email a new link.", true);
+});
 $("#admin-message-attachments").addEventListener("change", () => {
   stageAttachments($("#admin-message-attachments"));
   renderAttachmentPreviews(
