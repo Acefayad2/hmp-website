@@ -491,6 +491,21 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     }
   }
 
+  if (action === "set-link-expiration") {
+    const conversationId = cleanText(body.conversationId, 36);
+    if (!uuidPattern.test(conversationId)) return json({error:"Invalid client portal"},400);
+    let expiresAt;
+    try { expiresAt = linkExpiration(body.expirationDate); }
+    catch (cause) { return json({error:cause instanceof Error ? cause.message : "Choose a valid expiration date."},400); }
+    const {data: existing,error: readError} = await client.from("hmp_client_conversations").select("id,revoked_at").eq("id",conversationId).maybeSingle();
+    if (readError) return json({error:"Client portal could not be loaded."},502);
+    if (!existing) return json({error:"Client portal not found."},404);
+    if (existing.revoked_at) return json({error:"This portal was revoked. Create a new link instead."},409);
+    const {error: saveError} = await client.from("hmp_client_conversations").update({token_expires_at:expiresAt,updated_at:new Date().toISOString()}).eq("id",conversationId);
+    if (saveError) return json({error:"Expiration could not be saved."},502);
+    return json({ok:true,expiresAt});
+  }
+
   if (action === "create-link" || action === "send-link" || action === "reset-pin") {
     const inquiryId = cleanText(body.inquiryId, 36);
     if (!uuidPattern.test(inquiryId)) return json({ error: "Invalid inquiry" }, 400);

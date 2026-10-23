@@ -13,7 +13,24 @@ const settings={RESEND_API_KEY:"test",HMP_INVOICE_FROM_EMAIL:"sender@example.tes
 globalThis.Netlify={env:{get:key=>settings[key]}};
 const id="11111111-1111-4111-8111-111111111111",inquiryId="22222222-2222-4222-8222-222222222222",conversationId="33333333-3333-4333-8333-333333333333",requestId="44444444-4444-4444-8444-444444444444";
 const token="a".repeat(43);
-test("existing event hub closes for reads, PINs and uploads after 15 days, while Admin and records survive",async()=>{
+test("Admin can extend an existing portal without replacing its URL or PIN; invalid and revoked updates fail",async()=>{
+  const db=database();
+  const handler=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+  const before=structuredClone(db.rows.hmp_client_conversations[0]);
+  db.rows.hmp_client_conversations[0].token_expires_at="2001-01-01";
+  const call=(expirationDate,origin="https://hmpeds.com")=>handler(new Request("https://hmpeds.com/api/hmp-messages",{method:"POST",headers:{Origin:origin},body:JSON.stringify({action:"set-link-expiration",conversationId,expirationDate})}));
+  assert.equal((await call("2090-12-31")).status,200);
+  const saved=db.rows.hmp_client_conversations[0];
+  assert.equal(saved.token_expires_at,"2091-01-01T04:59:59.999Z");
+  assert.equal(saved.access_token_hash,before.access_token_hash);assert.equal(saved.token_nonce,before.token_nonce);
+  assert.equal((await call("2001-01-01")).status,400);
+  assert.equal((await call("2090-12-31","https://evil.test")).status,403);
+  saved.revoked_at=new Date().toISOString();
+  assert.equal((await call("2090-12-31")).status,409);
+  const unauthorized=createMessagesHandler({getUserFn:async()=>null,databaseFactory:()=>db});
+  assert.equal((await unauthorized(new Request("https://hmpeds.com/api/hmp-messages",{method:"POST",body:JSON.stringify({action:"set-link-expiration",conversationId,expirationDate:"2090-12-31"})}))).status,401);
+});
+test("event hub honors saved expiry regardless of event age; expired access fails and staff records survive",async()=>{
   const db=database(), client=createConversationHandler({databaseFactory:()=>db});
   db.rows.hmp_client_messages.push({id:"kept",conversation_id:conversationId,body:"Keep signed/payment history",sender:"admin",attachments:[]});
   const call=(method="GET",suffix="",body)=>client(new Request(`https://hmpeds.com/api/hmp-conversation${suffix}`,{method,headers:{Authorization:`Bearer ${token}`,Origin:"https://hmpeds.com"},...(body?{body:JSON.stringify(body)}:{})}));
@@ -21,11 +38,13 @@ test("existing event hub closes for reads, PINs and uploads after 15 days, while
   assert.equal(setup.status,200);
   const cookie=setup.headers.get("set-cookie").split(";")[0];
   db.rows.hmp_admin_inquiries[0].celebration_date="2000-01-01";
+  assert.equal((await client(new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${token}`,Cookie:cookie}}))).status,200);
+  db.rows.hmp_client_conversations[0].token_expires_at="2001-01-01";
   const before=structuredClone(db.rows);
   for(const [method,suffix,body] of [["GET",""],["POST","?pin=setup",{pin:"065432",confirmPin:"065432"}],["POST","",{action:"prepare-upload"}],["POST","",{action:"send",message:"No new writes"}]]){
-    const response=await call(method,suffix,body);assert.equal(response.status,410);assert.match((await response.json()).error,/15 days/);
+    const response=await call(method,suffix,body);assert.equal(response.status,401);assert.match((await response.json()).error,/expired/);
   }
-  assert.equal((await client(new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${token}`,Cookie:cookie}}))).status,410);
+  assert.equal((await client(new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${token}`,Cookie:cookie}}))).status,401);
   assert.deepEqual(db.rows,before);
   const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
   const response=await admin(new Request("https://hmpeds.com/api/hmp-messages"));

@@ -3,7 +3,6 @@ import { hmpSender, hmpAlertRecipient } from "./_email-contact.mts";
 import { loadSmsDeliveries } from "./hmp-sms.mts";
 import {latestPublishedDocuments} from "../../document-versions.mjs";
 import {clientMessageAccess} from "../../document-expiry.mjs";
-import {eventPortalExpired, cappedPortalExpiration} from "../../event-portal-expiration.mjs";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
 import { portalPinId, requireClientPin } from "./_client-pin.mts";
@@ -87,8 +86,6 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
     .eq("submission_id", conversation.inquiry_id)
     .maybeSingle();
   if (!inquiry) return json({ error: "Conversation is unavailable." }, 404);
-  const portalEvent = {date: inquiry.celebration_date};
-  if (eventPortalExpired(portalEvent)) return json({error:"This client portal closed 15 days after the event. Please contact HMP for assistance. Your records have been preserved."},410);
   const pinResponse = await requireClientPin(request, client,
     portalPinId(`message:${conversation.id}`, token),
     Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") || "",
@@ -120,7 +117,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
         service: inquiry.service || "Event inquiry",
         celebrationDate: inquiry.celebration_date || "",
         status: inquiry.status || "New",
-        expiresAt: cappedPortalExpiration(portalEvent, conversation.token_expires_at),
+        expiresAt: conversation.token_expires_at,
       },
       messages: signedMessages.map((message) => ({
         id: message.id,

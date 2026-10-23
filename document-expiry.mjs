@@ -14,8 +14,8 @@ export function linkExpiration(value, now = new Date()) {
   const day = typeof value === "string" ? value : "";
   const parsed = new Date(`${day}T12:00:00Z`);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(parsed.getTime()) || parsed.toISOString().slice(0,10) !== day
-    || day < businessDate(now) || day > expiryDateAfter(30, now)) {
-    throw new Error("Choose a link expiration date from today through the next 30 days (Eastern time).");
+    || day < businessDate(now)) {
+    throw new Error("Choose today or a future link expiration date (Eastern time).");
   }
   // Next midnight, using the offset on the selected date (including DST changes).
   const offset = new Intl.DateTimeFormat("en-US", {timeZone: expiryZone, timeZoneName: "longOffset"}).formatToParts(parsed).find(part => part.type === "timeZoneName").value.replace("GMT", "");

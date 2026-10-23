@@ -9,9 +9,10 @@ test("calendar expiration validates bounds and uses Eastern end-of-day across DS
   const now=new Date("2026-10-22T20:00:00Z");
   assert.equal(linkExpiration("2026-10-22",now),"2026-10-23T03:59:59.999Z");
   assert.equal(linkExpiration("2026-11-01",now),"2026-11-02T04:59:59.999Z");
+  assert.equal(linkExpiration("2028-11-22",now),"2028-11-23T04:59:59.999Z");
   assert.equal(expiryDateAfter(30,now),"2026-11-21");
   assert.equal(businessDate(new Date("2026-10-23T01:00:00Z")),"2026-10-22");
-  for(const value of ["",null,"2026-02-30","2026-10-21","2026-11-22","2026-10-22T00:00:00Z"]) assert.throws(()=>linkExpiration(value,now));
+  for(const value of ["",null,"2026-02-30","2026-10-21","2026-10-22T00:00:00Z"]) assert.throws(()=>linkExpiration(value,now));
 });
 
 test("expired documents are redacted server-side, without exposing an older version",()=>{
