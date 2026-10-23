@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createMessagesHandler, notifyStoredMessage, sendReplyNotification } from "../netlify/functions/hmp-messages.mts";
 import { parseProposal, serializeProposal } from "../proposal-ui.js";
+import { expiryDateAfter, linkExpiration, clientMessageAccess } from "../document-expiry.mjs";
 const settings={RESEND_API_KEY:"test-only",HMP_INQUIRY_FROM_EMAIL:"sender@example.test",SUPABASE_SERVICE_ROLE_KEY:"test-key",HMP_ADMIN_EMAILS:"admin@example.test"};
 globalThis.Netlify={env:{get:key=>settings[key]}};
 const conversationId="11111111-1111-4111-8111-111111111111", messageId="22222222-2222-4222-8222-222222222222", inquiryId="33333333-3333-4333-8333-333333333333";
@@ -164,4 +165,28 @@ test("proposal and document cards cannot be rewritten as plain chat", async () =
   assert.equal((await h(request({action:"edit-message",conversationId,messageId,message:"replaced"}))).status,400);
   messages[0].body="Document sent"; messages[0].document={kind:"invoice"};
   assert.equal((await h(request({action:"edit-message",conversationId,messageId,message:"replaced"}))).status,400);
+});
+
+test("IMG_1964: proposal pricing date is a server-enforced end-of-day access deadline", async () => {
+  const validUntil=expiryDateAfter(14);
+  for(const expirationDate of [undefined,expiryDateAfter(3)]){
+    const messages=[];
+    const h=handler(fakeDatabase(messages),async()=>new Response("{}"));
+    const response=await h(request({...sendBody,expirationDate,message:serializeProposal({title:"Deadline test",clientName:"Test Client",serviceFee:953.93,validUntil})}));
+    assert.equal(response.status,200,JSON.stringify(await response.json()));
+    const proposal=parseProposal(messages[0].body);
+    assert.equal(proposal.validUntil,expirationDate || validUntil);
+    assert.equal(proposal.linkExpiresAt,linkExpiration(expirationDate || validUntil));
+    const deadline=Date.parse(proposal.linkExpiresAt);
+    assert.equal(clientMessageAccess(messages[0],deadline-1).body,messages[0].body);
+    assert.equal(clientMessageAccess(messages[0],deadline).document.expired,true);
+    assert.equal(clientMessageAccess(messages[0],deadline+1).body,"");
+  }
+  const messages=[];
+  const h=handler(fakeDatabase(messages),async()=>{throw Error("Invalid deadline must not send");});
+  for(const validUntil of ["2020-01-01","2026-02-30",expiryDateAfter(31)]){
+    const response=await h(request({...sendBody,message:serializeProposal({clientName:"Test Client",validUntil})}));
+    assert.equal(response.status,400);
+  }
+  assert.equal(messages.length,0);
 });

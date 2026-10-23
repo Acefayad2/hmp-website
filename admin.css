@@ -353,9 +353,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-message-composer .text-send-button { width: auto; min-height: 44px; margin: 0; padding: 0 20px; border: 1px solid var(--plum); border-radius: 999px; color: var(--plum); background: var(--ivory); cursor: pointer; font-size: 11px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
 .admin-message-composer .text-send-button:disabled { opacity: .55; cursor: not-allowed; }
 .portal-proposal { width:min(100%,680px); overflow:hidden; border:1px solid #e4d5cf; border-radius:22px; color:#4d3232; background:#fffaf5; box-shadow:0 14px 35px rgba(67,42,43,.1); }
-.portal-proposal > header { display:flex; align-items:center; justify-content:space-between; gap:22px; padding:20px 22px; background:#eadbd7; }
+.portal-proposal > header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:22px; padding:20px 22px; background:#eadbd7; }
 .portal-proposal > header img { width:142px; height:62px; object-fit:contain; border-radius:11px; background:rgba(255,255,255,.7); }
-.portal-proposal > header div { flex:1; text-align:right; }
+.portal-proposal > header div { flex:1 1 170px; min-width:0; text-align:left; overflow-wrap:anywhere; }
 .portal-proposal > header p { margin:0 0 5px; color:#b67c42; font-size:9px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; }
 .portal-proposal > header h3 { margin:0; font:700 24px/1.05 var(--serif); }
 .proposal-prepared-for { margin:0; padding:20px 22px 14px; font:700 19px/1.3 var(--serif); }
@@ -368,9 +368,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .portal-proposal > section ul { margin:0; padding-left:18px; }
 .portal-proposal > section li { margin:5px 0; font-size:11px; line-height:1.5; }
 .proposal-additional-information { margin:0; white-space:pre-wrap; overflow-wrap:anywhere; font-size:11px; line-height:1.5; }
-.proposal-total { display:flex; align-items:center; justify-content:space-between; gap:20px; margin:22px; padding:17px 19px; border-radius:14px; color:#fff; background:#734949; }
+.proposal-total { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; margin:22px; padding:17px 19px; border-radius:14px; color:#fff; background:#734949; }
 .proposal-total span { font-size:9px; font-weight:700; letter-spacing:.11em; text-transform:uppercase; }
-.proposal-total strong { color:#e5b980; font:700 26px/1 var(--serif); }
+.proposal-total strong { color:#e5b980; font:700 26px/1 var(--serif); white-space:nowrap; }
 .proposal-payment-terms,.proposal-validity { margin:0 22px 12px; color:#756467; font-size:10px; line-height:1.55; }
 .proposal-validity { font-weight:700; }
 .proposal-actions { padding:8px 22px 22px; }
@@ -398,8 +398,6 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .proposal-record summary strong { font-size:16px; }
 .proposal-record summary span { color:var(--muted); font-size:12px; }
 .proposal-record-content { padding:0 20px 22px; }
-.proposal-record .portal-proposal > header { flex-wrap:wrap; }
-.proposal-record .portal-proposal > header div { flex:1 1 170px; text-align:left; overflow-wrap:anywhere; }
 .proposal-record-content > .text-button { margin-top:18px; }
 .proposal-record summary:focus-visible, .proposal-client-picker select:focus-visible { outline:3px solid var(--gold); outline-offset:-3px; }
 .form-list-heading,.form-list-panel .agreement-row { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) minmax(130px,.7fr); gap:18px; align-items:center; }
