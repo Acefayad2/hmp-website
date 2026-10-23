@@ -27,16 +27,17 @@ export const hubSectionFor = (message) => {
 export const hubMessages = (messages = [], section = "all") =>
   section === "all" ? latestPublishedDocuments(messages) : latestPublishedDocuments(messages).filter((message) => hubSectionFor(message) === section);
 
-export const renderHubTabs = (container, messages, selected, onSelect, { showEmptySeating = false } = {}) => {
+export const renderHubTabs = (container, messages, selected, onSelect, { showEmptySeating = false, showActivity = false } = {}) => {
   container.replaceChildren();
-  for (const [section, label] of hubSections) {
+  const sections = showActivity ? [...hubSections, ["activity", "Activity"]] : hubSections;
+  for (const [section, label] of sections) {
     const count = hubMessages(messages, section).length;
     if (section === "seating" && !count && !showEmptySeating) continue;
     const button = document.createElement("button");
     button.type = "button";
     button.className = "hub-tab";
     button.setAttribute("aria-pressed", String(selected === section));
-    button.textContent = `${label} (${count})`;
+    button.textContent = section === "activity" ? label : `${label} (${count})`;
     button.addEventListener("click", () => onSelect(section));
     container.append(button);
   }

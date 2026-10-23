@@ -24,6 +24,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
     return nodes.get(selector);
   };
   const context = {
+    activeHubSection: "messages", activeThreadId: "", messageThreads: [],
     $, document: { querySelectorAll: (selector) => selector === "[data-document-view]" ? tabs : links },
     setMessage: (node, text) => { node.textContent = text; },
     loadMessageSignature: () => Promise.resolve(),
