@@ -13,7 +13,25 @@ const settings={RESEND_API_KEY:"test",HMP_INVOICE_FROM_EMAIL:"sender@example.tes
 globalThis.Netlify={env:{get:key=>settings[key]}};
 const id="11111111-1111-4111-8111-111111111111",inquiryId="22222222-2222-4222-8222-222222222222",conversationId="33333333-3333-4333-8333-333333333333",requestId="44444444-4444-4444-8444-444444444444";
 const token="a".repeat(43);
-const record={id,inquiry_id:inquiryId,client_name:"Test <Client>",client_email:"client@example.test",invoice_number:"HMP-101",contract_number:"HMP-C-101",event_date:"2026-10-01",event_name:"Test Event",items:[{description:"Service\nDetails",quantity:1,rate:900,amount:900}],total:900,total_amount:900,scope_of_work:"Services\nMore details",status:"Draft",billing_address:"PRIVATE",created_by:"admin-only",email_message_id:"private-id"};
+test("existing event hub closes for reads, PINs and uploads after 15 days, while Admin and records survive",async()=>{
+  const db=database(), client=createConversationHandler({databaseFactory:()=>db});
+  db.rows.hmp_client_messages.push({id:"kept",conversation_id:conversationId,body:"Keep signed/payment history",sender:"admin",attachments:[]});
+  const call=(method="GET",suffix="",body)=>client(new Request(`https://hmpeds.com/api/hmp-conversation${suffix}`,{method,headers:{Authorization:`Bearer ${token}`,Origin:"https://hmpeds.com"},...(body?{body:JSON.stringify(body)}:{})}));
+  const setup=await call("POST","?pin=setup",{pin:"065432",confirmPin:"065432"});
+  assert.equal(setup.status,200);
+  const cookie=setup.headers.get("set-cookie").split(";")[0];
+  db.rows.hmp_admin_inquiries[0].celebration_date="2000-01-01";
+  const before=structuredClone(db.rows);
+  for(const [method,suffix,body] of [["GET",""],["POST","?pin=setup",{pin:"065432",confirmPin:"065432"}],["POST","",{action:"prepare-upload"}],["POST","",{action:"send",message:"No new writes"}]]){
+    const response=await call(method,suffix,body);assert.equal(response.status,410);assert.match((await response.json()).error,/15 days/);
+  }
+  assert.equal((await client(new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${token}`,Cookie:cookie}}))).status,410);
+  assert.deepEqual(db.rows,before);
+  const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+  const response=await admin(new Request("https://hmpeds.com/api/hmp-messages"));
+  assert.equal(response.status,200);assert.equal((await response.json()).threads[0].messages[0].body,"Keep signed/payment history");
+});
+const record={id,inquiry_id:inquiryId,client_name:"Test <Client>",client_email:"client@example.test",invoice_number:"HMP-101",contract_number:"HMP-C-101",event_date:"2099-10-01",event_name:"Test Event",items:[{description:"Service\nDetails",quantity:1,rate:900,amount:900}],total:900,total_amount:900,scope_of_work:"Services\nMore details",status:"Draft",billing_address:"PRIVATE",created_by:"admin-only",email_message_id:"private-id"};
 function database(){
   const rows={hmp_admin_invoices:[structuredClone(record)],hmp_admin_contracts:[structuredClone(record)],hmp_admin_inquiries:[{submission_id:inquiryId,email:record.client_email,client_name:record.client_name,celebration_date:record.event_date}],hmp_client_conversations:[{id:conversationId,inquiry_id:inquiryId,token_nonce:"nonce",access_token_hash:tokenHash(token),token_expires_at:"2099-01-01",revoked_at:null}],hmp_client_messages:[]};
   rows.hmp_client_portal_pins=[];

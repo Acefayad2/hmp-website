@@ -9,6 +9,16 @@ import {expiryDateAfter,linkExpiration} from "../document-expiry.mjs";
 
 globalThis.Netlify = {env:{get:name => ({SUPABASE_URL:"https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY:"test-only-secret", HMP_ADMIN_EMAILS:"admin@example.test", RESEND_API_KEY:"test-only-resend", HMP_CONTRACT_FROM_EMAIL:"forms@example.test"})[name]}};
 const id = "11111111-1111-4111-8111-111111111111";
+test("existing form links close after the event without altering signed originals or staff access",async()=>{
+  const row={...rowFor(),status:"Completed",admin_answers:{eventDate:"2000-01-01"},signature:{name:"Original"},record_hash:"original"};
+  const original=structuredClone(row),handler=handlerFor([row]),token=agreementToken(id,"seed");
+  for(const method of ["GET","POST"]){
+    const response=await handler(request("hmp-agreement",method,method==="POST"?{}:undefined,token));
+    assert.equal(response.status,410);assert.match((await response.json()).error,/15 days/);
+  }
+  assert.equal((await handler(request("hmp-agreement-forms?id="+id))).status,200);
+  assert.deepEqual(row,original);
+});
 
 test("custom calendar expiration applies to issued and completed forms without replacing signed content",async()=>{
   const row={...rowFor(),status:"Completed",signature:{name:"Original"},record_hash:"original-hash"};
