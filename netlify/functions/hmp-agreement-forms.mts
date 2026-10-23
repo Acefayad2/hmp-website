@@ -7,6 +7,7 @@ import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
 import {latestDocumentRows} from "../../document-versions.mjs";
 import {linkExpiration} from "../../document-expiry.mjs";
+import {eventPortalExpired, cappedPortalExpiration} from "../../event-portal-expiration.mjs";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]!);
@@ -45,6 +46,9 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         const {data: row, error} = await db.rpc("hmp_resolve_agreement_revision",{p_token_hash:hash(token)});
         if (error) return json({error:"Client form could not be loaded."}, 502);
         if (!row || !["Sent", "Completed"].includes(row.status) || !row.expires_at || Date.parse(row.expires_at) <= Date.now()) return json({error:"This link has expired or is no longer available. Please contact HMP for help."}, 410);
+        const portalEvent = {date: row.admin_answers?.eventDate || row.client_answers?.eventDate};
+        if (eventPortalExpired(portalEvent)) return json({error:"This form link closed 15 days after the event. Please contact HMP for assistance. The original record is preserved."},410);
+        row.expires_at = cappedPortalExpiration(portalEvent, row.expires_at);
         if (request.method === "POST" && ((body.agreementId && body.agreementId !== row.id) || (row.revision_root_id && body.agreementId !== row.id))) return json({error:"HMP has sent a newer version. Reload and review it before submitting."},409);
         if (request.method === "GET" || row.status === "Completed") return json({agreement:publicAgreement(row), signingConsent:row.snapshot.signingConsent});
         const payload = completionPayload(row, body, request.headers.get("user-agent") || "");

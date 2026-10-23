@@ -54,7 +54,7 @@ const formatDate = (value, includeTime = false) => {
     : { month:"long", day:"numeric", year:"numeric" }).format(date);
 };
 
-const showError = () => {
+const showError = (message = "This private link is invalid or expired. Please contact HMP for assistance.") => {
   $("#client-pin-form").hidden = true;
   $("#client-sign-out").hidden = true;
   $("#conversation-summary").hidden = true;
@@ -62,6 +62,7 @@ const showError = () => {
   renderedMessageSignature = "";
   $("#conversation-title").textContent = "Private conversation unavailable";
   $("#conversation-error").hidden = false;
+  $("#conversation-error p").textContent = message;
   $("#message-list").hidden = true;
   $("#message-empty").hidden = true;
   $("#message-form").hidden = true;
@@ -176,8 +177,8 @@ const loadConversation = async ({ quiet = false } = {}) => {
     $("#client-hub-tabs").hidden = false;
     renderMessages(data.messages || []);
     if (!quiet) $("#message-input").focus();
-  } catch {
-    if (version === loadVersion) showError();
+  } catch (error) {
+    if (version === loadVersion) showError(error.message);
   } finally {
     if (version === loadVersion) loading = false;
   }
