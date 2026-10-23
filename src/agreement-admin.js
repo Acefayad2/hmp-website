@@ -80,6 +80,13 @@ function renderEditor() {
     <div class="agreement-actions">${draft ? `<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button secondary" type="button" id="agreement-share">${active.snapshot.signatureMode === "on-site-three-signatures" ? "Open on-site signing link" : "Create private link"}</button>${active.snapshot.signatureMode === "on-site-three-signatures" ? "" : '<button class="agreement-button" type="button" id="agreement-send">Send client form</button>'}` : ""}${active.status === "Sent" && active.snapshot.signatureMode !== "on-site-three-signatures" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}${link && active.snapshot.signatureMode === "on-site-three-signatures" ? `<a class="agreement-button" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open signing page on this device</a>` : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div><p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
   $("#agreement-close").onclick = () => { if (!busy && (!dirty || confirm("Discard unsaved changes to this form?"))) {dirty = false; dialog.close();} };
   const form = $("#agreement-admin-form");
+  const approval = active.snapshot.clientFields.find(field => field.id === "customizationApproval");
+  if (draft && approval) {
+    const panel = document.createElement("section");
+    panel.className = "agreement-panel";
+    panel.innerHTML = `<h3>Client approval choices</h3><p>The client selects one choice before signing. Edit the wording below if needed.</p>${[["label", "Heading", approval.label], ["approve", "Approve choice", approval.options[0]], ["decline", "Decline choice", approval.options[1]]].map(([key,label,value]) => `<label class="agreement-field">${label}<input name="approval-${key}" maxlength="500" required value="${escape(value)}"></label>`).join("")}<fieldset disabled><legend>Client preview — choose one</legend>${fieldsHTML([approval], {}, "approval-preview")}</fieldset>`;
+    $("#agreement-admin-fields").after(panel);
+  }
   mountDocumentVersions(dialog,{kind:"form",id:active.id,status:active.status,beforeSwitch:()=>!busy&&(!dirty||confirm("Discard unsaved changes before switching versions?")),open:async(id)=>{dirty=false;await openAgreementDraft(id);await loadAgreementForms();}});
   if(active.legacyRevisionText&&draft){
     const warning=document.createElement("p");warning.className="agreement-status";
@@ -103,7 +110,15 @@ function renderEditor() {
     for (const field of active.snapshot.adminFields.filter(field => field.calculated === "money-table-payment")) form.elements[field.id].value = amounts[field.id];
   };
   if (draft) refreshPaymentAmounts();
-  form.oninput = event => {dirty = true; if (["serviceFee","retainerPercent"].includes(event.target.name)) refreshPaymentAmounts();};
+  form.oninput = event => {
+    dirty = true;
+    if (["serviceFee","retainerPercent"].includes(event.target.name)) refreshPaymentAmounts();
+    if (approval && event.target.name?.startsWith("approval-")) {
+      const preview = form.querySelector("fieldset[disabled]");
+      const updated = {...approval, label:form.elements["approval-label"].value, options:[form.elements["approval-approve"].value,form.elements["approval-decline"].value]};
+      preview.innerHTML = `<legend>Client preview — choose one</legend>${fieldsHTML([updated], {}, "approval-preview")}`;
+    }
+  };
   if (draft) mountAgreementEditors(form,active.snapshot,() => {
     dirty = true;
     const pages = [...form.querySelectorAll("[data-agreement-editor]")].map(readAgreementEditor);
@@ -119,7 +134,8 @@ function renderEditor() {
     if (!draft) return printAgreement(active);
     try {
       const values = formValues();
-      printAgreement({...active, ...values, snapshot:{...active.snapshot, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting}});
+      const clientFields = active.snapshot.clientFields.map(field => field.id === "customizationApproval" && values.approvalWording ? {...field, label:values.approvalWording.label, options:[values.approvalWording.approve,values.approvalWording.decline]} : field);
+      printAgreement({...active, ...values, snapshot:{...active.snapshot, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientFields}});
     } catch(error) { $("#agreement-editor-status").textContent = error.message; }
   };
   $("#agreement-copy")?.addEventListener("click", async () => {
@@ -154,7 +170,7 @@ function formValues() {
   const values = Object.fromEntries(new FormData($("#agreement-admin-form")));
   const pages = [...document.querySelectorAll("#agreement-admin-form [data-agreement-editor]")].map(readAgreementEditor);
   pages.forEach((page,i) => {if (!page.text.trim() || page.text.length > 15000) throw new Error(`Agreement page ${i+1} must contain text and be no longer than 15,000 characters.`);});
-  return {title:values.documentTitle, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
+  return {title:values.documentTitle, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, ...(values["approval-label"] !== undefined ? {approvalWording:{label:values["approval-label"],approve:values["approval-approve"],decline:values["approval-decline"]}} : {}), adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
 }
 async function perform(action, sharing = {}) {
   if (busy) return;
@@ -185,7 +201,7 @@ async function perform(action, sharing = {}) {
     dialog.querySelectorAll("[data-agreement-editor]").forEach(item => item.setAttribute("contenteditable","false"));
     status.textContent = action === "send" ? "Preparing and sending client form…" : "Saving…";
     if (values) {
-      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientName:values.clientName, clientEmail:values.clientEmail, answers:values.adminAnswers})});
+      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientName:values.clientName, clientEmail:values.clientEmail, answers:values.adminAnswers, approvalWording:values.approvalWording})});
       active = data.agreement; dirty = false;
     }
     let warning = "";
