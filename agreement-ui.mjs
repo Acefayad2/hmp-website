@@ -77,6 +77,7 @@ export function fieldsHTML(fields, values = {}, prefix = "answer", required = tr
   return fields.map(field => {
     const id = `${prefix}-${field.id}`, value = values[field.id] ?? field.default ?? "";
     const attrs = `id="${id}" name="${field.id}" ${required && field.required ? "required" : ""} ${field.calculated ? 'readonly aria-readonly="true"' : ""}`;
+    if (field.id === "customizationApproval" && field.options) return `<fieldset class="agreement-field agreement-wide"><legend>${escape(field.label)}${field.required ? " *" : ""}</legend>${field.options.map((option,i) => `<label class="agreement-checkbox" for="${id}-${i}"><input id="${id}-${i}" name="${field.id}" type="radio" value="${escape(option)}" ${required && field.required ? "required" : ""} ${value === option ? "checked" : ""}><span>${escape(option)}</span></label>`).join("")}</fieldset>`;
     let input;
     if (field.options) input = `<select ${attrs}><option value="">Choose an option</option>${field.options.map(option => `<option ${value === option ? "selected" : ""}>${escape(option)}</option>`).join("")}</select>`;
     else if (field.type === "textarea") input = `<textarea ${attrs} rows="3" maxlength="5000">${escape(value)}</textarea>`;

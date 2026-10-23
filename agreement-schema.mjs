@@ -17,11 +17,12 @@ const payment = [
 ];
 const setup = [field("setupTime", "Scheduled setup time"), field("removalTime", "Scheduled removal time")];
 const representative = [field("representative", "HMP authorized representative"), field("hmpSignature", "HMP representative signature (type full name)")];
+export const retainerPercentOptions = Array.from({length:71}, (_, i) => String(i + 30));
 const moneyTableDetails = [
   field("agreementDate", "Agreement date", "date"),
   field("serviceFee", "HMP service fee", "money"),
   field("serviceHours", "Service hours", "decimal"),
-  {...field("retainerPercent", "Retainer percentage (leave blank for custom terms)", "select", false, ["30", "50"]), default:"30"},
+  {...field("retainerPercent", "Retainer percentage (leave blank for custom terms)", "select", false, retainerPercentOptions), default:"30"},
   field("customPaymentTerms", "Custom payment terms (required when percentage is blank)", "textarea", false),
   {...field("retainerAmount", "Retainer amount (USD)", "money", false), calculated:"money-table-payment", help:"Calculated from the chosen percentage. Blank for custom terms."},
   field("retainerDue", "Retainer due date", "date", false),
@@ -116,6 +117,9 @@ export const getAgreementTemplate = (id) => [...agreementTemplates, ...informati
 // Used only when starting a new template, never to rewrite a saved agreement.
 export function newAgreementSnapshot(template, source) {
   const snapshot={...template,...source};
+  if (template.id === "customization-approval") {
+    snapshot.pages = source.pages.map(page => page.replace(/Client Approval:\n☐ I approve the customization and associated additional fee\.\n\n☐ I decline the additional customization\./, "Client Approval:\nPlease record your approval choice in the client approval section of this form."));
+  }
   if (["money-collecting","money-collecting-changing"].includes(template.id)) {
     snapshot.version="2026-10-18.1";
     snapshot.pages=source.pages.map(page=>page
@@ -197,7 +201,7 @@ export function agreementTextIssues(snapshot) {
 
 export function moneyTablePaymentAmounts(serviceFee, percentage = "30") {
   const value = typeof serviceFee === "string" ? serviceFee.trim() : "";
-  if (!["30","50"].includes(percentage) || !/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000) return {retainerAmount:"", finalPaymentAmount:""};
+  if (!retainerPercentOptions.includes(percentage) || !/^\d+(?:\.\d{1,2})?$/.test(value) || Number(value) > 10000000) return {retainerAmount:"", finalPaymentAmount:""};
   const cents = Math.round(Number(value)*100), retainerCents = Math.round(cents*Number(percentage)/100);
   return {retainerAmount:(retainerCents/100).toFixed(2), finalPaymentAmount:((cents-retainerCents)/100).toFixed(2)};
 }

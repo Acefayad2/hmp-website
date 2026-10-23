@@ -31,7 +31,7 @@ export function withCurrentDraftFields(row: any) {
   }
   if (row.status !== "Draft" || !["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return row;
   const currentFields = getAgreementTemplate(snapshot.id).adminFields;
-  const fields = [...snapshot.adminFields];
+  const fields = snapshot.adminFields.map((field: any) => field.id === "retainerPercent" ? currentFields.find((item: any) => item.id === field.id) : field);
   for (const [id,before] of [["serviceStartTime","serviceEndTime"],["retainerAmount","retainerDue"],["finalPaymentAmount","finalPaymentDue"]]) {
     if (fields.some((field: any) => field.id === id)) continue;
     const index = fields.findIndex((field: any) => field.id === before);
@@ -40,6 +40,17 @@ export function withCurrentDraftFields(row: any) {
   return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee,row.admin_answers?.retainerPercent)}};
 }
 export function editableSnapshot(snapshot: any, body: any) {
+  if (body.approvalWording !== undefined) {
+    if (!["customization-approval", "led-customization"].includes(snapshot.id)) throw new Error("This template does not have customization approval choices.");
+    const wording = body.approvalWording;
+    for (const key of ["label", "approve", "decline"]) {
+      if (typeof wording?.[key] !== "string" || !wording[key].trim() || wording[key].trim().length > 500)
+        throw validationError([{field:`approval-${key}`, message:`Client approval ${key}: enter wording (maximum 500 characters).`}]);
+    }
+    if (wording.approve.trim() === wording.decline.trim()) throw new Error("Approval and decline choices must be different.");
+    snapshot = {...snapshot, clientFields:snapshot.clientFields.map((field: any) => field.id === "customizationApproval"
+      ? {...field, label:wording.label.trim(), options:[wording.approve.trim(), wording.decline.trim()]} : field)};
+  }
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
   if (!title || title.length > 200) throw validationError([{field:"documentTitle", message:"Document title is required (maximum 200 characters)."}]);
   if (snapshot.kind === "information") {

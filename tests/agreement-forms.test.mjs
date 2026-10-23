@@ -63,6 +63,36 @@ function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:20
 
 const bankBody = row => ({answers:{...inputFor(row.snapshot.clientFields), representativeOneName:"First Signer", representativeOneSignature:"First Signer", representativeTwoName:"", representativeTwoSignature:"", representativeTwoDate:"", attendantName:"HMP Attendant"}, signatureName:"HMP Attendant", consent:true, representativeOneConsent:true, representativeTwoConsent:false});
 
+test("retainer supports every whole percentage from 30 to 100 and rejects other values", () => {
+  const fields = snapshotFor("money-collecting-changing").adminFields;
+  for (let percent=30; percent<=100; percent++) {
+    const answers=validateAnswers(fields,{serviceFee:"1000",retainerPercent:String(percent)},false);
+    assert.equal(answers.retainerAmount,(percent*10).toFixed(2));
+    assert.equal(answers.finalPaymentAmount,(1000-percent*10).toFixed(2));
+  }
+  for(const percent of ["29","101","40.5","invalid"]) assert.throws(()=>validateAnswers(fields,{retainerPercent:percent},false));
+});
+
+test("customization approval wording is editable and rendered as a single radio choice", async () => {
+  const snapshot=snapshotFor("customization-approval"), original=structuredClone(snapshot);
+  const approvalWording={label:"Design approval",approve:"I approve <this> design",decline:"Please revise the design"};
+  const updated=editableSnapshot(snapshot,{approvalWording});
+  const field=updated.clientFields.find(field=>field.id==="customizationApproval");
+  assert.equal(field.label,approvalWording.label);
+  assert.deepEqual(field.options,[approvalWording.approve,approvalWording.decline]);
+  assert.deepEqual(snapshot,original);
+  const html=fieldsHTML([field]);
+  assert.equal((html.match(/type="radio"/g)||[]).length,2);
+  assert.equal((html.match(/name="customizationApproval"/g)||[]).length,2);
+  assert.match(html,/&lt;this&gt;/);
+  assert.throws(()=>editableSnapshot(snapshot,{approvalWording:{...approvalWording,approve:""}}));
+  assert.throws(()=>editableSnapshot(snapshot,{approvalWording:{...approvalWording,decline:approvalWording.approve}}));
+  assert.doesNotMatch(snapshot.pages.join("\n"),/☐/);
+  const row={...rowFor("customization-approval"),status:"Completed"}, before=structuredClone(row);
+  const response=await handlerFor([row])(request("hmp-agreement-forms","PATCH",{id,action:"save",updatedAt:row.updated_at,approvalWording}));
+  assert.equal(response.status,409);assert.deepEqual(row,before);
+});
+
 test("on-site drawings save, reopen, print and remain immutable with the completed record",async()=>{
   const row=rowFor("money-bank-verification"),h=handlerFor([row]),token=agreementToken(id,"seed");
   const drawing={strokes:[[[10,20],[50,60],[90,20]]],consent:true};

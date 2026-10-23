@@ -37,29 +37,50 @@ const response = (body: unknown, status: number, cookie?: string) =>
     },
   });
 
-export default async (request: Request, _context: Context) => {
+export const createSsoHandler = ({ getUserFn = getUser, fetchFn = fetch, emails = allowedEmails } = {}) => async (request: Request, _context?: Context) => {
   const requestOrigin = new URL(request.url).origin;
   const origin = request.headers.get("origin");
   if (origin && origin !== requestOrigin) {
     return response({ error: "Invalid request origin" }, 403, "");
   }
 
+  // The Money Table server checks this endpoint on every protected request.
+  // Validate the token with Identity and the central Admin allowlist; never
+  // trust browser-local user records or decoded, unverified JWT claims.
+  if (request.method === "GET") {
+    let token = "";
+    try { token = cookieValue(request, SSO_COOKIE); } catch { /* malformed cookie */ }
+    if (!token) return response({ error: "Unauthorized" }, 401);
+    try {
+      const result = await fetchFn("https://hmpeds.com/.netlify/identity/user", {
+        headers: { authorization: `Bearer ${token}` }, cache: "no-store", signal: AbortSignal.timeout(5000),
+      });
+      if (!result.ok) return response({ error: "Unauthorized" }, 401);
+      const identity = await result.json();
+      const email = String(identity.email || "").trim().toLowerCase();
+      if (!identity.id || !emails().includes(email)) return response({ error: "Unauthorized" }, 401);
+      return response({ user: { id: identity.id, email, name: "HMP Admin" } }, 200);
+    } catch { return response({ error: "Sign-in verification unavailable" }, 503); }
+  }
+
   const clearCookie = `${SSO_COOKIE}=; Domain=hmpeds.com; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
   if (request.method === "DELETE") return response({ ok: true }, 200, clearCookie);
   if (request.method !== "POST") return response({ error: "Method not allowed" }, 405, "");
 
-  const user = await getUser();
+  const user = await getUserFn();
   const email = user?.email?.trim().toLowerCase() || "";
   const authorization = request.headers.get("authorization") || "";
   const bearerToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";
   const identityToken = cookieValue(request, "nf_jwt") || bearerToken;
-  if (!identityToken || !email || !allowedEmails().includes(email)) {
+  if (!identityToken || !email || !emails().includes(email)) {
     return response({ error: "Unauthorized" }, 401, clearCookie);
   }
 
   const cookie = `${SSO_COOKIE}=${encodeURIComponent(identityToken)}; Domain=hmpeds.com; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=${tokenLifetime(identityToken)}`;
   return response({ ok: true, email }, 200, cookie);
 };
+
+export default createSsoHandler();
 
 export const config: Config = {
   path: "/api/hmp-sso",
