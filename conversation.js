@@ -35,6 +35,7 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
   message.document,
   message.createdAt,
   message.editedAt,
+  message.textMessage,
   (message.attachments || []).map((attachment) => [
     attachment.id,
     attachment.path,
@@ -134,6 +135,12 @@ const renderMessages = (messages) => {
     }
     else if (message.body) article.append(copy);
     appendAttachments(article, message.attachments);
+    if (message.textMessage) {
+      const note = document.createElement("p");
+      note.className = "message-text-note";
+      note.textContent = "Sent by text";
+      article.append(note);
+    }
     article.append(time);
     list.append(article);
   });

@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261020-notifications" />
+    <link rel="stylesheet" href="admin.css?v=20261023-sms" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20261016-document-cards" />
     <link rel="stylesheet" href="agreement.css?v=20261018-signatures" />
@@ -211,6 +211,7 @@
                       <button class="secondary-button" id="open-proposal-editor" type="button">Send proposal</button>
                       <button class="secondary-button conversation-copy-link" id="copy-active-link" type="button">Copy client link</button>
                       <button class="primary-button" id="send-new-active-link" type="button">Send new link</button>
+                      <button class="secondary-button" id="text-active-link" type="button">Text current link</button>
                       <button class="secondary-button" id="reset-client-pin" type="button">Reset client PIN</button>
                       <button class="conversation-delete-button" id="delete-active-conversation" type="button">Delete conversation</button>
                     </div>
@@ -231,7 +232,7 @@
                   <div class="admin-message-list" id="admin-message-list"></div>
                   <div class="admin-message-empty" id="admin-message-empty" hidden>No messages yet. Send a welcome note to begin the conversation.</div>
                   <form class="admin-message-composer" id="admin-message-form">
-                    <label for="admin-message-input">Reply as HMP · client notified by email</label>
+                    <label for="admin-message-input">Reply as HMP · email or text</label>
                     <textarea id="admin-message-input" maxlength="4000" rows="4" placeholder="Type your reply…"></textarea>
                     <button class="message-insert-signature" id="insert-message-signature" type="button" disabled>Insert signature</button>
                     <div class="admin-calendar-share">
@@ -247,7 +248,7 @@
                     </div>
                     <div class="attachment-previews" id="admin-message-attachment-previews" hidden></div>
                     <p class="attachment-draft-hint">Select multiple photos or add more files. Preview or remove them with × before clicking Send. Nothing uploads until you send.</p>
-                    <div><p class="form-message" id="admin-message-status" role="status"></p><button class="primary-button" type="submit">Send reply</button></div>
+                    <div class="composer-submit"><p class="form-message" id="admin-message-status" role="status"></p><div class="composer-submit-buttons"><button class="text-send-button" id="send-admin-text" type="button" disabled>Send text</button><button class="primary-button" type="submit">Send reply</button></div></div>
                   </form>
                 </div>
               </section>
@@ -465,6 +466,16 @@
         <button id="dialog-close" type="button">Close</button>
       </div>
       <div class="detail-actions" id="detail-actions"></div>
+      <form id="inquiry-text-form" class="inquiry-text-form" hidden>
+        <p class="kicker">Text client</p>
+        <p id="inquiry-text-recipient"></p>
+        <label for="inquiry-text-body">Message</label>
+        <textarea id="inquiry-text-body" maxlength="1600" rows="3" placeholder="Write a text to this client…"></textarea>
+        <div class="inquiry-text-actions">
+          <p class="form-message" id="inquiry-text-status" role="status"></p>
+          <button class="primary-button" type="submit">Send text</button>
+        </div>
+      </form>
       <dl class="detail-grid" id="detail-grid"></dl>
       <section class="detail-note" id="detail-note" hidden><h3>Additional information</h3><p></p></section>
       <section class="client-conversation-card">
@@ -477,6 +488,7 @@
           <button class="secondary-button" id="create-conversation-link" type="button">Create private link</button>
           <button class="secondary-button" id="copy-conversation-link" type="button" hidden>Copy link</button>
           <button class="secondary-button" id="send-new-conversation-link" type="button">Send new link</button>
+          <button class="secondary-button" id="text-current-link" type="button" hidden>Text current link</button>
           <button class="primary-button" id="open-conversation" type="button" hidden>Open Client Hub</button>
         </div>
         <p class="form-message" id="conversation-link-message" role="status"></p>
@@ -776,13 +788,14 @@
 
     <dialog class="agreement-dialog" id="review-request-dialog" aria-labelledby="review-request-title">
       <header><h2 id="review-request-title">Request a client review</h2><button class="agreement-button secondary" id="close-review-request" type="button">Close</button></header>
-      <p>Email a private link or copy it to text the client. Nothing is published without admin approval.</p>
+      <p>Email a private link, text it from the HMP number, or copy it. Nothing is published without admin approval.</p>
       <form id="review-request-form">
         <div class="agreement-grid">
           <label class="agreement-field">Client name<input name="clientName" maxlength="120" required></label>
           <label class="agreement-field">Client email<input name="clientEmail" type="email" maxlength="320" required></label>
+          <label class="agreement-field">Mobile number <small>optional, for text</small><input name="clientPhone" type="tel" maxlength="40" autocomplete="tel" placeholder="(240) 555-0100"></label>
         </div>
-        <div class="agreement-actions"><button class="agreement-button secondary" type="submit" data-review-request-action="share">Create link to text</button><button class="agreement-button" type="submit">Send review request</button></div>
+        <div class="agreement-actions"><button class="agreement-button secondary" type="submit" data-review-request-action="share">Create link to text</button><button class="agreement-button secondary" type="submit" data-review-request-action="text">Text review link</button><button class="agreement-button" type="submit">Send review request</button></div>
         <p class="agreement-status" id="review-request-message" role="status"></p>
       </form>
     </dialog>
@@ -831,6 +844,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261020-notifications"></script>
+    <script type="module" src="assets/admin.js?v=20261023-sms"></script>
   </body>
 </html>
