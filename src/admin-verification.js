@@ -17,9 +17,9 @@ export function mountAdminVerification({form,loginForm,passwordForm,authShell,da
     finally{sending=false;sendButton.disabled=false;}
   }
   form.addEventListener('submit',async event=>{
-    event.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;
-    try{await request('verify',{code:code.value.trim()});code.value='';form.hidden=true;const user=pendingUser;pendingUser=null;await onVerified(user);}
-    catch(error){authShell.hidden=false;dashboard.hidden=true;form.hidden=false;message.textContent=error.message;code.focus();}
+    event.preventDefault();const button=form.querySelector('[type="submit"]');button.disabled=true;const user=pendingUser;
+    try{await request('verify',{code:code.value.trim()});code.value='';form.hidden=true;await onVerified(user);pendingUser=null;}
+    catch(error){pendingUser=user;authShell.hidden=false;dashboard.hidden=true;form.hidden=false;message.textContent=error.message;code.focus();}
     finally{button.disabled=false;}
   });
   sendButton.addEventListener('click',send);
