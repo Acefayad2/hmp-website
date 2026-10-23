@@ -95,7 +95,7 @@ function renderEditor() {
   }
   form.noValidate = true;
   const expired = active.status === "Sent" && Date.parse(active.expiresAt) <= Date.now();
-  form.insertAdjacentHTML("afterbegin", `<p>${active.expiresAt ? `Private link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.` : "Choose a calendar expiration date when sharing (up to 30 days)."}</p>`);
+  form.insertAdjacentHTML("afterbegin", `<p>${active.expiresAt ? `Private link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.` : "Choose a calendar expiration date when sharing (any future date)."}</p>`);
   if (expired) {
     $("#agreement-send")?.remove();
     $("#agreement-copy")?.remove();

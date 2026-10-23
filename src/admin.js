@@ -2525,6 +2525,22 @@ $("#copy-active-link").addEventListener("click", async () => {
     setMessage($("#admin-message-status"), error.message || "Link could not be copied.");
   }
 });
+$("#set-active-link-expiration").addEventListener("click", async () => {
+  const thread = messageThreads.find(candidate => candidate.id === activeThreadId);
+  if (!thread) return;
+  const sharing = await chooseDocumentSharing({portalAccess:true,expiresAt:thread.expiresAt});
+  if (!sharing) return;
+  const button = $("#set-active-link-expiration");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"set-link-expiration",conversationId:thread.id,expirationDate:sharing.expirationDate})});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Expiration could not be saved.");
+    await loadMessages();
+    setMessage($("#admin-message-status"), `Link expiration saved: ${new Date(data.expiresAt).toLocaleString()}. The existing link and client PIN are unchanged.`, true);
+  } catch (error) { setMessage($("#admin-message-status"), error.message || "Expiration could not be saved."); }
+  finally { button.disabled = false; }
+});
 $("#send-new-active-link").addEventListener("click", () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"));
