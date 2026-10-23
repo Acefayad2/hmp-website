@@ -72,8 +72,7 @@
             <p class="rail-label">Workspace</p>
             <a class="rail-link" href="/dashboard">Dashboard hub</a>
             <a class="rail-link active" href="/admin" data-workspace-view="inquiries" aria-current="page">Inquiries</a>
-            <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Messages</a>
-            <a class="rail-link" href="/admin?view=activity" data-workspace-view="activity">Client activity</a>
+            <a class="rail-link" href="/admin?view=messages" data-workspace-view="messages">Client hubs &amp; messages</a>
             <a class="rail-link" href="/admin?view=drafts" data-workspace-view="drafts">Drafts</a>
             <a class="rail-link" href="/admin?view=proposals" data-workspace-view="proposals">Proposals</a>
             <a class="rail-link" href="/admin?view=forms" data-workspace-view="forms">Forms</a>
@@ -120,24 +119,6 @@
             </button>
           </section>
 
-          <section class="messages-workspace" id="activity-workspace" hidden>
-            <div class="workspace-section-header">
-              <div><p class="kicker">Client care</p><h2>Client activity</h2><p>See each event’s shared documents, completed forms, client messages, and linked Guest Seating activity in one timeline.</p></div>
-            </div>
-            <p class="form-message" id="activity-status" role="status"></p>
-            <div class="activity-layout">
-              <div class="activity-clients" id="activity-clients" aria-label="Clients and events"></div>
-              <div class="activity-detail">
-                <h3 id="activity-client-title">Select a client</h3>
-                <p id="activity-client-event"></p>
-                <button class="secondary-button" id="activity-open-hub" type="button" hidden>Open client hub</button>
-                <p class="form-message" id="activity-seating-status" role="status"></p>
-                <ol id="activity-timeline"></ol>
-                <p id="activity-empty">Choose a client to see their event activity.</p>
-              </div>
-            </div>
-          </section>
-
           <section class="dashboard-grid">
             <div class="inquiry-panel">
               <div class="panel-heading">
@@ -170,8 +151,8 @@
             <div class="workspace-section-header">
               <div>
                 <p class="kicker">Client care</p>
-                <h2>Messages</h2>
-                <p>Review messages, proposals, invoices, contracts, and forms in each inquiry's private client hub.</p>
+                <h2>Client hubs</h2>
+                <p>Review messages, documents, and activity together in each event’s private client hub.</p>
               </div>
               <div class="conversation-heading-actions">
                 <button class="secondary-button" id="new-client-proposal-button" type="button">New client &amp; proposal</button>
@@ -217,6 +198,16 @@
                     </div>
                   </header>
                   <nav class="hub-tabs admin-hub-tabs" id="admin-hub-tabs" aria-label="Client hub sections"></nav>
+                  <section class="activity-detail" id="hub-activity" aria-labelledby="hub-activity-title" hidden>
+                    <h3 id="hub-activity-title">Activity</h3>
+                    <p id="activity-client-event"></p>
+                    <p>Private HMP timeline for this event. Not visible in the client portal.</p>
+                    <button class="secondary-button" id="refresh-hub-activity" type="button">Refresh activity</button>
+                    <p class="form-message" id="activity-status" role="status"></p>
+                    <p class="form-message" id="activity-seating-status" role="status"></p>
+                    <ol id="activity-timeline"></ol>
+                    <p id="activity-empty">No activity for this event yet.</p>
+                  </section>
                   <div class="hub-form-share" id="hub-form-share">
                     <label for="hub-form-select">Add a sent client form to this event hub</label>
                     <select id="hub-form-select"><option value="">Choose a form</option></select>
