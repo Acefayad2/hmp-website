@@ -7,6 +7,8 @@ import {createConversationHandler} from "../netlify/functions/hmp-conversation.m
 import {createMessagesHandler} from "../netlify/functions/hmp-messages.mts";
 import {documentSnapshot,prepareDocumentConversation} from "../netlify/functions/_document-messages.mts";
 import {tokenHash} from "../netlify/functions/_conversation-security.mts";
+import {serializeProposal} from "../proposal-ui.js";
+import {hubMessages} from "../client-hub.js";
 const settings={RESEND_API_KEY:"test",HMP_INVOICE_FROM_EMAIL:"sender@example.test",SUPABASE_SERVICE_ROLE_KEY:"test-secret",HMP_ADMIN_EMAILS:"admin@example.test"};
 globalThis.Netlify={env:{get:key=>settings[key]}};
 const id="11111111-1111-4111-8111-111111111111",inquiryId="22222222-2222-4222-8222-222222222222",conversationId="33333333-3333-4333-8333-333333333333",requestId="44444444-4444-4444-8444-444444444444";
@@ -97,6 +99,41 @@ test("snapshots contain only client-facing document fields, not arbitrary record
   const snapshot=documentSnapshot("invoice",{...record,items:[{...record.items[0],secret:"hidden"}]});
   assert.ok(!JSON.stringify(snapshot).includes("hidden"));assert.ok(!JSON.stringify(snapshot).includes("PRIVATE"));
   assert.equal(snapshot.items[0].description,"Service\nDetails");
+});
+
+test("IMG_1965: Admin deletion removes document revisions from the authenticated client API and every hub tab",async()=>{
+  for(const kind of ["proposal","invoice","contract","form","receipt"]){
+    const db=database();
+    const body=kind==="proposal"?serializeProposal({title:"Removed proposal",serviceFee:100}):"Removed document";
+    const original={id,conversation_id:conversationId,sender:"admin",body,created_at:"2026-10-01",attachments:[],
+      ...(kind!=="proposal"?{document:{kind,id}}:{})};
+    const latest={...original,id:requestId,created_at:"2026-10-02",revision_root_id:id,
+      ...(kind!=="proposal"?{document:{kind,id:requestId,revisionRootId:id}}:{})};
+    const otherEvent={...original,id:"other-event-copy",conversation_id:inquiryId};
+    db.rows.hmp_client_messages.push(original,latest,otherEvent);
+    const recordsBefore=structuredClone([db.rows.hmp_admin_invoices,db.rows.hmp_admin_contracts]);
+    const admin=createMessagesHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+    const removed=await admin(req({action:"delete-message",conversationId,messageId:requestId}));
+    assert.equal(removed.status,200,kind);
+    const client=createConversationHandler({databaseFactory:()=>db});
+    const setup=await client(new Request("https://hmpeds.com/api/hmp-conversation?pin=setup",{method:"POST",headers:{Authorization:`Bearer ${token}`,Origin:"https://hmpeds.com"},body:JSON.stringify({pin:"065432",confirmPin:"065432"})}));
+    assert.equal(setup.status,200);
+    const clientRequest=()=>new Request("https://hmpeds.com/api/hmp-conversation",{headers:{Authorization:`Bearer ${token}`,Cookie:setup.headers.get("set-cookie").split(";")[0]}});
+    const response=await client(clientRequest());
+    assert.equal(response.status,200);
+    const data=await response.json();
+    assert.deepEqual(data.messages,[],kind);
+    for(const tab of ["all","messages","proposals","invoices","contracts","forms","receipts"])
+      assert.deepEqual(hubMessages(data.messages,tab),[],`${kind}: ${tab}`);
+    assert.equal(db.rows.hmp_client_messages.length,3,"no stored copies erased");
+    assert.deepEqual([db.rows.hmp_admin_invoices,db.rows.hmp_admin_contracts],recordsBefore,"billing and signed records untouched");
+    assert.equal(otherEvent.deleted_at,undefined,"another event remains untouched");
+    // A newly shared copy is the only version returned; never leak deletion markers.
+    db.rows.hmp_client_messages.push({...latest,id:"resent",created_at:"2026-10-04",deleted_at:null});
+    const resent=await (await client(clientRequest())).json();
+    assert.deepEqual(resent.messages.map(message=>message.id),["resent"]);
+    assert.equal("deleted_at" in resent.messages[0],false);
+  }
 });
 
 test("only an authorized same-origin admin can reset a PIN; old sessions stop and messages survive",async()=>{
