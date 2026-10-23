@@ -867,8 +867,9 @@ const sendProposal = async (event) => {
   const conversationId = activeThreadId;
   const proposal = proposalPayload();
   const copy = event.submitter?.value === "copy";
-  const sharing = await chooseDocumentSharing({copy});
+  const sharing = await chooseDocumentSharing({copy,expirationDate:proposal.validUntil});
   if (!sharing) return;
+  proposal.validUntil = sharing.expirationDate;
   proposal.linkExpiresAt = linkExpiration(sharing.expirationDate);
   if (proposal.calendarUrl && !normalizeCalendarUrl(proposal.calendarUrl)) {
     setMessage($("#proposal-editor-message"), "Enter a valid https:// calendar link.");

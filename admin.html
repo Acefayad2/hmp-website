@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261023-sms" />
+    <link rel="stylesheet" href="admin.css?v=20261023-proposal-layout" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20261016-document-cards" />
     <link rel="stylesheet" href="agreement.css?v=20261018-signatures" />
@@ -597,7 +597,7 @@
             <label class="proposal-wide"><span>Please note <small>one item per line</small></span><textarea id="proposal-notes" rows="7" maxlength="1600"></textarea></label>
             <label class="proposal-wide"><span>Additional information</span><textarea id="proposal-additional-information" rows="4" maxlength="600"></textarea></label>
             <label><span>HMP service fee</span><span class="proposal-money-input"><b>$</b><input id="proposal-service-fee" type="number" min="0" max="1000000" step="0.01" required /></span></label>
-            <label><span>Pricing valid through</span><input id="proposal-valid-until" type="date" /></label>
+            <label><span>Proposal expires on <small>pricing and client access end at 11:59 PM Eastern</small></span><input id="proposal-valid-until" type="date" /></label>
             <label class="proposal-wide"><span>Payment terms</span><textarea id="proposal-payment-terms" rows="3" maxlength="600"></textarea></label>
             <label class="proposal-wide"><span>Calendar link <small>optional · shown in the proposal</small></span><input id="proposal-calendar-url" type="url" inputmode="url" maxlength="2000" placeholder="https://…" /></label>
           </div>
@@ -846,6 +846,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261023-receipt-header"></script>
+    <script type="module" src="assets/admin.js?v=20261023-proposal-expiry"></script>
   </body>
 </html>

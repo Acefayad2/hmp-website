@@ -571,8 +571,10 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       message = normalizeAdminMessage(body.message);
       if (message.startsWith(proposalPrefix)) {
         const proposal = JSON.parse(message.slice(proposalPrefix.length));
-        if (body.expirationDate || proposal.linkExpiresAt) {
-          proposal.linkExpiresAt = linkExpiration(body.expirationDate || businessDate(new Date(proposal.linkExpiresAt)));
+        if (body.expirationDate || proposal.validUntil || proposal.linkExpiresAt) {
+          const expirationDate = body.expirationDate || proposal.validUntil || businessDate(new Date(proposal.linkExpiresAt));
+          proposal.linkExpiresAt = linkExpiration(expirationDate);
+          proposal.validUntil = businessDate(new Date(proposal.linkExpiresAt));
           message = proposalPrefix + JSON.stringify(proposal);
         }
       }

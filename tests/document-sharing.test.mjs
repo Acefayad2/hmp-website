@@ -30,6 +30,20 @@ test("expired documents are redacted server-side, without exposing an older vers
   assert.equal(hubSectionFor({sender:"admin",document:{kind:"receipt"}}),"receipts");
 });
 
+test("IMG_1964: contracts lock at the chosen Eastern deadline and a new share renews access",()=>{
+  const now=new Date("2026-10-23T12:00:00Z");
+  const expiresAt=linkExpiration("2026-10-24",now);
+  const contract={id:"share",sender:"admin",body:"Private contract",attachments:[],document:{kind:"contract",id:"contract",expiresAt,total_amount:900}};
+  const original=structuredClone(contract),deadline=Date.parse(expiresAt);
+  assert.equal(clientMessageAccess(contract,deadline-1).document.total_amount,900);
+  assert.equal(clientMessageAccess(contract,deadline).document.expired,true);
+  assert.equal(clientMessageAccess(contract,deadline+1).document.total_amount,undefined);
+  const renewed={...contract,id:"renewed",created_at:"2026-10-25",document:{...contract.document,expiresAt:linkExpiration("2026-10-30",now)}};
+  const visible=latestPublishedDocuments([{...contract,created_at:"2026-10-23"},renewed]).map(message=>clientMessageAccess(message,deadline+1));
+  assert.deepEqual(visible,[renewed]);
+  assert.deepEqual(contract,original,"the stored contract is not deleted, archived or rewritten");
+});
+
 const id="11111111-1111-4111-8111-111111111111", inquiryId="22222222-2222-4222-8222-222222222222";
 globalThis.Netlify={env:{get:key=>({HMP_ADMIN_EMAILS:"admin@example.test",SUPABASE_SERVICE_ROLE_KEY:"test-secret"})[key]}};
 function database(){
