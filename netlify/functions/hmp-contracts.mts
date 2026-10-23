@@ -1,6 +1,6 @@
 import type { Config, Context } from "@netlify/functions";
 import { hmpSender } from "./_email-contact.mts";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
@@ -114,7 +114,7 @@ const cleanPayload = (body: Record<string, unknown>) => {
 const newContractNumber = () => `HMP-C-${new Date().getFullYear()}-${crypto.randomUUID().slice(0, 8).toUpperCase()}`;
 
 export default async (request: Request, _context: Context) => {
-  const user = await getUser();
+  const user = await getUser(request);
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
   const client = getDatabase();

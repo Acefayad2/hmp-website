@@ -1,6 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { prepareDocumentConversation, recordSentDocument } from "./_document-messages.mts";
@@ -68,7 +68,7 @@ const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><he
 
 export const createSendContractHandler = ({getUserFn=getUser,databaseFactory=getDatabase,fetchFn=fetch}={}) => async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
   if (!isSameOriginMutation(request)) return json({error:"Invalid request origin"},403);

@@ -1,4 +1,5 @@
 import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
+import { mountAdminVerification } from "./admin-verification.js";
 import { chooseDocumentSharing, copySharedLink } from "./document-sharing.js";
 import {linkExpiration} from "../document-expiry.mjs";
 import { mountAdminNotifications } from "./admin-notifications.js";
@@ -62,6 +63,15 @@ const loginForm = $("#login-form");
 const passwordForm = $("#password-form");
 const authMessage = $("#auth-message");
 const passwordMessage = $("#password-message");
+const signOutAdmin = async () => {
+  window.clearInterval(dashboardSyncTimer);
+  const response=await fetch("/api/hmp-admin-verification",{method:"DELETE",credentials:"same-origin"});
+  if(!response.ok)throw new Error("Could not securely sign out. Please try again.");
+  await logout();
+  location.reload();
+};
+const adminVerification=mountAdminVerification({form:$("#verification-form"),loginForm,passwordForm,authShell,dashboard,
+  onVerified:user=>enterDashboard(user),onCancel:signOutAdmin});
 const inquiryList = $("#inquiry-list");
 const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
@@ -2134,10 +2144,14 @@ const sendInvoice = async () => {
 const loadDashboard = async () => {
   const response = await fetch("/api/hmp-dashboard", { credentials: "same-origin", cache: "no-store" });
   if (response.status === 401) {
+    window.clearInterval(dashboardSyncTimer);
     await logout().catch(() => {});
     authShell.hidden = false;
     dashboard.hidden = true;
-    setMessage(authMessage, "This account does not have HMP admin access.");
+    loginForm.hidden = false;
+    passwordForm.hidden = true;
+    $("#verification-form").hidden = true;
+    setMessage(authMessage, "Your Admin verification has expired or access is unavailable. Please sign in again.");
     return;
   }
   if (!response.ok) throw new Error("Dashboard data is unavailable.");
@@ -2188,6 +2202,7 @@ const startDashboardSync = () => {
 };
 
 const enterDashboard = async (user) => {
+  if(!await adminVerification.ensure(user))return;
   authShell.hidden = true;
   dashboard.hidden = false;
   $("#viewer-email").textContent = user.email || "HMP Admin";
@@ -2215,7 +2230,9 @@ loginForm.addEventListener("submit", async (event) => {
   button.disabled = true;
   setMessage(authMessage, "Signing in…");
   try {
+    await fetch("/api/hmp-admin-verification",{method:"DELETE",credentials:"same-origin"}).then(response=>{if(!response.ok)throw new Error("Unable to start a secure sign-in.");});
     const user = await login($("#login-email").value.trim(), $("#login-password").value);
+    $("#login-password").value="";
     await enterDashboard(user);
   } catch (error) {
     setMessage(authMessage, error?.status === 401 ? "The email or password is incorrect." : "We could not sign you in. Please try again.");
@@ -2258,10 +2275,7 @@ passwordForm.addEventListener("submit", async (event) => {
 });
 
 $("#logout-button").addEventListener("click", async () => {
-  window.clearInterval(dashboardSyncTimer);
-  await fetch("/api/hmp-sso", { method: "DELETE", credentials: "same-origin" }).catch(() => {});
-  await logout();
-  location.reload();
+  await signOutAdmin();
 });
 document.addEventListener("visibilitychange", () => {
   if (!document.hidden) syncActiveWorkspace().catch(() => {});

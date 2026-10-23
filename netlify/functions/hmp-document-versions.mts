@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import {getUser} from "@netlify/identity";
+import {getUser} from "./_admin-verification.mts";
 import {createClient} from "@supabase/supabase-js";
 import {agreementToken,hash,nonce,uuidPattern} from "./_agreement-forms.mts";
 import {isSameOriginMutation} from "./_conversation-security.mts";
@@ -9,7 +9,7 @@ import {normalizeContract} from "./hmp-contracts.mts";
 const tables: Record<string,string>={invoice:"hmp_admin_invoices",contract:"hmp_admin_contracts",form:"hmp_client_agreements",proposal:"hmp_admin_proposal_drafts"};
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 export const createDocumentVersionsHandler=({getUserFn=getUser,databaseFactory=createClient}={})=>async(request:Request)=>{
-  const email=(await getUserFn())?.email?.toLowerCase()||"";
+  const email=(await getUserFn(request))?.email?.toLowerCase()||"";
   const allowed=(Netlify.env.get("HMP_ADMIN_EMAILS")||"").split(",").map(v=>v.trim().toLowerCase()).filter(Boolean);
   if(!email||!allowed.includes(email))return json({error:"Unauthorized"},401);
   if(!["GET","POST"].includes(request.method))return json({error:"Method not allowed"},405);

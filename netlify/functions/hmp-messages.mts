@@ -1,7 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
 import { timingSafeEqual } from "node:crypto";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
 import { privateLink } from "./_agreement-forms.mts";
@@ -219,7 +219,7 @@ const sendAccessLink = async (
 };
 
 export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = getDatabase, fetchFn = fetch} = {}) => async (request: Request) => {
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);

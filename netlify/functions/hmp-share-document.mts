@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { prepareDocumentConversation, recordSharedDocument, stableId } from "./_document-messages.mts";
@@ -24,7 +24,7 @@ const getDatabase = () => {
 export const createShareDocumentHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase();
   const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map((value) => value.trim().toLowerCase());
   if (!email || !allowed.includes(email)) return json({ error: "Unauthorized" }, 401);
