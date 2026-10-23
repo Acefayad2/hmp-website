@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation, conversationToken, newNonce, tokenHash } from "./_conversation-security.mts";
 import { SmsError, quoConfig, sendQuoMessage, toE164 } from "./_quo.mts";
@@ -358,7 +358,7 @@ export const createSmsHandler = ({
   fetchFn?: typeof fetch;
 } = {}) => async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase() || "";
   if (!email || !allowedEmails().includes(email)) return json({ error: "Unauthorized" }, 401);
   if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);

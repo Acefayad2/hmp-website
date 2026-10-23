@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation, conversationToken, newNonce, tokenHash } from "./_conversation-security.mts";
 import { manualInquiryRecord } from "./_manual-inquiry.mts";
@@ -104,7 +104,7 @@ export const ensureBookedHub = async (client: SupabaseClient, inquiryId: string)
 };
 
 export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = getDatabase } = {}) => async (request: Request) => {
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase();
   if (!email || !allowedEmails().includes(email)) {
     return json({ error: "Unauthorized" }, 401);

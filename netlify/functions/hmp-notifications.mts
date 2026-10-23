@@ -1,11 +1,11 @@
 import type {Config} from "@netlify/functions";
-import {getUser} from "@netlify/identity";
+import {getUser} from "./_admin-verification.mts";
 import {createClient} from "@supabase/supabase-js";
 import {isSameOriginMutation} from "./_conversation-security.mts";
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store","X-Content-Type-Options":"nosniff"}});
 export function createNotificationsHandler({getUserFn=getUser,databaseFactory=createClient}={}) {
   return async(request:Request)=>{
-    const email=(await getUserFn())?.email?.toLowerCase();
+    const email=(await getUserFn(request))?.email?.toLowerCase();
     const allowed=(Netlify.env.get("HMP_ADMIN_EMAILS")||"").split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
     if(!email || !allowed.includes(email)) return json({error:"Unauthorized"},401);
     if(!["GET","POST"].includes(request.method)) return json({error:"Method not allowed"},405);

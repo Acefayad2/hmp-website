@@ -45,9 +45,20 @@
             <input id="login-email" name="email" type="email" autocomplete="username" required />
             <label for="login-password">Password</label>
             <input id="login-password" name="password" type="password" autocomplete="current-password" required />
-            <button class="primary-button" type="submit">Open dashboard</button>
+            <button class="primary-button" type="submit">Continue to verification</button>
             <button class="text-button" id="forgot-password" type="button">Forgot password?</button>
             <p class="form-message" id="auth-message" role="status"></p>
+          </form>
+          <form id="verification-form" hidden>
+            <p class="kicker">Two-step verification</p>
+            <h2>Check your email</h2>
+            <p>Enter the 6-digit sign-in code sent to <strong data-email></strong>. Never share this code.</p>
+            <label for="admin-verification-code">Verification code</label>
+            <input id="admin-verification-code" name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required />
+            <button class="primary-button" type="submit">Verify and open dashboard</button>
+            <button class="text-button" type="button" data-resend>Send a new code</button>
+            <button class="text-button" type="button" data-cancel>Use another account</button>
+            <p class="form-message" role="status"></p>
           </form>
           <form id="password-form" hidden>
             <p class="kicker">Secure your account</p>
@@ -835,6 +846,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261023-sms"></script>
+    <script type="module" src="assets/admin.js?v=20261023-admin-verification"></script>
   </body>
 </html>

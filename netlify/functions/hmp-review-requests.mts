@@ -1,6 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient } from "@supabase/supabase-js";
 import { createHash, createHmac } from "node:crypto";
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
@@ -22,7 +22,7 @@ export function createReviewRequestHandler({getUserFn=getUser, databaseFactory=c
       token=validBearerToken(request);
       if (!token) return json({error:"This private review link is invalid."},401);
     } else {
-      const user=await getUserFn();
+      const user=await getUserFn(request);
       adminEmail=user?.email?.toLowerCase() || "";
       const allowed=(Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(v=>v.trim().toLowerCase());
       if (!adminEmail || !allowed.includes(adminEmail)) return json({error:"Unauthorized"},401);

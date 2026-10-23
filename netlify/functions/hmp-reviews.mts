@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 
@@ -84,8 +84,8 @@ const cleanPayload = (body: Record<string, unknown>) => {
   };
 };
 
-const requireAdmin = async (getUserFn = getUser) => {
-  const user = await getUserFn();
+const requireAdmin = async (request: Request, getUserFn = getUser) => {
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase();
   return email && allowedEmails().includes(email) ? user : null;
 };
@@ -99,7 +99,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
   const adminRequest = url.searchParams.get("admin") === "1";
 
   if (request.method === "GET") {
-    const user = adminRequest ? await requireAdmin(getUserFn) : null;
+    const user = adminRequest ? await requireAdmin(request, getUserFn) : null;
     if (adminRequest && !user) return json({ error: "Unauthorized" }, 401);
 
     const records: Record<string, unknown>[] = [];
@@ -134,7 +134,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
     );
   }
 
-  const user = await requireAdmin(getUserFn);
+  const user = await requireAdmin(request, getUserFn);
   if (!user) return json({ error: "Unauthorized" }, 401);
 
   // Keep DELETE compatible with older open Admin tabs, but never remove a row.

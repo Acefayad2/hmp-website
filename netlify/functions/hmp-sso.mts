@@ -1,5 +1,5 @@
 import type { Config, Context } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser, hasAdminVerification, cookieHeader, verificationCookie, challengeCookie } from "./_admin-verification.mts";
 
 const SSO_COOKIE = "hmp_admin_sso";
 
@@ -37,7 +37,7 @@ const response = (body: unknown, status: number, cookie?: string) =>
     },
   });
 
-export const createSsoHandler = ({ getUserFn = getUser, fetchFn = fetch, emails = allowedEmails } = {}) => async (request: Request, _context?: Context) => {
+export const createSsoHandler = ({ getUserFn = getUser, fetchFn = fetch, emails = allowedEmails, verificationFn = hasAdminVerification } = {}) => async (request: Request, _context?: Context) => {
   const requestOrigin = new URL(request.url).origin;
   const origin = request.headers.get("origin");
   if (origin && origin !== requestOrigin) {
@@ -59,15 +59,22 @@ export const createSsoHandler = ({ getUserFn = getUser, fetchFn = fetch, emails 
       const identity = await result.json();
       const email = String(identity.email || "").trim().toLowerCase();
       if (!identity.id || !emails().includes(email)) return response({ error: "Unauthorized" }, 401);
+      if (!verificationFn(request, {id:identity.id,email})) return response({ error: "Complete email verification in HMP Admin first." }, 401);
       return response({ user: { id: identity.id, email, name: "HMP Admin" } }, 200);
     } catch { return response({ error: "Sign-in verification unavailable" }, 503); }
   }
 
   const clearCookie = `${SSO_COOKIE}=; Domain=hmpeds.com; HttpOnly; Secure; SameSite=Lax; Path=/; Max-Age=0`;
-  if (request.method === "DELETE") return response({ ok: true }, 200, clearCookie);
+  if (request.method === "DELETE") {
+    if (!origin) return response({error:"Invalid request origin"},403);
+    const result=response({ok:true},200,clearCookie);
+    for(const name of [verificationCookie,challengeCookie])result.headers.append("Set-Cookie",cookieHeader(request,name,"",0));
+    return result;
+  }
   if (request.method !== "POST") return response({ error: "Method not allowed" }, 405, "");
 
-  const user = await getUserFn();
+  if (!origin) return response({error:"Invalid request origin"},403);
+  const user = await getUserFn(request);
   const email = user?.email?.trim().toLowerCase() || "";
   const authorization = request.headers.get("authorization") || "";
   const bearerToken = authorization.startsWith("Bearer ") ? authorization.slice(7) : "";

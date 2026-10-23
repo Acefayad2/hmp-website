@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 
@@ -10,7 +10,7 @@ const json = (body: unknown, status = 200) => Response.json(body, {
 
 export const createMessageSignatureHandler = ({ getUserFn = getUser, databaseFactory = createClient } = {}) => async (request: Request) => {
   if (request.method !== "GET" && request.method !== "PUT") return json({ error: "Method not allowed" }, 405);
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.trim().toLowerCase();
   const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(value => value.trim().toLowerCase());
   if (!email || !allowed.includes(email)) return json({ error: "Unauthorized" }, 401);

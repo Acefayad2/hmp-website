@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient } from "@supabase/supabase-js";
 import { normalizeProposal } from "../../proposal-ui.js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
@@ -11,7 +11,7 @@ const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const table = "hmp_admin_proposal_drafts";
 
 export const createProposalDraftHandler = ({ getUserFn = getUser, databaseFactory = createClient } = {}) => async (request: Request) => {
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase() || "";
   const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(value => value.trim().toLowerCase()).filter(Boolean);
   if (!email || !allowed.includes(email)) return json({ error: "Unauthorized" }, 401);

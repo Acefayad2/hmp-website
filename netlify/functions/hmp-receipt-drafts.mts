@@ -1,5 +1,5 @@
 import type { Config } from "@netlify/functions";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient } from "@supabase/supabase-js";
 import { receiptDraftPayload } from "../../receipt-draft.mjs";
 import { isSameOriginMutation } from "./_conversation-security.mts";
@@ -17,7 +17,7 @@ const normalize = row => ({ id: row.id, invoiceId: row.invoice_id, payload: row.
 });
 
 export const createReceiptDraftHandler = ({ getUserFn = getUser, databaseFactory = createClient } = {}) => async (request: Request) => {
-  const user = await getUserFn();
+  const user = await getUserFn(request);
   const email = user?.email?.toLowerCase() || "";
   const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(value => value.trim().toLowerCase()).filter(Boolean);
   if (!email || !allowed.includes(email)) return json({ error: "Unauthorized" }, 401);

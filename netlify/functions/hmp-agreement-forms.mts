@@ -1,6 +1,6 @@
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
-import { getUser } from "@netlify/identity";
+import { getUser } from "./_admin-verification.mts";
 import { createClient } from "@supabase/supabase-js";
 import { validateAnswers } from "../../agreement-schema.mjs";
 import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash, issuedSnapshot, nonce, privateLink, publicAgreement, signingConsent, snapshotFor, uuidPattern, withCurrentDraftFields } from "./_agreement-forms.mts";
@@ -25,7 +25,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
       if (!token) return json({error:"This private link is invalid."}, 401);
       if (request.method === "PATCH") return json({error:"Method not allowed"}, 405);
     } else {
-      const user = await getUserFn();
+      const user = await getUserFn(request);
       adminEmail = user?.email?.toLowerCase() || "";
       const allowed = (Netlify.env.get("HMP_ADMIN_EMAILS") || "").split(",").map(v => v.trim().toLowerCase()).filter(Boolean);
       if (!adminEmail || !allowed.includes(adminEmail)) return json({error:"Unauthorized"}, 401);
