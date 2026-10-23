@@ -23,6 +23,23 @@ test("proposal revisions replace legacy messages without hiding other proposals 
   const messages=[{id:root,sender:"admin",body,created_at:"2026-10-01"},{id:idFor(2),sender:"admin",body,revision_root_id:root,created_at:"2026-10-02"},{id:"separate",sender:"admin",body,created_at:"2026-10-03"}];
   assert.deepEqual(latestPublishedDocuments(messages).map(r=>r.id),[idFor(2),"separate"]);
 });
+test("IMG_1965: deleted current shares hide older copies, but explicit resends remain visible",()=>{
+  for(const kind of ["proposal","invoice","contract","form","receipt"]){
+    const body=kind==="proposal"?serializeProposal({title:"Private proposal",serviceFee:100}):"Document shared";
+    const original={id:root,sender:"admin",created_at:"2026-10-01",body,
+      ...(kind!=="proposal"?{document:{kind,id:root}}:{})};
+    const latest={...original,id:idFor(2),created_at:"2026-10-02",revision_root_id:root,
+      ...(kind!=="proposal"?{document:{kind,id:idFor(2),revisionRootId:root}}:{}),deleted_at:"2026-10-03"};
+    const unrelated={id:"other",sender:"client",body:"Keep my message"};
+    const input=[original,latest,unrelated],before=structuredClone(input);
+    assert.deepEqual(latestPublishedDocuments(input),[unrelated],kind);
+    assert.deepEqual(input,before,"preserve originals and deletion records");
+    const resend={...latest,id:idFor(3),created_at:"2026-10-04",deleted_at:null};
+    assert.deepEqual(latestPublishedDocuments([...input,resend]),[unrelated,resend],kind);
+    assert.deepEqual(latestPublishedDocuments([{...original,deleted_at:"2026-10-05"},resend]),[resend],"deleting an older copy must not hide the newer share");
+  }
+  assert.deepEqual(latestPublishedDocuments([{id:"text",sender:"admin",body:"Deleted",deletedAt:"2026-10-03"}]),[]);
+});
 test("admin document lists group revisions without dropping stored originals",()=>{
   const rows=[{id:root,createdAt:"2026-10-01",status:"Paid"},{id:idFor(2),revisionRootId:root,createdAt:"2026-10-02",status:"Draft"},{id:"other",createdAt:"2026-10-03"}];
   assert.deepEqual(latestDocumentRows(rows).map(r=>r.id),[idFor(2),"other"]);assert.equal(rows.length,3);
