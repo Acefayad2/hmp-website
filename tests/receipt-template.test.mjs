@@ -18,9 +18,9 @@ test("standalone receipt works without an invoice or total and makes no balance/
 
 test("standalone totals calculate partial/full payments in cents without fabricating invoice fields", () => {
   const partial = createStandaloneReceipt({ ...standalone, serviceTotal: "954.00" }, "2026-09-25");
-  assert.equal(partial.balance, 553.5); assert.match(receiptHTML(partial), /Partial payment received/);
+  assert.equal(partial.balance, 553.5); assert.match(receiptHTML(partial), /\$553\.50/);
   const full = createStandaloneReceipt({ ...standalone, serviceTotal: "400.50" }, "2026-09-25");
-  assert.equal(full.balance, 0); assert.match(receiptHTML(full), /Paid in full/);
+  assert.equal(full.balance, 0); assert.match(receiptHTML(full), /\$0\.00/);
   assert.doesNotMatch(receiptHTML(full), /<dt>Tax|<dt>Discount|<dt>Invoice/);
   assert.equal(createStandaloneReceipt({ ...standalone, amountPaid: "0.10", serviceTotal: "0.30" }, "2026-09-25").balance, 0.2);
 });
@@ -61,7 +61,7 @@ test("partial payments use the entered cumulative amount, even if the invoice wa
     assert.equal(receipt.total, 954);
     assert.equal(record.status, status);
     const html = receiptHTML(receipt);
-    assert.match(html, /Partial payment received/);
+    assert.match(html, /this invoice is not yet paid in full/);
     assert.match(html, /Amount paid to date/);
     assert.match(html, /\$400\.50/);
     assert.match(html, /\$553\.50/);
@@ -69,10 +69,11 @@ test("partial payments use the entered cumulative amount, even if the invoice wa
   }
 });
 
-test("only a zero calculated balance shows Paid in full, regardless of saved status", () => {
+test("a zero calculated balance retains full-payment accounting without a status badge", () => {
   const receipt = make({ ...invoice, status: "Sent" });
   assert.equal(receipt.balance, 0);
-  assert.match(receiptHTML(receipt), /Paid in full/);
+  assert.match(receiptHTML(receipt), /acknowledges full payment/);
+  assert.doesNotMatch(receiptHTML(receipt), /receipt-paid/);
   assert.doesNotMatch(receiptHTML(receipt), /Partial payment received/);
 });
 
@@ -82,7 +83,7 @@ test("IMG_1916: reopen a retainer draft and issue a full-payment copy without re
   const retainer = make(record, { ...saved, confirmed: true });
   const issuedRetainerHTML = receiptHTML(retainer);
   assert.equal(retainer.balance, 600);
-  assert.match(issuedRetainerHTML, /Partial payment received/);
+  assert.match(issuedRetainerHTML, /Retainer received/);
 
   // A reopened draft has no saved payment confirmation, even after the first PDF.
   const reopened = receiptDraftPayload(JSON.parse(JSON.stringify(saved)));
@@ -91,7 +92,7 @@ test("IMG_1916: reopen a retainer draft and issue a full-payment copy without re
   reopened.note = "Full balance paid";
   const finalReceipt = make(record, { ...reopened, confirmed: true });
   assert.equal(finalReceipt.balance, 0);
-  assert.match(receiptHTML(finalReceipt), /Paid in full/);
+  assert.match(receiptHTML(finalReceipt), /acknowledges full payment/);
   assert.match(receiptHTML(finalReceipt), /Full balance paid/);
   assert.equal(retainer.balance, 600);
   assert.equal(receiptHTML(retainer), issuedRetainerHTML);
@@ -122,9 +123,22 @@ test("client receipt escapes content, retains line breaks and has no invoice pay
   const html = receiptHTML(make({ ...invoice, clientName: "<script>alert(1)</script>", items: [{ description: "Guest seating\n<img onerror=alert(1)>", amount: 1000 }] }, { ...details, note: "Thanks <b>client</b>" }));
   assert.ok(html.includes("&lt;script&gt;"));
   assert.ok(html.includes("Guest seating\n&lt;img"));
-  assert.ok(html.includes("Paid in full"));
+  assert.ok(!html.includes('class="receipt-paid"'));
   assert.ok(html.includes("$954.00"));
   assert.ok(html.includes("$0.00"));
   assert.ok(!html.includes("<script>"));
   assert.ok(!html.includes(invoice.paymentTerms));
+});
+
+test("IMG_1979: no automatic header status; custom receipt note and balances stay intact", () => {
+  const records = [make(), make(invoice, {...details, amountPaid:"400.50"}), createStandaloneReceipt(standalone,"2026-09-25")];
+  for (const record of records) {
+    const html=receiptHTML({...record,note:"Payment for additional event services"});
+    const header=html.match(/<header[\s\S]*?<\/header>/)[0];
+    assert.doesNotMatch(header,/receipt-paid|Paid in full|Partial payment received|Payment received/);
+    assert.match(header,/Payment receipt/);
+    assert.match(html,/Payment for additional event services/);
+    assert.match(html,/Amount paid to date/);
+    if(record.balance!==null)assert.match(html,/Balance remaining/);
+  }
 });
