@@ -210,6 +210,20 @@
                     </div>
                   </header>
                   <nav class="hub-tabs admin-hub-tabs" id="admin-hub-tabs" aria-label="Client hub sections"></nav>
+                  <section class="hub-notes" id="hub-notes" aria-labelledby="hub-notes-title" hidden>
+                    <h3 id="hub-notes-title">Internal notes</h3>
+                    <p>Private to HMP Admin staff for this client’s event. These are the same notes shown on the inquiry. They are never sent to the client.</p>
+                    <form id="hub-notes-form">
+                      <label for="hub-notes-input">Meeting and team notes</label>
+                      <textarea id="hub-notes-input" rows="10" maxlength="5000" aria-describedby="hub-notes-help" placeholder="Add meeting details, follow-ups, and context for the HMP team…"></textarea>
+                      <p id="hub-notes-help">Up to 5,000 characters. Select Save notes to share changes with your HMP Admin team.</p>
+                      <div class="hub-notes-actions">
+                        <button class="secondary-button" id="save-hub-notes" type="submit">Save notes</button>
+                        <button class="secondary-button" id="reload-hub-notes" type="button">Reload saved notes</button>
+                      </div>
+                      <p class="form-message" id="hub-notes-status" role="status"></p>
+                    </form>
+                  </section>
                   <section class="activity-detail" id="hub-activity" aria-labelledby="hub-activity-title" hidden>
                     <h3 id="hub-activity-title">Activity</h3>
                     <p id="activity-client-event"></p>

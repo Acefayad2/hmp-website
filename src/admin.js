@@ -14,6 +14,7 @@ import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
 import { hubMessages, renderHubTabs } from "../client-hub.js";
+import { mountHubNotes } from "./hub-notes.js";
 import { clientActivityItems } from "../client-activity.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { inquiryGroups, inquiryFilterTitles, inquiryStatusGroup } from "./inquiry-filters.mjs";
@@ -81,6 +82,18 @@ const adminNotifications = mountAdminNotifications({
 });
 
 let inquiries = [];
+const hubNotes = mountHubNotes({
+  form: $("#hub-notes-form"), input: $("#hub-notes-input"),
+  saveButton: $("#save-hub-notes"), reloadButton: $("#reload-hub-notes"), status: $("#hub-notes-status"),
+  loadThreads: async () => { await loadMessages(); return messageThreads; },
+  onSaved: inquiry => {
+    inquiries = inquiries.map(item => item.id === inquiry.id ? inquiry : item);
+    for (const thread of messageThreads.filter(item => item.inquiryId === inquiry.id)) {
+      thread.internalNotes = inquiry.internalNotes;
+      thread.notesVersion = inquiry.notesVersion;
+    }
+  },
+});
 let activeInquiryFilter = "new";
 let inquiryBusy = false;
 let invoices = [];
@@ -546,19 +559,20 @@ const renderAdminMessages = (thread) => {
     activeHubSection = section;
     renderAdminMessages(thread);
     if (section === "activity") void loadClientActivity();
-  }, { showEmptySeating: true, showActivity: true });
+  }, { showEmptySeating: true, showActivity: true, showNotes: true });
   $("#hub-activity").hidden = activeHubSection !== "activity";
-  $("#admin-message-form").hidden = activeHubSection === "activity";
+  $("#hub-notes").hidden = activeHubSection !== "notes";
+  $("#admin-message-form").hidden = ["activity", "notes"].includes(activeHubSection);
   $("#hub-form-share").hidden = activeHubSection !== "forms";
   $("#hub-seating-share").hidden = activeHubSection !== "seating";
   if (focusedTab >= 0) $("#admin-hub-tabs").children[focusedTab]?.focus();
   const visible = hubMessages(allMessages, activeHubSection);
   const list = $("#admin-message-list");
   list.replaceChildren();
-  if (activeHubSection === "activity") {
+  if (["activity", "notes"].includes(activeHubSection)) {
     list.hidden = true;
     $("#admin-message-empty").hidden = true;
-    renderClientActivity();
+    if (activeHubSection === "activity") renderClientActivity();
     return;
   }
   visible.forEach((message) => {
@@ -1034,7 +1048,7 @@ const openMessageThread = (threadId) => {
     if (attachmentInput.disabled) return;
     if ((pendingFiles(attachmentInput).length || $("#admin-message-input").value.trim())
       && !window.confirm("Discard your unsent reply and attachments before opening another conversation?")) return;
-    if (activeHubSection !== "activity") activeHubSection = "messages";
+    if (!["activity", "notes"].includes(activeHubSection)) activeHubSection = "messages";
     ++activityFormsRequest;
     ++activitySeatingRequest;
     setMessage($("#activity-status"), "");
@@ -1046,6 +1060,7 @@ const openMessageThread = (threadId) => {
     renderAttachmentPreviews(attachmentInput, $("#admin-message-attachment-previews"), $("#admin-message-attachment-summary"));
   }
   activeThreadId = thread.id;
+  hubNotes.open(thread);
   activeConversationUrl = thread.clientUrl;
   $("#admin-conversation-placeholder").hidden = true;
   $("#admin-conversation").hidden = false;
