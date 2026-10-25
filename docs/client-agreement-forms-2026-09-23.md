@@ -48,3 +48,11 @@ Existing custom contracts remain available and unchanged. These new forms use th
 Requires publication approval. Apply the additive migration `20260923234320_client_agreement_forms.sql` to the verified HMP database before deploying the new functions and frontend together. Also account for the pending invoice event-address migration on this branch. Existing environment variables are reused; no new secrets required.
 
 After approval: verify existing sender configuration, run one authorized test-recipient send/sign/print flow against the deployed environment, verify the completed record in Admin, and verify an expired/void link is denied. Do not send test agreements to real clients without permission. Local mocks do not prove production authentication, email delivery, or deployed database connectivity.
+
+## 2026-10-25 — Money Bank same-browser draft update
+
+- Remove the redundant expanded Money Bank blank-template section; original terms remain available in a collapsed review section before signing and in print/signed records.
+- Add an explicit Save draft button for incomplete Money Bank event details, names and amounts. Drafts stay in this browser only and can be restored for at most 24 hours or the private link expiry, whichever is earlier. Shared-device users should clear site data after use; this is not cloud synchronization or an automatic erasure guarantee.
+- Do not persist private tokens, signatures, initials, signing dates or consent. Reopening requires the same valid private link; hashes isolate agreement/token/snapshot revisions. Saving checks current server status, while final signing keeps its existing immutable server workflow.
+- Storage/network errors do not claim success; failed final submission retains the draft, confirmed completion removes it. No database, credential, access or legal-term changes.
+- Verification: 317 tests passed, site and function builds passed. New tests cover incomplete fields/Draw, reload restoration, key isolation, stale/expired/corrupt data, storage/network failure, repeated clicks and final-submission cleanup. Rendered preview QA and release verification remain required before publication.
