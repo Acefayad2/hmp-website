@@ -263,7 +263,16 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-conversation-placeholder > span { color: var(--gold); font: 600 22px var(--serif); letter-spacing: .12em; }
 .admin-conversation-placeholder h3 { margin: 13px 0 5px; font: 600 30px var(--serif); }
 .admin-conversation-placeholder p { margin: 0; color: var(--muted); }
-.admin-conversation-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 24px 28px; border-bottom: 1px solid var(--line); }
+.admin-conversation-heading { display: grid; gap: 20px; padding: 24px 28px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
+.admin-conversation-heading .conversation-heading-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); justify-content: stretch; }
+.admin-conversation-heading .conversation-heading-actions button { margin: 0; min-width: 0; white-space: normal; padding: 10px 14px; }
+.hub-notes { padding: 24px 28px; }
+.hub-notes h3 { margin-top: 0; font: 600 28px var(--serif); }
+.hub-notes p { color: var(--muted); line-height: 1.6; }
+.hub-notes label { display: block; margin-bottom: 10px; font-weight: 700; }
+.hub-notes textarea { width: 100%; box-sizing: border-box; padding: 14px; border: 1px solid var(--line); border-radius: 12px; font: inherit; line-height: 1.6; resize: vertical; }
+.hub-notes-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.hub-notes .secondary-button { color: var(--plum); border-color: var(--plum); }
 .admin-hub-tabs { display:flex; flex-wrap:wrap; gap:8px; padding:14px 28px; border-bottom:1px solid var(--line); }
 .admin-hub-tabs .hub-tab { flex:none; padding:9px 13px; border:1px solid var(--line); border-radius:999px; color:var(--plum); background:var(--ivory); font:700 12px/1.2 var(--serif); cursor:pointer; }
 .admin-hub-tabs .hub-tab[aria-pressed="true"] { border-color:var(--plum); color:#fff; background:var(--plum); }

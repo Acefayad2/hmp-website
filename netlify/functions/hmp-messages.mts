@@ -240,7 +240,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const conversationIds = conversationRows.map((row) => row.id);
     const [{ data: inquiryRows, error: inquiryError }, { data: messageRows, error: messageError }] = await Promise.all([
       inquiryIds.length
-        ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,phone,service,celebration_date,status").in("submission_id", inquiryIds)
+        ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,phone,service,celebration_date,status,internal_notes,updated_at").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [], error: null }),
       readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,edited_at,email_notified_at,email_notification_error,revision_root_id"),
     ]);
@@ -258,6 +258,8 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       return {
         id: row.id,
         inquiryId: row.inquiry_id,
+        internalNotes: inquiry.internal_notes || "",
+        notesVersion: inquiry.updated_at || null,
         clientName: inquiry.client_name || "Client",
         clientEmail: inquiry.email || "",
         clientPhone: inquiry.phone || "",

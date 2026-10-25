@@ -71,6 +71,7 @@ export const normalizeInquiry = (record: Record<string, unknown>) => {
   followUpDate: record.follow_up_date || "",
   owner: record.owner || "",
   internalNotes: record.internal_notes || "",
+  notesVersion: record.updated_at || null,
   source: record.source || "Website",
   };
 };
@@ -148,6 +149,23 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
 
     const id = cleanText(body.id, 36);
     if (!uuidPattern.test(id)) return json({ error: "Invalid inquiry" }, 400);
+    if (body.action === "save-notes") {
+      if (typeof body.internalNotes !== "string" || body.internalNotes.length > 5000)
+        return json({ error: "Notes must be text, up to 5,000 characters." }, 400);
+      if (body.expectedVersion !== null && (typeof body.expectedVersion !== "string" ||
+          body.expectedVersion.length > 40 || !Number.isFinite(Date.parse(body.expectedVersion))))
+        return json({ error: "Reload the client hub before saving notes." }, 400);
+      let query = client.from("hmp_admin_inquiries").update({
+        internal_notes: body.internalNotes.trim() || null,
+        updated_at: new Date().toISOString(),
+      }).eq("submission_id", id);
+      // Compare-and-swap: never replace a colleague's newer inquiry/notes edit.
+      query = body.expectedVersion === null ? query.is("updated_at", null) : query.eq("updated_at", body.expectedVersion);
+      const { data, error } = await query.select("*").maybeSingle();
+      if (error) return json({ error: "Notes could not be saved. Your changes are still here; please try again." }, 502);
+      if (!data) return json({ error: "This inquiry changed since you opened it. Copy your notes, then reload saved notes before merging your changes." }, 409);
+      return json({ ok: true, inquiry: normalizeInquiry(data) });
+    }
     if (body.action !== undefined) {
       const actions: Record<string, string> = { archive: "Archived", delete: "Deleted", restore: "New" };
       const action = cleanText(body.action, 20);
