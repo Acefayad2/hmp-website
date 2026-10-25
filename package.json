@@ -7,10 +7,12 @@
     "check": "npm test && npm run build && npm run build:functions",
     "build": "node scripts/build-admin.mjs",
     "build:functions": "node scripts/build-functions.mjs",
-    "backfill:conversations": "node scripts/backfill-conversations.mjs"
+    "backfill:conversations": "node scripts/backfill-conversations.mjs",
+    "test:browser": "playwright test"
   },
   "devDependencies": {
     "@netlify/functions": "latest",
+    "@playwright/test": "1.64.1",
     "@types/node": "^26.2.0",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2"

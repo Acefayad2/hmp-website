@@ -31,6 +31,7 @@ const productionFiles = [
   "agreement.html",
   "agreement.css",
   "agreement-client.mjs",
+  "agreement-draft.mjs",
   "signature-pad.mjs",
   "agreement-ui.mjs",
   "agreement-formatting.mjs",
