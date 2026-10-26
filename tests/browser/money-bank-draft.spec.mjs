@@ -44,6 +44,38 @@ const fillRequired = async page => {
   await input(page,'consent').check();
 };
 
+test('each signer starts a fresh row and stays with their own signature or date',async({page},testInfo)=>{
+  const f=await fixture(page);
+  const box=async name=>input(page,name).locator('..').boundingBox();
+  const firstDate=await box('representativeOneDate');
+  const secondName=await box('representativeTwoName');
+  const secondSignature=await box('representativeTwoSignature');
+  const secondDate=await box('representativeTwoDate');
+  const attendantName=await box('attendantName');
+  const attendantDate=await box('attendantDate');
+  expect(secondName.y).toBeGreaterThanOrEqual(firstDate.y+firstDate.height);
+  expect(attendantName.y).toBeGreaterThanOrEqual(secondDate.y+secondDate.height);
+  if(page.viewportSize().width>600){
+    expect(Math.abs(secondName.y-secondSignature.y)).toBeLessThan(1);
+    expect(secondSignature.x).toBeGreaterThan(secondName.x);
+    expect(Math.abs(attendantName.y-attendantDate.y)).toBeLessThan(1);
+    expect(attendantDate.x).toBeGreaterThan(attendantName.x);
+  }else{
+    expect(secondSignature.y).toBeGreaterThanOrEqual(secondName.y+secondName.height);
+    expect(attendantDate.y).toBeGreaterThanOrEqual(attendantName.y+attendantName.height);
+  }
+  await input(page,'representativeTwoName').fill('Second Test Signer');
+  await input(page,'representativeTwoSignature').fill('Second Test Signer');
+  const pad=page.locator('.signature-pad').filter({has:page.getByText('Second representative signature',{exact:true})});
+  await expect(pad.locator('.agreement-signature')).toHaveText('Second Test Signer');
+  await expect(input(page,'representativeTwoDate')).toHaveAttribute('required','');
+  await pad.getByRole('button',{name:'Draw',exact:true}).click();
+  await expect(pad.locator('canvas')).toBeVisible();
+  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1)).toBe(true);
+  expect(f.posts).toBe(0);
+  await page.screenshot({path:testInfo.outputPath('signer-layout.png'),fullPage:true});
+});
+
 test('incomplete draft resumes without signing evidence; compact terms and responsive layout',async({page},testInfo)=>{
   const f=await fixture(page);
   await expect(page.getByText('Money bank verification text',{exact:true})).toHaveCount(0);
