@@ -26,6 +26,33 @@ function render() {
     <div class="agreement-actions"><button type="button" class="agreement-button secondary" id="print-agreement">${completed ? "Print / save completed form" : "Print agreement terms"}</button></div>`;
   document.querySelector("#print-agreement").onclick = () => printAgreement(agreement);
   const form = document.querySelector("#client-agreement-form");
+  if (form && onSite) {
+    const grid = form.querySelector(".agreement-grid");
+    // Group existing controls without changing field names, validation or saved records.
+    for (const [title, names] of [
+      ["First designated representative", ["representativeOneName", "representativeOneSignature", "representativeOneDate"]],
+      ["Second designated representative", ["representativeTwoName", "representativeTwoSignature", "representativeTwoDate"]],
+      ["HMP money attendant", ["attendantName", "attendantDate", "signatureName"]]
+    ]) {
+      const group = document.createElement("fieldset");
+      group.className = "agreement-signer-group agreement-wide";
+      const legend = document.createElement("legend");
+      legend.textContent = title;
+      const fields = document.createElement("div");
+      fields.className = "agreement-grid";
+      for (const name of names) {
+        const label = form.elements.namedItem(name)?.closest("label");
+        if (label) {
+          if (name === "signatureName") label.classList.add("agreement-wide");
+          fields.append(label);
+        }
+      }
+      if (fields.children.length) {
+        group.append(legend, fields);
+        grid.append(group);
+      }
+    }
+  }
   if (agreement.expiresAt) { const expiry=document.createElement("p"); expiry.textContent=`Link expires: ${expiryLabel(agreement.expiresAt)}.`; content.prepend(expiry); }
   if (form) form.noValidate = true;
   let signatureDirty = false;
