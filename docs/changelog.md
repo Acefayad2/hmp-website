@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-26
+
+- Allow the Money Bank browser QA job 20 minutes for Chromium provisioning, tests, and artifacts; retain every check after two 10-minute attempts ended cancelled despite all 27 browser tests passing.
+
 ## 2026-10-12
 
 - Warn before discarding unsaved proposal edits during close, workspace navigation, or page departure.
