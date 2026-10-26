@@ -46,6 +46,16 @@ const fillRequired = async page => {
 
 test('each signer starts a fresh row and stays with their own signature or date',async({page},testInfo)=>{
   const f=await fixture(page);
+  for (const [title,names] of [
+    ['First designated representative',['representativeOneName','representativeOneSignature','representativeOneDate']],
+    ['Second designated representative',['representativeTwoName','representativeTwoSignature','representativeTwoDate']],
+    ['HMP money attendant',['attendantName','attendantDate','signatureName']]
+  ]) {
+    const group=page.getByRole('group',{name:title,exact:true});
+    await expect(group).toBeVisible();
+    for(const name of names) await expect(group.locator(`[name="${name}"]`)).toHaveCount(1);
+    await expect(group.locator('.signature-pad')).toHaveCount(1);
+  }
   const box=async name=>input(page,name).locator('..').boundingBox();
   const firstDate=await box('representativeOneDate');
   const secondName=await box('representativeTwoName');

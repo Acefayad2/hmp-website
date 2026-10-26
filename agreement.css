@@ -5,9 +5,8 @@
 .agreement-page h2 { font-size:25px; font-weight:normal; }
 .agreement-panel, .agreement-templates { border:1px solid #ded0c8; border-radius:22px; background:#fffdf9; padding:24px; margin:24px 0; }
 .agreement-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:20px; }
-/* Keep each signer separate from the previous representative's signing date. */
-#client-agreement-form .agreement-grid > label[for="answer-representativeTwoName"],
-#client-agreement-form .agreement-grid > label[for="answer-attendantName"] { grid-column:1; }
+.agreement-signer-group { min-width:0; margin:12px 0 0; padding:20px; border:1px solid #ded0c8; border-radius:14px; }
+.agreement-signer-group legend { padding:0 8px; font-size:20px; font-weight:bold; }
 .agreement-field { display:grid; gap:7px; font-size:15px; align-content:start; }
 .agreement-field input, .agreement-field textarea, .agreement-field select { width:100%; min-width:0; box-sizing:border-box; border:1px solid #bba6a2; border-radius:10px; padding:12px; background:white; color:#4c3335; font:inherit; font-size:16px; }
 .agreement-field textarea { resize:vertical; }
