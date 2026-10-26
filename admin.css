@@ -264,8 +264,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-conversation-placeholder h3 { margin: 13px 0 5px; font: 600 30px var(--serif); }
 .admin-conversation-placeholder p { margin: 0; color: var(--muted); }
 .admin-conversation-heading { display: grid; gap: 20px; padding: 24px 28px; border-bottom: 1px solid var(--line); overflow-wrap: anywhere; }
-.admin-conversation-heading .conversation-heading-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); justify-content: stretch; }
-.admin-conversation-heading .conversation-heading-actions button { margin: 0; min-width: 0; white-space: normal; padding: 10px 14px; }
+.admin-conversation-heading .conversation-heading-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); grid-auto-rows: 1fr; justify-content: stretch; }
+.admin-conversation-heading .conversation-heading-actions button { margin: 0; min-width: 0; width:100%; min-height:44px; white-space: normal; padding:8px 10px; font:700 11px/1.3 var(--serif); letter-spacing:.04em; border:1px solid var(--plum); border-radius:999px; color:var(--plum); background:var(--ivory); box-shadow:none; }
+.admin-conversation-heading .conversation-heading-actions button:hover { color:var(--plum); background:var(--rose); }
+.admin-conversation-heading .conversation-heading-actions button:focus-visible { outline:2px solid var(--plum); outline-offset:3px; }
 .hub-notes { padding: 24px 28px; }
 .hub-notes h3 { margin-top: 0; font: 600 28px var(--serif); }
 .hub-notes p { color: var(--muted); line-height: 1.6; }
@@ -689,6 +691,8 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .conversation-heading-actions { justify-content: flex-start; }
   .conversation-heading-actions .conversation-copy-link { margin-top: 15px; }
   .conversation-heading-actions .primary-button { margin-top: 15px; }
+  .admin-conversation-heading .conversation-heading-actions { grid-template-columns:repeat(2,minmax(0,1fr)); margin-top:16px; }
+  .admin-conversation-heading .conversation-heading-actions button { margin:0; }
   .admin-message-list,.admin-message-empty { height: 360px; }
   .admin-message-list,.admin-message-composer { padding-left: 20px; padding-right: 20px; }
   .admin-message { max-width: 90%; }
