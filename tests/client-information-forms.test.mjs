@@ -2,9 +2,33 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { activeInformationTemplates, informationTemplates } from "../information-form-schema.mjs";
-import { informationSummary, informationPreviewHTML, informationIntroductionHTML } from "../information-form-ui.mjs";
+import { informationSummary, informationPreviewHTML, informationIntroductionHTML, informationFieldsHTML } from "../information-form-ui.mjs";
 import { fieldsHTML } from "../agreement-ui.mjs";
 import { informationClientHeading } from "../information-client.mjs";
+
+test("digital payment instructions appear once before payment fields on new and saved unfinished forms", () => {
+  for (const id of ["money-changing-details", "money-collecting-changing-details"]) {
+    const template = structuredClone(informationTemplates.find(t => t.id === id));
+    template.version = "2026-10-12.1";
+    const original = structuredClone(template);
+    const values = {paymentPlatformOne:"<script>unsafe</script>",qrCodeInstructions:"Sent via portal"};
+    const html = informationFieldsHTML(template.clientFields, values);
+    assert.equal((html.match(/aria-label="Digital payment QR-code instructions"/g) || []).length, 1);
+    assert.ok(html.indexOf("How to get your Cash App QR code") < html.indexOf('name="paymentPlatformOne"'));
+    for (const text of ["How to get your Venmo QR code", "Me tab", "Venmo me", "not Show to pay", "301-471-0990", "screenshot", "login codes"]) assert.ok(html.includes(text), text);
+    assert.ok(html.includes("&lt;script&gt;unsafe&lt;/script&gt;"));
+    assert.ok(html.includes("Sent via portal"));
+    assert.doesNotMatch(html, /<script>/);
+    assert.deepEqual(template, original);
+    const record = {snapshot:template,clientAnswers:values,adminAnswers:{},status:"Sent"};
+    assert.match(informationPreviewHTML(record), /How to get your Cash App QR code/);
+    assert.doesNotMatch(informationPreviewHTML({...record,status:"Completed"}), /How to get your Cash App QR code/);
+  }
+  const collecting = activeInformationTemplates.find(t => t.id === "money-collecting-details");
+  assert.equal(informationFieldsHTML(collecting.clientFields), fieldsHTML(collecting.clientFields));
+  const client = readFileSync(new URL("../information-client.mjs", import.meta.url), "utf8");
+  assert.match(client, /informationFieldsHTML\(record\.snapshot\.clientFields/);
+});
 
 test("client intake heading omits internal service labels and Prepared for, including saved snapshots", () => {
   for (const template of activeInformationTemplates) {
