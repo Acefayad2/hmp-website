@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-10-27
+
+- Remove the guest-count and distance qualification above the two Guest Seating package cards while preserving both displayed starting prices.
+
 ## 2026-10-26
 
 - Allow the Money Bank browser QA job 20 minutes for Chromium provisioning, tests, and artifacts; retain every check after two 10-minute attempts ended cancelled despite all 27 browser tests passing.
