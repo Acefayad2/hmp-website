@@ -97,7 +97,8 @@ test("sidebar has one document entry and both accessible tab panels remain avail
   assert.match(forms, /id="client-google-forms"/);
   assert.doesNotMatch(forms, /id="agreement-template-list"/);
   assert.match(html.slice(html.indexOf('id="contract-workspace"')), /id="agreement-template-list"/);
-  assert.match(html.slice(html.indexOf('id="contract-workspace"')), /id="agreement-list"/);
+  assert.match(html.slice(html.indexOf('id="contract-workspace"')), /id="contract-list"/);
+  assert.doesNotMatch(html, /id="agreement-list"|<h3>Agreement records<\/h3>/);
 });
 
 test("Forms refreshes native responses and Contracts refreshes both agreement collections", async () => {

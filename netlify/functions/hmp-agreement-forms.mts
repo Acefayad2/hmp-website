@@ -63,7 +63,7 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
           if (!data) return json({error:"Agreement not found."}, 404);
           return json({agreement:publicAgreement(data), link:["Sent","Completed"].includes(data.status) ? privateLink(data) : "", signingConsent});
         }
-        const {data, error} = await db.from(table).select("id,revision_root_id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,document_title:snapshot->>title,expires_at,event_name:admin_answers->>eventName").order("created_at", {ascending:false}).limit(500);
+        const {data, error} = await db.from(table).select("id,revision_root_id,template_id,client_name,client_email,status,created_at,completed_at,email_delivered_at,document_title:snapshot->>title,expires_at,event_name:admin_answers->>eventName,event_date:client_answers->>eventDate,service_fee:admin_answers->>serviceFee,total_due:admin_answers->>totalDue,approval_fee:admin_answers->>approvalFee,customization_fee:admin_answers->>customizationFee").order("created_at", {ascending:false}).limit(500);
         if (error) return json({error:"Client forms are unavailable. The agreement database migration may still be pending."}, 502);
         return json({agreements:latestDocumentRows(data || [])});
       }

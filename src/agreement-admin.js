@@ -1,10 +1,10 @@
 import { agreementDraftFields, agreementTemplates, newAgreementSnapshot, moneyTablePaymentAmounts, validateAnswers, agreementTextIssues, validationError } from "../agreement-schema.mjs";
 import terms from "../data/agreement-terms.json";
-import { searchText } from "../page-search.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, nativeFormIssues, showFormIssues } from "../agreement-ui.mjs";
 import { agreementEditorHTML, mountAgreementEditors, readAgreementEditor } from "./agreement-text-editor.js";
 import {mountDocumentVersions} from "./document-versions.js";
 import {chooseDocumentSharing, copySharedLink, createInteractionGuard} from "./document-sharing.js";
+import {updateAgreementList} from "./agreement-list.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -34,14 +34,13 @@ function startTemplate(template) {
 $("#create-bank-verification").addEventListener("click", () => startTemplate(agreementTemplates.find(item => item.id === "money-bank-verification")));
 
 export async function loadAgreementForms() {
-  const message = $("#agreement-list-message");
+  updateAgreementList("agreements", {loading:true, error:""});
   try {
     const data = await agreementRequest(endpoint);
-    const agreements = data.agreements.filter(row => agreementTemplates.some(t => t.id === row.template_id && t.id !== "money-bank-verification"));
-    message.classList.add("neutral");
-    message.textContent = agreements.length ? "" : "No agreement records yet. Choose a template above to get started.";
-    $("#agreement-list").innerHTML = agreements.map(row => `<button class="agreement-row" type="button" data-agreement-id="${escape(row.id)}" data-search-text="${escape(searchText(row.client_email, row.created_at, row.completed_at, row.document_title))}"><span><strong>${escape(row.client_name)}</strong><small>${escape(row.document_title || agreementTemplates.find(t => t.id === row.template_id)?.title || "Client agreement")}</small></span><span>${escape(row.status)}${row.status === "Sent" && !row.email_delivered_at ? " · awaiting client" : ""}</span></button>`).join("");
-  } catch (error) { message.classList.remove("neutral"); message.textContent = error.message; }
+    updateAgreementList("agreements", {rows:data.agreements || [], loading:false});
+  } catch (error) {
+    updateAgreementList("agreements", {loading:false, error:`Template agreements could not be refreshed: ${error.message} Use Refresh to try again.`});
+  }
 }
 export async function loadBankVerificationForms() {
   const message = $("#bank-verification-message");
@@ -65,7 +64,7 @@ export async function openAgreementDraft(id, messageSelector = "#agreement-list-
     renderEditor(); dialog.showModal(); return true;
   } catch(error) { const message = $(messageSelector); message.classList.remove("neutral"); message.textContent = error.message; return false; }
 }
-$("#agreement-list").addEventListener("click", event => {
+$("#contract-list").addEventListener("click", event => {
   const button = event.target.closest("[data-agreement-id]");
   if (button) openAgreementDraft(button.dataset.agreementId);
 });
