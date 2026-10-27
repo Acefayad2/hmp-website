@@ -5,8 +5,9 @@ import {linkExpiration} from "../document-expiry.mjs";
 import { mountAdminNotifications } from "./admin-notifications.js";
 import {mountDocumentVersions} from "./document-versions.js";
 import {latestDocumentRows} from "../document-versions.mjs";
-import { installValidationSummaries } from "../agreement-ui.mjs";
+import { ADMIN_AUTH_REQUIRED_EVENT, createAdminFormDialogSuspension, installValidationSummaries } from "../agreement-ui.mjs";
 import { loadAdminWorkspace } from "./admin-startup.mjs";
+import { createAdminAuthRecovery } from "./admin-auth-recovery.js";
 import { openReceiptDraft } from "./receipt-admin.js";
 import { invoiceStatusLabel } from "../invoice-status.mjs";
 import { loadInformationForms, openInformationDraft } from "./client-forms.js";
@@ -71,8 +72,25 @@ const signOutAdmin = async () => {
   await logout();
   location.reload();
 };
+const adminFormDialogs = createAdminFormDialogSuspension(document);
 const adminVerification=mountAdminVerification({form:$("#verification-form"),loginForm,passwordForm,authShell,dashboard,
   onVerified:user=>enterDashboard(user),onCancel:signOutAdmin});
+const showAdminLogin = () => {
+  authShell.hidden = false;
+  dashboard.hidden = true;
+  loginForm.hidden = false;
+  passwordForm.hidden = true;
+  $("#verification-form").hidden = true;
+  setMessage(authMessage, "Your Admin verification has expired or access is unavailable. Please sign in again.");
+  return false;
+};
+const requireAdminAuthentication = createAdminAuthRecovery({
+  getUser,
+  ensureVerification:user => adminVerification.ensure(user),
+  showLogin:showAdminLogin,
+  onStart:() => { window.clearInterval(dashboardSyncTimer); adminFormDialogs.suspend(); },
+});
+window.addEventListener(ADMIN_AUTH_REQUIRED_EVENT, () => { void requireAdminAuthentication(); });
 const inquiryList = $("#inquiry-list");
 const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
@@ -2221,6 +2239,7 @@ const enterDashboard = async (user) => {
   if(!await adminVerification.ensure(user))return;
   authShell.hidden = true;
   dashboard.hidden = false;
+  adminFormDialogs.restore();
   $("#viewer-email").textContent = user.email || "HMP Admin";
   void adminNotifications.refresh();
   if (new URLSearchParams(location.search).get("notifications") === "1") adminNotifications.open();
