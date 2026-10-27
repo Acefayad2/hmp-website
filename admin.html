@@ -312,9 +312,9 @@
             </div>
           </section>
 
-          <div class="document-tabs" id="document-tabs" role="tablist" aria-label="Invoices and contracts" hidden>
+          <div class="document-tabs" id="document-tabs" role="tablist" aria-label="Invoices and agreements" hidden>
             <button type="button" id="invoices-tab" role="tab" data-document-view="invoices" aria-controls="invoice-workspace" aria-selected="true" tabindex="0">Invoices</button>
-            <button type="button" id="contracts-tab" role="tab" data-document-view="contracts" aria-controls="contract-workspace" aria-selected="false" tabindex="-1">Contracts</button>
+            <button type="button" id="contracts-tab" role="tab" data-document-view="contracts" aria-controls="contract-workspace" aria-selected="false" tabindex="-1">Agreements</button>
           </div>
 
           <section class="invoice-workspace" id="invoice-workspace" role="tabpanel" aria-labelledby="invoices-tab" tabindex="0" hidden>
@@ -369,7 +369,7 @@
                 <div class="form-list-heading"><span>Client</span><span>Form</span><span>Status</span></div>
                 <div id="information-list" class="agreement-list"></div>
               </div>
-              <p>Service agreements and signed records are available under Invoices &amp; Contracts → Contracts.</p>
+              <p>Service agreements and signed records are available under Invoices &amp; Contracts → Agreements.</p>
             </section>
             <section class="agreement-templates" aria-labelledby="bank-verification-heading">
               <p class="kicker">On-site · Shared device</p>
@@ -386,34 +386,32 @@
             <section class="agreement-templates" aria-labelledby="agreement-templates-heading">
               <p class="kicker">Complete &amp; sign online</p>
               <h2 id="agreement-templates-heading">Service agreement templates</h2>
-              <p>Prepare the service details and send a private signing link. Completed agreements and signatures return here automatically.</p>
+              <p>Prepare the service details and send a private signing link. All agreements and signed records appear in the Agreements list below.</p>
               <div class="agreement-grid" id="agreement-template-list"></div>
-              <h3>Agreement records</h3>
-              <p id="agreement-list-message" class="agreement-status" role="status"></p>
-              <div id="agreement-list" class="agreement-list"></div>
             </section>
             <div class="workspace-section-header">
               <div>
                 <p class="kicker">Agreement workspace</p>
-                <h2>Contracts</h2>
+                <h2>Agreements</h2>
                 <p>Create, save, print, and send branded HMP service agreements.</p>
               </div>
-              <button class="primary-button workspace-create-button" id="create-contract-button" type="button">Create new contract</button>
+              <button class="primary-button workspace-create-button" id="create-contract-button" type="button">Create new agreement</button>
             </div>
             <div class="email-setup-notice" id="contract-email-setup-notice" hidden>
               <strong>Email setup needed</strong>
-              <span>Contracts can be saved and printed now. Connect a verified HMP sender to deliver them by email.</span>
+              <span>Agreements can be saved and printed now. Connect a verified HMP sender to deliver them by email.</span>
             </div>
+            <p id="agreement-list-message" class="agreement-status" role="status"></p>
             <div class="invoice-list-panel">
               <div class="invoice-list-heading contract-list-heading">
-                <span>Contract</span><span>Client</span><span>Event date</span><span>Value</span><span>Status</span>
+                <span>Agreement</span><span>Client</span><span>Event date</span><span>Value</span><span>Status</span>
               </div>
               <div id="contract-list"></div>
-              <div class="invoice-empty" id="contract-empty">
+              <div class="invoice-empty" id="contract-empty" hidden>
                 <span>HMP</span>
-                <h3>No contracts yet</h3>
-                <p>Create the first branded service agreement for an HMP client.</p>
-                <button class="text-button" id="empty-create-contract" type="button">Create new contract</button>
+                <h3>No agreements yet</h3>
+                <p>Choose a template above or create a new branded service agreement for an HMP client.</p>
+                <button class="text-button" id="empty-create-contract" type="button">Create new agreement</button>
               </div>
             </div>
           </section>
@@ -861,6 +859,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261023-admin-expiry"></script>
+    <script type="module" src="assets/admin.js?v=20261027-unified-agreements"></script>
   </body>
 </html>

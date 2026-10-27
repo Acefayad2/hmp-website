@@ -86,6 +86,22 @@ function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:20
   return createAgreementHandler({getUserFn:async()=>admin ? {email:"admin@example.test"} : null, databaseFactory:()=>fakeDatabase(rows), fetchFn:send});
 }
 
+test("Admin list selects only the metadata needed for unified agreements and rejects guests", async () => {
+  let selected = "", reads = 0;
+  const db = {from(table) {
+    assert.equal(table, "hmp_client_agreements");
+    reads++;
+    return {select(columns) {selected=columns;return this;}, order(){return this;}, limit(){return Promise.resolve({data:[],error:null});}};
+  }};
+  const handler=createAgreementHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+  assert.equal((await handler(request("hmp-agreement-forms"))).status,200);
+  for(const field of ["event_date:client_answers->>eventDate","service_fee:admin_answers->>serviceFee","total_due:admin_answers->>totalDue","approval_fee:admin_answers->>approvalFee","customization_fee:admin_answers->>customizationFee"]) assert.ok(selected.includes(field));
+  assert.doesNotMatch(selected, /token|signature|\*/);
+  const denied=createAgreementHandler({getUserFn:async()=>null,databaseFactory:()=>db});
+  assert.equal((await denied(request("hmp-agreement-forms"))).status,401);
+  assert.equal(reads,1);
+});
+
 const bankBody = row => ({answers:{...inputFor(row.snapshot.clientFields), representativeOneName:"First Signer", representativeOneSignature:"First Signer", representativeTwoName:"", representativeTwoSignature:"", representativeTwoDate:"", attendantName:"HMP Attendant"}, signatureName:"HMP Attendant", consent:true, representativeOneConsent:true, representativeTwoConsent:false});
 
 test("retainer supports every whole percentage from 30 to 100 and rejects other values", () => {

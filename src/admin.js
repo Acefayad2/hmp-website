@@ -5,6 +5,7 @@ import {linkExpiration} from "../document-expiry.mjs";
 import { mountAdminNotifications } from "./admin-notifications.js";
 import {mountDocumentVersions} from "./document-versions.js";
 import {latestDocumentRows} from "../document-versions.mjs";
+import {updateAgreementList} from "./agreement-list.js";
 import { ADMIN_AUTH_REQUIRED_EVENT, createAdminFormDialogSuspension, installValidationSummaries } from "../agreement-ui.mjs";
 import { loadAdminWorkspace } from "./admin-startup.mjs";
 import { createAdminAuthRecovery } from "./admin-auth-recovery.js";
@@ -276,11 +277,8 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
     });
   }
   if (isContracts) {
-    loadContracts().catch((error) => {
-      $("#contract-empty").hidden = false;
-      $("#contract-empty h3").textContent = "Contracts unavailable";
-      $("#contract-empty p").textContent = error.message;
-    });
+    // Each source reports its own failure without hiding the other source.
+    loadContracts().catch(() => {});
   }
   if (isMessages) {
     loadMessages().catch((error) => {
@@ -1741,32 +1739,23 @@ const contractPayload = () => ({
 });
 
 const renderContracts = () => {
-  const list = $("#contract-list");
-  const empty = $("#contract-empty");
-  empty.hidden = contracts.length > 0;
-  list.hidden = contracts.length === 0;
-  list.innerHTML = latestDocumentRows(contracts)
-    .map(
-      (contract) => `
-        <button class="invoice-list-row contract-list-row" type="button" data-contract-id="${escapeHTML(contract.id)}" data-search-text="${escapeHTML(searchText(contract.eventName, contract.eventLocation, contract.eventDate, contract.clientPhone, contract.services, contract.scopeOfWork, contract.totalAmount, contract.paymentTerms, contract.additionalTerms))}">
-          <span><strong>${escapeHTML(contract.contractNumber)}</strong><small>${escapeHTML(formatDate(contract.effectiveDate))}</small></span>
-          <span><strong>${escapeHTML(contract.clientName)}</strong><small>${escapeHTML(contract.clientEmail)}</small></span>
-          <span>${escapeHTML(formatDate(contract.eventDate))}</span>
-          <span class="invoice-list-total">${formatMoney(contract.totalAmount)}</span>
-          <span class="status-pill">${escapeHTML(contract.status)}</span>
-        </button>`,
-    )
-    .join("");
+  updateAgreementList("contracts", {rows:contracts, loading:false, error:""});
 };
 
 const loadContracts = async () => {
-  const response = await fetch("/api/hmp-contracts", { credentials: "same-origin", cache: "no-store" });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(data.error || "Contract data is unavailable.");
-  contracts = data.contracts || [];
-  contractEmailConfigured = Boolean(data.emailConfigured);
-  $("#contract-email-setup-notice").hidden = contractEmailConfigured;
-  renderContracts();
+  updateAgreementList("contracts", {loading:true, error:""});
+  try {
+    const response = await fetch("/api/hmp-contracts", { credentials: "same-origin", cache: "no-store" });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Agreement data is unavailable.");
+    contracts = data.contracts || [];
+    contractEmailConfigured = Boolean(data.emailConfigured);
+    $("#contract-email-setup-notice").hidden = contractEmailConfigured;
+    renderContracts();
+  } catch (error) {
+    updateAgreementList("contracts", {loading:false, error:`Custom agreements could not be refreshed: ${error.message} Use Refresh to try again.`});
+    throw error;
+  }
 };
 
 const renderCurrentDrafts = () => renderDraftGroups(
