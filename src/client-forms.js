@@ -3,11 +3,12 @@ import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues }
 import { informationSummary, printInformation } from "../information-form-ui.mjs";
 import { loadBankVerificationForms } from "./agreement-admin.js";
 import {mountDocumentVersions} from "./document-versions.js";
-import {chooseDocumentSharing, copySharedLink} from "./document-sharing.js";
+import {chooseDocumentSharing, copySharedLink, createInteractionGuard} from "./document-sharing.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
 let active, busy = false, dirty = false, link = "", listSignature = "";
+const sharingInteraction = createInteractionGuard();
 const dialog = document.createElement("dialog");
 dialog.className = "agreement-dialog"; dialog.id = "information-editor";
 dialog.setAttribute("aria-labelledby", "information-editor-title");
@@ -62,7 +63,7 @@ function render() {
     ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label>${fieldsHTML(active.snapshot.adminFields, active.adminAnswers)}</div><label class="agreement-field">Form introduction<textarea name="documentDescription" required maxlength="5000" rows="5">${escape(active.snapshot.description)}</textarea></label>` : informationSummary(active, false)}
     ${draft ? `<details class="agreement-panel"><summary>Preview client questions</summary><ul>${active.snapshot.clientFields.map(f => `<li><strong>${escape(f.label)}</strong><p>${escape(f.help || "")}</p></li>`).join("")}</ul></details>` : ""}
     ${link ? `<label class="agreement-field">Private client link<input id="information-private-link" readonly value="${escape(link)}"></label><p>Share only with this client. Link ${Date.parse(active.expiresAt) <= Date.now() ? "expired" : "expires"}: ${escape(new Date(active.expiresAt).toLocaleString())}.</p>` : "<p>Choose a calendar expiration date when sharing (any future date).</p>"}
-    <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<button type="button" class="agreement-button secondary" id="information-copy">Copy link</button><a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
+    <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
   mountDocumentVersions(dialog,{kind:"form",id:active.id,status:active.status,beforeSwitch:()=>!busy&&(!dirty||confirm("Discard unsaved changes before switching versions?")),open:async(id)=>{dirty=false;await openInformationDraft(id);await loadInformationForms();}});
@@ -71,42 +72,43 @@ function render() {
     const send = form.querySelector('[data-information-action="send"]');
     send.dataset.informationAction = "resend";
     send.textContent = "Renew & resend (7 days)";
-    $("#information-copy")?.remove();
   }
   form.oninput = () => {if (draft) dirty = true;};
   form.onsubmit = event => {event.preventDefault(); if (!busy && checkFormInputs(form)) perform("save");};
   dialog.querySelectorAll("[data-information-action]").forEach(button => button.onclick = () => {if (!busy && (button.dataset.informationAction === "void" || checkFormInputs(form))) perform(button.dataset.informationAction);});
-  $("#information-copy")?.addEventListener("click", async () => {
-    try {await navigator.clipboard.writeText(link); $("#information-status").textContent = "Private link copied.";}
-    catch {$("#information-private-link").select(); $("#information-status").textContent = "Link selected. Copy it manually.";}
-  });
   $("#information-print")?.addEventListener("click", () => printInformation(active));
   // Sharing is portal-first; email remains available through Messages only.
   dialog.querySelector('[data-information-action="send"]')?.remove();
   dialog.querySelector('[data-information-action="resend"]')?.remove();
   dialog.querySelector('[data-information-action="share"]')?.remove();
-  $("#information-copy")?.remove();
   if (active.status !== "Void") {
     const actions = form.querySelector(".agreement-actions");
     for (const copy of [false,true]) {
       const button = document.createElement("button"); button.type="button"; button.className="agreement-button secondary";
       button.textContent=copy ? "Copy Private Link" : "Send to Client Portal";
-      button.onclick=()=>shareInformation(copy); actions.prepend(button);
+      button.onclick=()=>copy && link && Date.parse(active.expiresAt) > Date.now()
+        ? copySharedLink(link,$("#information-status"))
+        : shareInformation(copy);
+      actions.prepend(button);
     }
   }
 }
 async function shareInformation(copy) {
-  if (busy || (active.status === "Draft" && !checkFormInputs($("#information-admin-form")))) return;
+  if (busy || (active.status === "Draft" && !checkFormInputs($("#information-admin-form"))) || !sharingInteraction.begin()) return;
+  let preparedCopy = null;
   try {
     const email = active.status === "Draft" ? $("#information-admin-form").elements.clientEmail.value : active.clientEmail;
-    const sharing = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt});
-    if (!sharing) return;
+    const choice = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt,deferClipboardCopy:copy});
+    if (!choice) return;
+    const selected = copy ? choice : {sharing:choice, preparedCopy:null};
+    const sharing = selected.sharing; preparedCopy = selected.preparedCopy;
     await perform(active.status === "Draft" ? "share" : "access",sharing);
-    if (!link) return;
+    if (!link) { await preparedCopy?.cancel(); return; }
     if (!copy) await agreementRequest("/api/hmp-messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"share-form",formId:active.id,conversationId:sharing.conversationId})});
     $("#information-status").textContent = "Form shared in the selected client portal. No email was sent.";
-    if (copy) await copySharedLink(link,$("#information-status"));
-  } catch(error) { $("#information-status").textContent=error.message; }
+    if (copy) await copySharedLink(link,$("#information-status"),{preparedCopy});
+  } catch(error) { await preparedCopy?.cancel(); $("#information-status").textContent=error.message; }
+  finally { sharingInteraction.end(); }
 }
 async function perform(action, sharing = {}) {
   if (busy) return;

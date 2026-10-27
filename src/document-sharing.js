@@ -1,8 +1,52 @@
 import { agreementRequest, escape } from "../agreement-ui.mjs";
 import { businessDate, expiryDateAfter, linkExpiration } from "../document-expiry.mjs";
 
+export function createInteractionGuard() {
+  let active = false;
+  return {
+    begin() { if (active) return false; active = true; return true; },
+    end() { active = false; },
+  };
+}
+
+export function beginDeferredClipboardCopy({
+  clipboard = globalThis.navigator?.clipboard,
+  ClipboardItemClass = globalThis.ClipboardItem,
+  BlobClass = globalThis.Blob,
+} = {}) {
+  if (!clipboard?.write || !ClipboardItemClass || !BlobClass) return null;
+  let resolveText, rejectText;
+  const text = new Promise((resolve, reject) => { resolveText = resolve; rejectText = reject; });
+  let write;
+  try {
+    write = Promise.resolve(clipboard.write([
+      new ClipboardItemClass({"text/plain": text.then(value => new BlobClass([value], {type:"text/plain"}))}),
+    ]));
+    write.catch(() => {});
+  } catch {
+    return null;
+  }
+  let settled = false;
+  return {
+    async complete(value) {
+      if (settled) return false;
+      settled = true;
+      resolveText(String(value));
+      await write;
+      return true;
+    },
+    async cancel() {
+      if (settled) return false;
+      settled = true;
+      rejectText(new Error("Clipboard copy cancelled"));
+      await write.catch(() => {});
+      return true;
+    },
+  };
+}
+
 // A separate modal keeps the user's unsaved document fields intact on cancellation.
-export async function chooseDocumentSharing({copy = false, choosePortal = false, clientEmail = "", expiresAt = "", expirationDate = "", portalAccess = false} = {}) {
+export async function chooseDocumentSharing({copy = false, choosePortal = false, clientEmail = "", expiresAt = "", expirationDate = "", portalAccess = false, deferClipboardCopy = false} = {}) {
   let threads = [];
   if (choosePortal) {
     const data = await agreementRequest("/api/hmp-messages");
@@ -25,7 +69,10 @@ export async function chooseDocumentSharing({copy = false, choosePortal = false,
     dialog.querySelector("form").onsubmit = event => {
       event.preventDefault();
       const values = Object.fromEntries(new FormData(event.currentTarget));
-      try { linkExpiration(values.expirationDate); finish(values); }
+      try {
+        linkExpiration(values.expirationDate);
+        finish(deferClipboardCopy && copy ? {sharing:values, preparedCopy:beginDeferredClipboardCopy()} : values);
+      }
       catch (error) { dialog.querySelector('[name=expirationDate]').setCustomValidity(error.message); event.currentTarget.reportValidity(); }
     };
     dialog.querySelector('[name=expirationDate]').oninput = event => event.target.setCustomValidity("");
@@ -33,11 +80,15 @@ export async function chooseDocumentSharing({copy = false, choosePortal = false,
   });
 }
 
-export async function copySharedLink(url, status) {
-  try { await navigator.clipboard.writeText(url); status.textContent = "Private link copied. Share only with this client. No email was sent."; }
+export async function copySharedLink(url, status, {preparedCopy = null, clipboard = globalThis.navigator?.clipboard, documentObject = globalThis.document} = {}) {
+  try {
+    if (preparedCopy) await preparedCopy.complete(url);
+    else await clipboard.writeText(url);
+    status.textContent = "Private link copied. Share only with this client. No email was sent.";
+  }
   catch {
     status.textContent = "The document is shared. Copy this private link manually: ";
-    const input = document.createElement("input"); input.readOnly = true; input.value = url;
+    const input = documentObject.createElement("input"); input.readOnly = true; input.value = url;
     input.setAttribute("aria-label", "Private client link"); status.append(input); input.select();
   }
 }
