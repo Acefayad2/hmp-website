@@ -2,6 +2,7 @@
 
 ## 2026-10-27
 
+- Reopen the existing Admin verification flow when Forms access expires, preserving typed entries and requiring an explicit retry instead of replaying a write.
 - Remove the guest-count and distance qualification above the two Guest Seating package cards while preserving both displayed starting prices.
 - Keep Forms private-link copying inside the initiating click for Safari, reuse active links without access mutations, and retain the manual-copy fallback when clipboard access is unavailable.
 

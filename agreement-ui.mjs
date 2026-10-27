@@ -104,9 +104,38 @@ export function printAgreement(agreement) {
   window.addEventListener("afterprint", () => {section.remove(); document.body.classList.remove("printing-agreement");}, {once:true});
   window.print();
 }
+export const ADMIN_AUTH_REQUIRED_EVENT = "hmp-admin-auth-required";
+
+export function createAdminFormDialogSuspension(documentObject = document) {
+  const suspended = new Set();
+  return {
+    suspend() {
+      for (const dialog of documentObject.querySelectorAll("#information-editor, #agreement-editor")) {
+        if (dialog.open) { suspended.add(dialog); dialog.close(); }
+      }
+    },
+    restore() {
+      for (const dialog of suspended) {
+        if (dialog.isConnected && !dialog.open) dialog.showModal();
+      }
+      suspended.clear();
+    },
+  };
+}
+
 export async function agreementRequest(path, options = {}) {
   const response = await fetch(path, {credentials:"same-origin", cache:"no-store", ...options});
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) { const error = new Error(data.error || "The form could not be loaded."); error.data = data; throw error; }
+  if (!response.ok) {
+    const pathname = new URL(path, "https://hmpeds.com").pathname;
+    const adminAuthorizationRequired = response.status === 401 && pathname.startsWith("/api/") && pathname !== "/api/hmp-agreement";
+    const error = new Error(adminAuthorizationRequired
+      ? "Your Admin verification has expired or access is unavailable. Verify your sign-in, then try again."
+      : data.error || "The form could not be loaded.");
+    error.data = data;
+    error.status = response.status;
+    if (adminAuthorizationRequired && typeof window !== "undefined") window.dispatchEvent(new Event(ADMIN_AUTH_REQUIRED_EVENT));
+    throw error;
+  }
   return data;
 }

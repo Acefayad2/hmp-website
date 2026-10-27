@@ -8,6 +8,48 @@ const token = 'q'.repeat(43);
 const prefix = 'hmp-money-bank-draft-v1:';
 const consent = 'Synthetic QA consent only. No real agreement is signed.';
 const original = { id:'00000000-0000-4000-8000-000000000057', status:'Sent', clientName:'Synthetic QA Client', clientEmail:'qa@example.test', expiresAt:'2099-01-01T00:00:00Z', snapshot, adminAnswers:{} };
+
+test('expired Admin verification preserves typed Forms input and never replays the mutation', async ({page}) => {
+  await page.goto('/agreement.html');
+  await page.setContent('<dialog id="information-editor"><label>Client name<input id="typed-client" value="Typed Client"></label></dialog><form id="synthetic-verification"><label>Verification code<input id="verification-code"></label></form>');
+  const result = await page.evaluate(async () => {
+    let requests = 0, authenticationEvents = 0;
+    const dialog = document.querySelector('#information-editor');
+    dialog.showModal();
+    window.fetch = async () => {
+      requests++;
+      return Response.json({error:'Unauthorized'}, {status:401});
+    };
+    const {agreementRequest,createAdminFormDialogSuspension} = await import('/agreement-ui.mjs?admin-auth-interruption');
+    const suspension = createAdminFormDialogSuspension(document);
+    window.syntheticAdminDialogSuspension = suspension;
+    window.addEventListener('hmp-admin-auth-required', () => { authenticationEvents++; suspension.suspend(); });
+    let status = 0, message = '';
+    try {
+      await agreementRequest('/api/hmp-agreement-forms', {method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({action:'share'})});
+    } catch (error) {
+      status = error.status;
+      message = error.message;
+    }
+    const suspended = !dialog.open;
+    return {requests, authenticationEvents, status, message, suspended, typed:document.querySelector('#typed-client').value};
+  });
+  expect(result).toEqual({
+    requests:1,
+    authenticationEvents:1,
+    status:401,
+    message:'Your Admin verification has expired or access is unavailable. Verify your sign-in, then try again.',
+    suspended:true,
+    typed:'Typed Client',
+  });
+  await page.locator('#verification-code').click();
+  await expect(page.locator('#verification-code')).toBeFocused();
+  const restored = await page.evaluate(() => {
+    window.syntheticAdminDialogSuspension.restore();
+    return {open:document.querySelector('#information-editor').open,typed:document.querySelector('#typed-client').value};
+  });
+  expect(restored).toEqual({open:true,typed:'Typed Client'});
+});
 const input = (page, name) => page.locator(`[name="${name}"]`);
 async function fixture(page) {
   let agreement = structuredClone(original), failGet = false, failPost = false, gets = 0, posts = 0;
