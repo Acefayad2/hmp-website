@@ -1,6 +1,6 @@
-import { agreementRequest, escape, fieldsHTML, checkFormInputs, showFormIssues } from "./agreement-ui.mjs";
+import { agreementRequest, escape, checkFormInputs, showFormIssues } from "./agreement-ui.mjs";
 import { validateAnswers } from "./agreement-schema.mjs";
-import { informationSummary, printInformation, informationIntroductionHTML } from "./information-form-ui.mjs";
+import { informationSummary, printInformation, informationIntroductionHTML, informationFieldsHTML } from "./information-form-ui.mjs";
 import {expiryLabel} from "./document-expiry.mjs";
 
 export function informationClientHeading(record) {
@@ -19,7 +19,7 @@ export function renderInformationForm(record, headers) {
   function render() {
     const completed = record.status === "Completed";
     content.innerHTML = `${informationClientHeading(record)}${informationIntroductionHTML(record)}
-      ${completed ? `<section class="agreement-panel">${informationSummary(record, false)}</section><button type="button" class="agreement-button secondary" id="information-print">Print / save my responses</button>` : `<form id="information-client-form" class="agreement-panel"><p>* Required. Answers are saved when you select Submit information. Keep this page open until you see confirmation.</p><div class="agreement-grid">${fieldsHTML(record.snapshot.clientFields, {email:record.clientEmail,...record.clientAnswers})}</div><p>Only share public payment handles or QR codes—never bank account numbers, passwords, or login codes.</p><button class="agreement-button" type="submit">Submit information</button><p id="information-save-status" class="agreement-status" role="status"></p></form>`}`;
+      ${completed ? `<section class="agreement-panel">${informationSummary(record, false)}</section><button type="button" class="agreement-button secondary" id="information-print">Print / save my responses</button>` : `<form id="information-client-form" class="agreement-panel"><p>* Required. Answers are saved when you select Submit information. Keep this page open until you see confirmation.</p><div class="agreement-grid">${informationFieldsHTML(record.snapshot.clientFields, {email:record.clientEmail,...record.clientAnswers})}</div><p>Only share public payment handles or QR codes—never bank account numbers, passwords, or login codes.</p><button class="agreement-button" type="submit">Submit information</button><p id="information-save-status" class="agreement-status" role="status"></p></form>`}`;
     message.textContent = completed ? "Your responses have been saved and are available to HMP. Contact HMP if anything needs correcting." : "";
     message.classList.toggle("success", completed);
     if (record.expiresAt) { const expiry=document.createElement("p"); expiry.textContent=`Link expires: ${expiryLabel(record.expiresAt)}.`; content.prepend(expiry); }
