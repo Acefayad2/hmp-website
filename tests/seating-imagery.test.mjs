@@ -13,10 +13,11 @@ test("guest seating uses the supplied desk and kiosk images in the requested pla
   assert.match(read("brand.css"), /\.service-feature-media\.service-seating-media img \{[^}]*height: auto;[^}]*object-fit: contain;/);
 });
 
-test("seating starting prices state both guest-count and distance conditions before the packages", () => {
+test("seating packages omit the retired guest-count and distance qualification", () => {
   const html = read("guest-seating.html").replace(/\s+/g, " ");
-  assert.match(html, /Starting prices shown apply to events with up to 230 guests at venues within 30 miles of Laurel, MD\./);
-  assert.ok(html.indexOf('class="seating-price-note"') < html.indexOf('class="price-grid"'));
+  assert.doesNotMatch(html, /up to 230 guests|within 30 miles of Laurel/);
+  assert.doesNotMatch(html, /class="seating-price-note"/);
+  assert.doesNotMatch(read("brand.css"), /\.guest-seating-page \.seating-price-note/);
   assert.match(html, /Starting price \$1,450/);
   assert.equal((html.match(/Starting price \$800/g) || []).length, 1);
 });

@@ -607,18 +607,6 @@ button[type="submit"]:hover {
   border-color: var(--line);
 }
 
-.guest-seating-page .seating-price-note {
-  max-width: 760px;
-  margin: 0 0 32px;
-  padding: 18px 22px;
-  border-left: 3px solid var(--gold);
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-  font-size: 17px;
-  font-weight: 700;
-  line-height: 1.6;
-}
-
 @media (max-width: 800px) {
   .guest-seating-page .page-hero {
     padding-top: 128px;
