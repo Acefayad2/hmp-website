@@ -87,8 +87,20 @@ export async function copySharedLink(url, status, {preparedCopy = null, clipboar
     status.textContent = "Private link copied. Share only with this client. No email was sent.";
   }
   catch {
-    status.textContent = "The document is shared. Copy this private link manually: ";
+    status.textContent = "The document is shared. Tap Copy link to try again, or select and copy the link below: ";
     const input = documentObject.createElement("input"); input.readOnly = true; input.value = url;
-    input.setAttribute("aria-label", "Private client link"); status.append(input); input.select();
+    input.setAttribute("aria-label", "Private client link");
+    const retry = documentObject.createElement("button");
+    retry.type = "button"; retry.className = "agreement-button secondary"; retry.textContent = "Copy link";
+    retry.onclick = async () => {
+      try {
+        await clipboard.writeText(url);
+        status.textContent = "Private link copied. Share only with this client. No email was sent.";
+      } catch {
+        retry.textContent = "Copy blocked — select link below";
+        input.focus(); input.select();
+      }
+    };
+    status.append(retry, input); input.select();
   }
 }

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { activeInformationTemplates, informationTemplates } from "../information-form-schema.mjs";
-import { informationSummary } from "../information-form-ui.mjs";
+import { informationSummary, informationPreviewHTML, informationIntroductionHTML } from "../information-form-ui.mjs";
 import { fieldsHTML } from "../agreement-ui.mjs";
 import { informationClientHeading } from "../information-client.mjs";
 
@@ -31,7 +31,7 @@ test("only the two renamed intake forms are offered; retired records remain supp
   ]);
   assert.equal(informationTemplates.filter(t => t.retired).length, 4);
   for (const template of activeInformationTemplates) {
-    assert.match(template.description, /fill out our Money Table Intake Form/);
+    assert.equal(template.description, "");
     assert.doesNotMatch(template.description, /Event Details Form/);
     const summary = informationSummary({snapshot:template, clientName:"Client",clientEmail:"client@example.test",adminAnswers:{},clientAnswers:{}});
     assert.ok(summary.includes(`<h2>Money Table Intake Form</h2><p>${template.subtitle}</p>`));
@@ -39,6 +39,19 @@ test("only the two renamed intake forms are offered; retired records remain supp
   const admin = readFileSync(new URL("../src/client-forms.js", import.meta.url), "utf8");
   assert.match(admin, /innerHTML = activeInformationTemplates\.map/);
   assert.match(admin, /rows = data\.agreements\.filter\(row => informationTemplates\.some/);
+});
+
+test("full preview uses unsaved wording, escapes content and cannot submit", () => {
+  const record = {snapshot:{...activeInformationTemplates[0],description:"Custom greeting\n<script>unsafe</script>"},clientName:"Test Client",clientEmail:"qa@example.test",adminAnswers:{eventName:"Test Event"},clientAnswers:{}};
+  const original = structuredClone(record);
+  const html = informationPreviewHTML(record);
+  assert.match(html, /Test Client · Test Event/);
+  assert.match(html, /Custom greeting\n&lt;script&gt;unsafe&lt;\/script&gt;/);
+  assert.match(html, /fieldset disabled/);
+  for (const field of record.snapshot.clientFields) assert.ok(html.includes(`name="${field.id}"`));
+  assert.doesNotMatch(html, /type="submit"|<script>/);
+  assert.deepEqual(record, original);
+  assert.equal(informationIntroductionHTML({snapshot:{description:""}}), "");
 });
 
 test("three original information forms are native templates, separate from contracts and receipts", () => {

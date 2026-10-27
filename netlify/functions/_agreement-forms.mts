@@ -54,8 +54,8 @@ export function editableSnapshot(snapshot: any, body: any) {
   const title = typeof body.title === "string" ? body.title.trim() : snapshot.title;
   if (!title || title.length > 200) throw validationError([{field:"documentTitle", message:"Document title is required (maximum 200 characters)."}]);
   if (snapshot.kind === "information") {
-    const description = typeof body.description === "string" ? body.description.trim() : snapshot.description;
-    if (!description || description.length > 5000) throw validationError([{field:"documentDescription", message:"Form introduction is required (maximum 5,000 characters)."}]);
+    const description = typeof body.description === "string" ? body.description.trim() : (snapshot.description || "");
+    if (description.length > 5000) throw validationError([{field:"documentDescription", message:"Form introduction must be 5,000 characters or fewer."}]);
     return {...snapshot, title, description};
   }
   const pages = body.pages === undefined ? snapshot.pages : body.pages;

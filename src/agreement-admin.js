@@ -4,11 +4,12 @@ import { searchText } from "../page-search.js";
 import { agreementRequest, answersHTML, completionHTML, escape, fieldsHTML, printAgreement, termsHTML, nativeFormIssues, showFormIssues } from "../agreement-ui.mjs";
 import { agreementEditorHTML, mountAgreementEditors, readAgreementEditor } from "./agreement-text-editor.js";
 import {mountDocumentVersions} from "./document-versions.js";
-import {chooseDocumentSharing, copySharedLink} from "./document-sharing.js";
+import {chooseDocumentSharing, copySharedLink, createInteractionGuard} from "./document-sharing.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
 let active = null, busy = false, dirty = false, link = "";
+const sharingInteraction = createInteractionGuard();
 const dialog = document.createElement("dialog");
 dialog.className = "agreement-dialog"; dialog.id = "agreement-editor";
 dialog.setAttribute("aria-labelledby", "agreement-editor-title");
@@ -54,15 +55,15 @@ export async function loadBankVerificationForms() {
 }
 $("#bank-verification-list").addEventListener("click", event => {
   const button = event.target.closest("[data-bank-verification-id]");
-  if (button) openAgreementDraft(button.dataset.bankVerificationId);
+  if (button) openAgreementDraft(button.dataset.bankVerificationId, "#bank-verification-message");
 });
-export async function openAgreementDraft(id) {
+export async function openAgreementDraft(id, messageSelector = "#agreement-list-message") {
   if (!id || busy) return;
   try {
     const data = await agreementRequest(`${endpoint}?id=${encodeURIComponent(id)}`);
     active = data.agreement; link = data.link || ""; dirty = false;
     renderEditor(); dialog.showModal(); return true;
-  } catch(error) { $("#agreement-list-message").textContent = error.message; return false; }
+  } catch(error) { const message = $(messageSelector); message.classList.remove("neutral"); message.textContent = error.message; return false; }
 }
 $("#agreement-list").addEventListener("click", event => {
   const button = event.target.closest("[data-agreement-id]");
@@ -149,22 +150,28 @@ function renderEditor() {
       if (!copy && active.snapshot.signatureMode === "on-site-three-signatures") continue;
       const button = document.createElement("button"); button.type="button"; button.className="agreement-button secondary";
       button.textContent=copy ? "Copy Private Link" : "Send to Client Portal";
-      button.onclick=()=>shareAgreement(copy); actions.prepend(button);
+      button.onclick=()=>copy && link && Date.parse(active.expiresAt) > Date.now()
+        ? copySharedLink(link,$("#agreement-editor-status"))
+        : shareAgreement(copy); actions.prepend(button);
     }
   }
 }
 async function shareAgreement(copy) {
-  if (busy) return;
+  if (busy || !sharingInteraction.begin()) return;
+  let preparedCopy = null;
   try {
     const email = active.status === "Draft" ? $("#agreement-admin-form").elements.clientEmail.value : active.clientEmail;
-    const sharing = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt});
-    if (!sharing) return;
+    const choice = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt,deferClipboardCopy:copy});
+    if (!choice) return;
+    const selected = copy ? choice : {sharing:choice,preparedCopy:null};
+    const sharing = selected.sharing; preparedCopy = selected.preparedCopy;
     await perform(active.status === "Draft" ? "share" : "access",sharing);
-    if (!link) return;
+    if (!link) { await preparedCopy?.cancel(); return; }
     if (!copy) await agreementRequest("/api/hmp-messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"share-form",formId:active.id,conversationId:sharing.conversationId})});
     $("#agreement-editor-status").textContent="Form shared in the selected client portal. No email was sent.";
-    if (copy) await copySharedLink(link,$("#agreement-editor-status"));
-  } catch(error) { $("#agreement-editor-status").textContent=error.message; }
+    if (copy) await copySharedLink(link,$("#agreement-editor-status"),{preparedCopy});
+  } catch(error) { await preparedCopy?.cancel(); $("#agreement-editor-status").textContent=error.message; }
+  finally { sharingInteraction.end(); }
 }
 function formValues() {
   const values = Object.fromEntries(new FormData($("#agreement-admin-form")));

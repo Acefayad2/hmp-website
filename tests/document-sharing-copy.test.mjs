@@ -52,18 +52,33 @@ test("rapid repeat clicks keep one sharing interaction in flight", () => {
 });
 
 test("copy falls back to a selected private input when clipboard access is blocked", async () => {
-  const status = {textContent:"", append(node) { this.input = node; }};
+  const status = {textContent:"", append(button, input) { this.button = button; this.input = input; }};
   const documentObject = {createElement() {
-    return {setAttribute(name,value) { this[name] = value; }, select() { this.selected = true; }};
+    return {setAttribute(name,value) { this[name] = value; }, select() { this.selected = true; }, focus() { this.focused = true; }};
   }};
   await copySharedLink("https://hmpeds.com/form#fallback-token", status, {
     clipboard:{writeText:async () => { throw new Error("NotAllowedError"); }},
     documentObject,
   });
-  assert.match(status.textContent, /Copy this private link manually/);
+  assert.match(status.textContent, /Tap Copy link/);
+  assert.equal(status.button.textContent, "Copy link");
+  await status.button.onclick();
+  assert.match(status.button.textContent, /Copy blocked/);
   assert.equal(status.input.value, "https://hmpeds.com/form#fallback-token");
   assert.equal(status.input.selected, true);
   assert.equal(status.input["aria-label"], "Private client link");
+});
+
+test("fallback Copy link retries directly without republishing the document", async () => {
+  let calls = 0;
+  const status = {textContent:"", append(button, input) { this.button = button; this.input = input; }};
+  await copySharedLink("https://hmpeds.com/agreement#retry", status, {
+    clipboard:{async writeText(url) { calls++; assert.equal(url,"https://hmpeds.com/agreement#retry"); if (calls === 1) throw new Error("No user activation"); }},
+    documentObject:{createElement:() => ({setAttribute(){},select(){}})},
+  });
+  await status.button.onclick();
+  assert.equal(calls, 2);
+  assert.match(status.textContent, /Private link copied/);
 });
 
 test("Forms reuses a live link and safely settles deferred copy on failure", () => {
@@ -74,4 +89,13 @@ test("Forms reuses a live link and safely settles deferred copy on failure", () 
   assert.match(clientFormsSource, /!sharingInteraction\.begin\(\)/);
   assert.match(clientFormsSource, /finally \{ sharingInteraction\.end\(\); \}/);
   assert.doesNotMatch(clientFormsSource, /Link selected\. Copy it manually\./);
+});
+
+test("Money Bank and agreement sharing also use deferred copy and protect repeat clicks", () => {
+  const source = readFileSync(new URL("../src/agreement-admin.js", import.meta.url), "utf8");
+  assert.match(source, /deferClipboardCopy:copy/);
+  assert.match(source, /copy && link && Date\.parse\(active\.expiresAt\) > Date\.now\(\)/);
+  assert.match(source, /if \(!link\) \{ await preparedCopy\?\.cancel\(\); return; \}/);
+  assert.match(source, /finally \{ sharingInteraction\.end\(\); \}/);
+  assert.match(source, /openAgreementDraft\(button\.dataset\.bankVerificationId, "#bank-verification-message"\)/);
 });

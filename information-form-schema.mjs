@@ -39,12 +39,12 @@ export const informationTemplates = [
   make("money-bank-payment", "Money Table Service — Bank & Payment Details", "https://forms.gle/zcJ5KvacooVQPRBi9", [contact,bank,delivery,payment,release,notes]),
   {...pdfForm("money-collecting-details", "Money Table Intake Form", "Money Collecting Event Details Form.pdf", "4b2ca243ac936a5093a6767e30963fd21ee1da999655f95fd066a0a8ccac21d3", [
     ...representative, ...alternateRecipient, notes,
-  ]), subtitle:"For Collecting", version:"2026-10-13.1"},
+  ]), subtitle:"For Collecting", description:"", version:"2026-10-27.1"},
   {...pdfForm("money-changing-details", "Money Table Intake Form", "Money Changing Event Details Form.pdf", "d1290c04ffd21864ec5fdad400c8daa5db7f8449c0faa4c0a7d451b0ff23df5c", [
     {id:"bankAmount",label:"Confirmation of the money bank amount being provided",type:"money",required:true},
     ...representative, ...alternateRecipient, ...digitalTransfer,
     text("qrCodeInstructions", "QR-code delivery details", "Send QR-code screenshots through your HMP message thread or by text to 301-471-0990. Never provide passwords or login codes.", false), notes,
-  ]), subtitle:"For Changing", version:"2026-10-13.1"},
+  ]), subtitle:"For Changing", description:"", version:"2026-10-27.1"},
   {...pdfForm("money-collecting-changing-details", "Money Collecting & Changing Event Details Form", "Money Collecting & Changing Event Detail Form.pdf", "df2ccc32b994b3435f4a217651b1bbf0f2fbf4b634897f00427f571c9f5426be", [
     {id:"bankAmount",label:"Confirmation of the money bank amount being provided",type:"money",required:true},
     ...representative, ...alternateRecipient, ...digitalTransfer,

@@ -9,6 +9,19 @@ import {expiryDateAfter,linkExpiration} from "../document-expiry.mjs";
 
 globalThis.Netlify = {env:{get:name => ({SUPABASE_URL:"https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY:"test-only-secret", HMP_ADMIN_EMAILS:"admin@example.test", RESEND_API_KEY:"test-only-resend", HMP_CONTRACT_FROM_EMAIL:"forms@example.test"})[name]}};
 const id = "11111111-1111-4111-8111-111111111111";
+test("intake introductions are optional, bounded, and preserve stored wording unless edited", () => {
+  for (const templateId of ["money-changing-details","money-collecting-details"]) {
+    const fresh = snapshotFor(templateId);
+    assert.equal(fresh.description, "");
+    assert.equal(editableSnapshot(fresh, {description:"   "}).description, "");
+    const saved = {...fresh, description:"Existing client wording"};
+    assert.equal(editableSnapshot(saved, {}).description, "Existing client wording");
+    assert.equal(editableSnapshot(saved, {description:""}).description, "");
+    assert.equal(saved.description, "Existing client wording");
+    assert.equal(editableSnapshot(saved, {description:"Custom greeting"}).description, "Custom greeting");
+    assert.throws(() => editableSnapshot(fresh, {description:"a".repeat(5001)}), /5,000/);
+  }
+});
 test("form links honor saved expiration beyond event date and preserve signed originals",async()=>{
   const row={...rowFor(),status:"Completed",admin_answers:{eventDate:"2000-01-01"},signature:{name:"Original"},record_hash:"original"};
   const original=structuredClone(row),handler=handlerFor([row]),token=agreementToken(id,"seed");
