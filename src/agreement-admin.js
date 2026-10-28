@@ -88,7 +88,7 @@ function renderEditor() {
     $("#agreement-admin-fields").after(panel);
   }
   mountDocumentVersions(dialog,{kind:"form",id:active.id,status:active.status,beforeSwitch:()=>!busy&&(!dirty||confirm("Discard unsaved changes before switching versions?")),open:async(id)=>{dirty=false;await openAgreementDraft(id);await loadAgreementForms();}});
-  if(active.legacyRevisionText&&draft){
+  if(active.legacyRevisionText&&draft&&active.snapshot.id!=="money-bank-verification"){
     const warning=document.createElement("p");warning.className="agreement-status";
     warning.textContent="This older original contains fixed wording. Review and update every amount, date and payment term under Edit agreement wording; changing the service-detail fields alone does not replace fixed text.";
     form.prepend(warning);
