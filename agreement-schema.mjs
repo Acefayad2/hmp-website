@@ -98,7 +98,7 @@ export const agreementTemplates = [
     id:"money-bank-verification", title:"Money Table Service: Money Bank Verification",
     signatureMode:"on-site-three-signatures",
     optionalSecondRepresentative:true,
-    adminFields:[],
+    adminFields:[{...field("additionalInformation", "Additional Information", "textarea", false), help:"Leave blank to use the existing Money Bank Verification wording. Anything entered here is included with the form for the signers."}],
     clientFields:[
       field("clientName", "Client name"), field("eventDate", "Event date", "date"), field("eventType", "Event type"),
       field("recommendedBank", "Recommended money bank", "money"), field("actualBank", "Actual money bank received", "money"),
