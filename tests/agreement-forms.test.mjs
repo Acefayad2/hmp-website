@@ -9,6 +9,50 @@ import {expiryDateAfter,linkExpiration} from "../document-expiry.mjs";
 
 globalThis.Netlify = {env:{get:name => ({SUPABASE_URL:"https://example.supabase.co", SUPABASE_SERVICE_ROLE_KEY:"test-only-secret", HMP_ADMIN_EMAILS:"admin@example.test", RESEND_API_KEY:"test-only-resend", HMP_CONTRACT_FROM_EMAIL:"forms@example.test"})[name]}};
 const id = "11111111-1111-4111-8111-111111111111";
+test("Money Bank Verification optional information saves and reopens without replacing agreement wording", async () => {
+  const rows = [], handler = handlerFor(rows);
+  const snapshot = snapshotFor("money-bank-verification");
+  const field = snapshot.adminFields.find(field => field.id === "additionalInformation");
+  assert.equal(field.required, false);
+  assert.match(fieldsHTML([field]), /<textarea[^>]*name="additionalInformation"/);
+  assert.doesNotMatch(fieldsHTML([field]), /required/);
+  const response = await handler(request("hmp-agreement-forms", "POST", {
+    templateId:snapshot.id, clientName:"Test Client", clientEmail:"client@example.test", answers:{additionalInformation:""},
+  }));
+  assert.equal(response.status, 201);
+  const created = (await response.json()).agreement;
+  assert.deepEqual(created.snapshot.pages, snapshot.pages);
+  assert.equal(created.adminAnswers.additionalInformation, "");
+  for (const additionalInformation of ["Bring two envelopes.\nMeet at the money table.", ""]) {
+    const row = rows[0];
+    const saved = await handler(request("hmp-agreement-forms", "PATCH", {id:row.id, action:"save", updatedAt:row.updated_at,
+      clientName:"Test Client", clientEmail:"client@example.test", answers:{additionalInformation}}));
+    assert.equal(saved.status, 200);
+    const reopened = (await (await handler(request("hmp-agreement-forms?id="+row.id))).json()).agreement;
+    assert.equal(reopened.adminAnswers.additionalInformation, additionalInformation);
+    assert.deepEqual(reopened.snapshot.pages, snapshot.pages);
+    assert.equal(reopened.status, "Draft");
+  }
+  assert.throws(() => validateAnswers(snapshot.adminFields, {additionalInformation:"x".repeat(5001)}), /too long/);
+  assert.match(answersHTML(snapshot.adminFields,{additionalInformation:"<script>example</script>"}), /&lt;script&gt;/);
+});
+
+test("existing bank drafts gain optional information without rewriting custom text or issued originals", () => {
+  const original = {...rowFor("money-bank-verification"), status:"Draft"};
+  original.snapshot.adminFields = [];
+  original.snapshot.pages = ["Existing custom bank wording"];
+  original.snapshot.pageFormatting = [[{start:0,end:8,bold:true}]];
+  const before = structuredClone(original);
+  const editable = publicAgreement(original);
+  assert.ok(editable.snapshot.adminFields.some(field => field.id === "additionalInformation"));
+  assert.deepEqual(editable.snapshot.pages, before.snapshot.pages);
+  assert.deepEqual(editable.snapshot.pageFormatting, before.snapshot.pageFormatting);
+  assert.deepEqual(original, before);
+  for (const status of ["Sent","Completed","Void"]) {
+    const locked = {...original,status};
+    assert.deepEqual(publicAgreement(locked).snapshot, locked.snapshot);
+  }
+});
 test("intake introductions are optional, bounded, and preserve stored wording unless edited", () => {
   for (const templateId of ["money-changing-details","money-collecting-details"]) {
     const fresh = snapshotFor(templateId);

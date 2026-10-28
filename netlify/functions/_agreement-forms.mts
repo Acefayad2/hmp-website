@@ -22,6 +22,9 @@ export const snapshotFor = (id: string) => {
 };
 // Add the missing field to editable drafts only; never rewrite issued/signed snapshots.
 export function withCurrentDraftFields(row: any) {
+  if (row.status === "Draft" && row.snapshot.id === "money-bank-verification" && !row.snapshot.adminFields.some((field: any) => field.id === "additionalInformation")) {
+    row = {...row, snapshot:{...row.snapshot, adminFields:[...row.snapshot.adminFields, getAgreementTemplate("money-bank-verification").adminFields.find((field: any) => field.id === "additionalInformation")]}};
+  }
   const snapshot = row.snapshot;
   if (row.status === "Draft" && snapshot.id === "money-bank-verification" && snapshot.optionalSecondRepresentative !== true) {
     const current = snapshotFor(snapshot.id);
