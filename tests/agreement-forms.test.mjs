@@ -101,11 +101,12 @@ function fakeDatabase(rows) {
     const target=rows.filter(r=>(r.id===root||r.revision_root_id===root)&&["Sent","Completed"].includes(r.status)).at(-1);
     if(!target||!(Date.parse(target.expires_at)>Date.now()))return {data:null,error:null};
     if(name==="hmp_resolve_agreement_revision")return {data:structuredClone(target),error:null};
-    assert.equal(name,"hmp_complete_agreement_revision");
+    assert.ok(["hmp_complete_agreement_revision","hmp_save_bank_progress"].includes(name));
     if(target.id!==args.p_expected_id||target.status!=="Sent"||target.updated_at!==args.p_updated_at)return {data:null,error:null};
     // Use the fake query engine so storage-error and token-rotation tests still
     // exercise the conditional write path. Real transaction tests live in SQL.
-    return this.from().update(args.p_payload).eq("id",target.id).eq("token_hash",args.p_token_hash).eq("status","Sent").gt("expires_at",new Date().toISOString()).select("*").maybeSingle();
+    const payload=name==="hmp_save_bank_progress" ? {bank_progress:args.p_values,updated_at:new Date().toISOString()} : args.p_payload;
+    return this.from().update(payload).eq("id",target.id).eq("token_hash",args.p_token_hash).eq("status","Sent").gt("expires_at",new Date().toISOString()).select("*").maybeSingle();
   },from() {
     let filters = [], operation = "read", payload;
     const query = {
@@ -129,6 +130,36 @@ const request = (route, method="GET", body, token) => new Request(`https://hmped
 function handlerFor(rows, admin=true, send=async()=>new Response("{}",{status:200})) {
   return createAgreementHandler({getUserFn:async()=>admin ? {email:"admin@example.test"} : null, databaseFactory:()=>fakeDatabase(rows), fetchFn:send});
 }
+
+test("bank progress saves across devices, rejects stale saves/submissions and never completes or emails",async()=>{
+  const row=rowFor("money-bank-verification"),original=structuredClone(row),token=agreementToken(id,"seed");
+  const handler=handlerFor([row],false,async()=>{throw Error("Must not email a draft");});
+  const body={action:"save-progress",agreementId:id,updatedAt:row.updated_at,answers:{actualBank:"250",receivedInitials:"AB",representativeOneSignature:"Do not store"}};
+  assert.equal((await handler(request("hmp-agreement","POST",body))).status,401);
+  const response=await handler(request("hmp-agreement","POST",body,token));
+  assert.equal(response.status,200);
+  assert.equal(row.status,"Sent");assert.equal(row.signature,undefined);assert.equal(row.completed_at,undefined);
+  assert.deepEqual(row.snapshot,original.snapshot);assert.deepEqual(row.admin_answers,original.admin_answers);
+  const reopened=(await (await handler(request("hmp-agreement","GET",undefined,token))).json()).agreement;
+  assert.deepEqual(reopened.bankProgress.values,{actualBank:"250",receivedInitials:"AB"});
+  assert.equal((await handler(request("hmp-agreement","POST",body,token))).status,409);
+  assert.equal((await handler(request("hmp-agreement","POST",{agreementId:id},token))).status,409);
+  for(const status of ["Completed","Void"]){row.status=status;assert.ok([409,410].includes((await handler(request("hmp-agreement","POST",{...body,updatedAt:row.updated_at},token))).status));}
+});
+test("shared progress validates template, field bounds, origin, expiry and storage failure",async()=>{
+  const row=rowFor("money-bank-verification"),token=agreementToken(id,"seed"),handler=handlerFor([row]);
+  const body={action:"save-progress",agreementId:id,updatedAt:row.updated_at,answers:{actualBank:"a".repeat(5001)}};
+  assert.equal((await handler(request("hmp-agreement","POST",body,token))).status,400);
+  const foreign=request("hmp-agreement","POST",body,token);foreign.headers.set("Origin","https://evil.example");
+  assert.equal((await handler(foreign)).status,403);
+  row.snapshot.id="other";assert.equal((await handler(request("hmp-agreement","POST",body,token))).status,409);
+  row.snapshot.id="money-bank-verification";row.expires_at="2000-01-01";
+  assert.equal((await handler(request("hmp-agreement","POST",body,token))).status,410);
+  row.expires_at="2099-01-01";
+  const db=fakeDatabase([row]),rpc=db.rpc.bind(db);db.rpc=(name,args)=>name==="hmp_save_bank_progress"?Promise.resolve({error:{message:"offline"}}):rpc(name,args);
+  const failing=createAgreementHandler({databaseFactory:()=>db});
+  assert.equal((await failing(request("hmp-agreement","POST",{...body,answers:{}},token))).status,502);
+});
 
 test("Admin list selects only the metadata needed for unified agreements and rejects guests", async () => {
   let selected = "", reads = 0;
