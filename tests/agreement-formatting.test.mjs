@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { formattedPageHTML, replaceFormattedPage, validatePageFormatting } from "../agreement-formatting.mjs";
 import { editableSnapshot, issuedSnapshot, snapshotFor } from "../netlify/functions/_agreement-forms.mts";
 import { termsHTML } from "../agreement-ui.mjs";
+import { readAgreementEditor } from "../src/agreement-text-editor.js";
 
 test("agreement formatting escapes all text and only renders supported marks/alignment", () => {
   const text = '<img src=x onerror=alert(1)>\nHello';
@@ -50,4 +51,39 @@ test("deleted optional clauses, split placeholders, and adjacent replacements re
   assert.equal(result.text,"New end");
   assert.doesNotThrow(() => formattedPageHTML(result.text,result.formatting));
   assert.equal(formattedPageHTML("\n",[]),'<div class="agreement-align-left"><br></div><div class="agreement-align-left"><br></div>');
+});
+
+test("bullets and printable checkboxes survive draft save, reopening, issuing and rendering", () => {
+  const snapshot = snapshotFor("guest-seating"), original = structuredClone(snapshot);
+  const page = "Introduction\nFirst item\n☐ Second item\nConclusion";
+  const first = page.indexOf("First"), second = page.indexOf("☐"), end = page.indexOf("\nConclusion");
+  const pages = snapshot.pages.map((value,index) => index ? value : page);
+  const pageFormatting = pages.map((value,index) => index ? [] : [{start:first,end:second,bold:true,list:"bullet"},{start:second,end,list:"bullet"}]);
+  const saved = editableSnapshot(snapshot,{pages,pageFormatting});
+  const reopened = editableSnapshot(saved,{});
+  assert.deepEqual(reopened.pageFormatting,pageFormatting);
+  const issued = issuedSnapshot(reopened,{});
+  const html = termsHTML(issued);
+  assert.match(html, /<ul class="agreement-bullet-list"><li class="agreement-align-left"><strong>First item<\/strong><\/li><li class="agreement-align-left">☐ Second item<\/li><\/ul><div class="agreement-align-left">Conclusion/);
+  assert.doesNotMatch(html, /<input/);
+  assert.deepEqual(snapshot,original);
+  assert.equal(validatePageFormatting("safe",[{start:0,end:4,list:"<script>"}])[0].list,undefined);
+});
+
+test("bullet placeholders retain their list and inline formatting when issued", () => {
+  const result = replaceFormattedPage("☐ {{serviceHours}} hours",[{start:0,end:24,list:"bullet",italic:true}],()=>"4");
+  assert.equal(result.text,"☐ 4 hours");
+  assert.match(formattedPageHTML(result.text,result.formatting), /<ul class="agreement-bullet-list"><li class="agreement-align-left"><em>☐ 4 hours<\/em><\/li><\/ul>/);
+});
+
+test("reading list blocks keeps line boundaries without doubling the browser's break on toggle", () => {
+  const element = (tagName,...childNodes) => ({nodeType:1,tagName,nodeName:tagName,childNodes,style:{textDecoration:""},classList:[],getAttribute:()=>null});
+  const text = textContent => ({nodeType:3,nodeName:"#text",textContent});
+  const editor = element("DIV",element("UL",element("LI",element("B",text("First")))),text("Not a bullet"),element("BR"),element("UL",element("LI",text("Second"))),element("DIV",text("Conclusion")));
+  const read = readAgreementEditor(editor);
+  assert.equal(read.text,"First\nNot a bullet\nSecond\nConclusion");
+  const html = formattedPageHTML(read.text,read.formatting);
+  assert.equal((html.match(/<li /g)||[]).length,2);
+  assert.match(html,/<strong>First<\/strong>/);
+  assert.match(html,/<div class="agreement-align-left">Not a bullet<\/div>/);
 });

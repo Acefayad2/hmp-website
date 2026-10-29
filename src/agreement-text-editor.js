@@ -8,7 +8,7 @@ export function readAgreementEditor(editor) {
     const start = text.length;
     text += value;
     const run = {start,end:text.length,...marks}, previous = formatting.at(-1);
-    if (previous && ["bold","italic","underline","align"].every(key => previous[key] === run[key])) previous.end = run.end;
+    if (previous && ["bold","italic","underline","align","list"].every(key => previous[key] === run[key])) previous.end = run.end;
     else formatting.push(run);
   };
   const walk = (node, inherited = {}) => {
@@ -17,6 +17,7 @@ export function readAgreementEditor(editor) {
     if (["SCRIPT","STYLE","IFRAME","OBJECT"].includes(node.tagName)) return;
     if (node.tagName === "BR") return append("\n",inherited);
     const marks = {...inherited};
+    if (node.tagName === "LI") marks.list = "bullet";
     if (["B","STRONG"].includes(node.tagName) || ["bold","700"].includes(node.style.fontWeight)) marks.bold = true;
     if (["normal","400"].includes(node.style.fontWeight)) delete marks.bold;
     if (["I","EM"].includes(node.tagName) || node.style.fontStyle === "italic") marks.italic = true;
@@ -27,7 +28,7 @@ export function readAgreementEditor(editor) {
     const children = [...node.childNodes];
     children.forEach((child,i) => {
       // Contenteditable uses div/p containers for lines, including empty ones.
-      if (i && (["DIV","P"].includes(child.nodeName) || ["DIV","P"].includes(children[i-1].nodeName))) append("\n",marks);
+      if (i && children[i-1].nodeName !== "BR" && (["DIV","P","UL","OL","LI"].includes(child.nodeName) || ["DIV","P","UL","OL","LI"].includes(children[i-1].nodeName))) append("\n",marks);
       if (child.nodeName === "BR" && children.length === 1) return;
       walk(child,marks);
     });
@@ -59,7 +60,9 @@ export function mountAgreementEditors(root, snapshot, onChange) {
       if (range && editor.contains(range.commonAncestorContainer)) {
         const selection = window.getSelection(); selection.removeAllRanges(); selection.addRange(range);
       }
-      if (!document.execCommand(command,false,null)) {
+      // A checkbox is inserted before selected wording, never in place of it.
+      if (command === "checkbox") window.getSelection()?.collapseToStart();
+      if (!document.execCommand(command === "checkbox" ? "insertText" : command,false,command === "checkbox" ? "☐ " : null)) {
         help.hidden = false; help.textContent = "Select text first. If this command is unavailable, try your browser’s Edit menu.";
       }
       capture(); onChange();
@@ -72,4 +75,4 @@ export function mountAgreementEditors(root, snapshot, onChange) {
   });
 }
 
-export const agreementEditorHTML = index => `<div class="agreement-field agreement-wide agreement-text-wrapper"><span id="agreement-page-label-${index}">Page ${index+1}</span><div class="agreement-format-toolbar" role="toolbar" aria-label="Page ${index+1} formatting">${[["bold","Bold"],["italic","Italic"],["underline","Underline"],["justifyLeft","Left"],["justifyCenter","Center"],["justifyRight","Right"],["undo","Undo"],["redo","Redo"],["spelling","Spelling & grammar"]].map(([command,label]) => `<button type="button" data-format-command="${command}">${label}</button>`).join("")}</div><p class="agreement-format-help" hidden>Spelling is enabled. Right-click an underlined word for suggestions. Grammar checking depends on your browser and system settings; in Safari, use Edit → Spelling and Grammar. HMP does not send this text to a separate proofreading service.</p><div data-agreement-editor="${index}" class="agreement-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="agreement-page-label-${index}" spellcheck="true" lang="en"></div></div>`;
+export const agreementEditorHTML = index => `<div class="agreement-field agreement-wide agreement-text-wrapper"><span id="agreement-page-label-${index}">Page ${index+1}</span><div class="agreement-format-toolbar" role="toolbar" aria-label="Page ${index+1} formatting">${[["bold","Bold"],["italic","Italic"],["underline","Underline"],["justifyLeft","Left"],["justifyCenter","Center"],["justifyRight","Right"],["insertUnorderedList","Bullets"],["checkbox","Checkbox"],["undo","Undo"],["redo","Redo"],["spelling","Spelling & grammar"]].map(([command,label]) => `<button type="button" data-format-command="${command}"${command === "checkbox" ? ' title="Insert a printable checkbox symbol (not a required client field)"' : ""}>${label}</button>`).join("")}</div><p class="agreement-format-help" hidden>Spelling is enabled. Right-click an underlined word for suggestions. Grammar checking depends on your browser and system settings; in Safari, use Edit → Spelling and Grammar. HMP does not send this text to a separate proofreading service.</p><div data-agreement-editor="${index}" class="agreement-rich-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="agreement-page-label-${index}" spellcheck="true" lang="en"></div></div>`;
