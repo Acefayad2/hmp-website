@@ -10,7 +10,7 @@ const id="11111111-1111-4111-8111-111111111111";
 const row={id,agreement_id:id,client_name:"<Client>",title:"<script>test</script>",kind:"agreement_signed",created_at:"2026-10-21T00:00:00Z",read_by:["another@example.test"],attempts:1,email_from:"HMP <eventsconcierge@hmpeds.com>",email_to:"eventsconcierge@hmpeds.com"};
 function database(rows=[row]) {
   const updates=[],calls=[];
-  return {updates,calls,rpc:async(name,args)=>{calls.push({name,args});return {data:name==="hmp_claim_completion_notifications"?rows:true,error:null};},from(table){assert.equal(table,"hmp_admin_notifications");const q={select(){return this;},order(){return this;},limit(){return this;},eq(){return this;},update(data){updates.push(data);return this;},then(resolve,reject){return Promise.resolve({data:rows,error:null}).then(resolve,reject);}};return q;}};
+  return {updates,calls,rpc:async(name,args)=>{calls.push({name,args});return {data:name==="hmp_claim_completion_notifications"?rows:true,error:null};},from(table){assert.equal(table,"hmp_admin_notifications");const q={select(){return this;},not(column,operator,value){calls.push({column,operator,value});return this;},order(){return this;},limit(){return this;},eq(){return this;},update(data){updates.push(data);return this;},then(resolve,reject){return Promise.resolve({data:rows,error:null}).then(resolve,reject);}};return q;}};
 }
 test("email alerts use stable idempotency and escaped minimal content, never signatures or private links",async()=>{
   const db=database();let payload,headers;
@@ -59,12 +59,14 @@ test("Mark read updates the current list even after a refresh preserves existing
     replaceChildren(){this.children=[];}
     showModal(){this.open=true;}
     close(){this.open=false;}
+    setAttribute(){}
   }
   const previous=globalThis.document;
   globalThis.document={createElement:()=>new Element()};
   try {
-    const button=new Element(),dialog=new Element(),list=new Element(),status=new Element(),close=new Element(),refresh=new Element();
-    dialog.querySelector=selector=>({"[data-notification-list]":list,"[data-notification-status]":status,"[data-notifications-close]":close,"[data-notifications-refresh]":refresh})[selector];
+    const button=new Element(),dialog=new Element(),list=new Element(),status=new Element(),close=new Element(),refresh=new Element(),clear=new Element();
+    dialog.querySelector=selector=>({"[data-notification-list]":list,"[data-notification-status]":status,"[data-notifications-close]":close,"[data-notifications-refresh]":refresh,"[data-notifications-clear]":clear})[selector];
+    dialog.querySelectorAll=()=>[];
     const notifications=[{id,clientName:"QA",title:"Form",createdAt:new Date().toISOString(),kind:"form_completed",read:false}];
     let openSuccess=false;
     const controller=mountAdminNotifications({button,dialog,openDocument:async()=>openSuccess,fetchFn:async()=>Response.json({notifications})});

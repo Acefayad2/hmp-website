@@ -113,7 +113,7 @@
 
           <dialog id="notifications-dialog" aria-labelledby="notifications-title">
             <div class="dialog-heading"><div><p class="kicker">Client updates</p><h2 id="notifications-title">Notifications</h2></div><button type="button" data-notifications-close>Close</button></div>
-            <div class="notifications-content"><p>New completed forms and signed agreements appear here. Email alerts are also sent to HMP; provider acceptance does not guarantee inbox delivery.</p><button type="button" class="secondary-button" data-notifications-refresh>Refresh</button><p role="status" data-notification-status>Loading notifications…</p><ul class="notifications-list" data-notification-list></ul></div>
+            <div class="notifications-content"><p>New completed forms and signed agreements appear here. Email alerts are also sent to HMP; provider acceptance does not guarantee inbox delivery.</p><div class="agreement-actions"><button type="button" class="secondary-button" data-notifications-refresh>Refresh</button><button type="button" class="secondary-button" data-notifications-clear disabled>Clear all shown</button></div><p>Clear removes notifications from your Admin list only. Documents and notification history are kept; other staff lists and email alerts are unchanged.</p><p role="status" data-notification-status>Loading notifications…</p><ul class="notifications-list" data-notification-list></ul></div>
           </dialog>
           <section class="metrics" aria-label="Inquiry summary">
             <button type="button" class="metric metric-featured" data-inquiry-filter="new" aria-pressed="true" aria-controls="inquiry-list">
