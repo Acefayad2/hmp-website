@@ -27,6 +27,7 @@
 .agreement-text-wrapper { position:relative; margin:22px 0; }
 .agreement-rich-editor { min-height:240px; padding:16px; border:1px solid #bba6a2; border-radius:10px; background:#fff; color:#4c3335; font:16px/1.6 Georgia,serif; white-space:pre-wrap; overflow-wrap:anywhere; }
 .agreement-rich-editor p { margin:0; }
+.agreement-bullet-list, .agreement-rich-editor ul { margin:0; padding-inline-start:1.5em; list-style-type:disc; }
 .agreement-format-toolbar { display:flex; flex-wrap:wrap; gap:6px; position:sticky; top:0; z-index:3; padding:8px; border:1px solid #d9c7c0; border-radius:12px; background:#fff8f1; box-shadow:0 4px 12px #4c33351a; visibility:hidden; }
 .agreement-text-wrapper:focus-within .agreement-format-toolbar { visibility:visible; }
 .agreement-format-toolbar button { min-height:40px; padding:7px 10px; border:1px solid #bba6a2; border-radius:8px; background:#fff; color:#4c3335; font:14px/1.2 system-ui,sans-serif; cursor:pointer; }
