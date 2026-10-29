@@ -7,6 +7,7 @@ import { agreementToken, cleanContact, completionPayload, editableSnapshot, hash
 import { isSameOriginMutation, validBearerToken } from "./_conversation-security.mts";
 import {latestDocumentRows} from "../../document-versions.mjs";
 import {linkExpiration} from "../../document-expiry.mjs";
+import {cleanBankProgress} from "../../agreement-progress.mjs";
 
 const json = (body: unknown, status = 200) => Response.json(body, {status, headers:{"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"}});
 const escape = (value: string) => value.replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]!);
@@ -46,7 +47,17 @@ export function createAgreementHandler({getUserFn = getUser, databaseFactory = c
         if (error) return json({error:"Client form could not be loaded."}, 502);
         if (!row || !["Sent", "Completed"].includes(row.status) || !row.expires_at || Date.parse(row.expires_at) <= Date.now()) return json({error:"This link has expired or is no longer available. Please contact HMP for help."}, 410);
         if (request.method === "POST" && ((body.agreementId && body.agreementId !== row.id) || (row.revision_root_id && body.agreementId !== row.id))) return json({error:"HMP has sent a newer version. Reload and review it before submitting."},409);
+        if (body.action === "save-progress") {
+          if (row.status !== "Sent" || row.snapshot.id !== "money-bank-verification") return json({error:"This form is not open for draft progress."},409);
+          if (body.agreementId !== row.id || body.updatedAt !== row.updated_at) return json({error:"This draft changed on another device. Reopen the link to review the latest saved entries. Your current entries have not been overwritten."},409);
+          const values = cleanBankProgress(row.snapshot,body.answers);
+          const {data:saved,error:saveError} = await db.rpc("hmp_save_bank_progress",{p_token_hash:hash(token),p_expected_id:row.id,p_updated_at:body.updatedAt,p_values:values});
+          if (saveError) return json({error:"Draft storage is unavailable. Keep this page open and try again."},502);
+          if (!saved) return json({error:"The form changed, expired or was completed. Reopen its current link before saving."},409);
+          return json({agreement:publicAgreement(saved)});
+        }
         if (request.method === "GET" || row.status === "Completed") return json({agreement:publicAgreement(row), signingConsent:row.snapshot.signingConsent});
+        if (row.bank_progress && body.progressUpdatedAt !== row.updated_at) return json({error:"Draft progress changed on another device. Reopen the form and review the latest entries before signing."},409);
         const payload = completionPayload(row, body, request.headers.get("user-agent") || "");
         const {data: saved, error: saveError} = await db.rpc("hmp_complete_agreement_revision",{p_token_hash:hash(token),p_expected_id:row.id,p_updated_at:row.updated_at,p_payload:payload});
         if (saveError) return json({error:"Your form could not be saved. Please try again."}, 502);

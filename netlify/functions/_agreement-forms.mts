@@ -3,6 +3,7 @@ import terms from "../../data/agreement-terms.json" with { type: "json" };
 import { getAgreementTemplate, newAgreementSnapshot, moneyTablePaymentAmounts, requiresSecondRepresentative, secondRepresentativeFields, validateAnswers, agreementTextIssues, validationError } from "../../agreement-schema.mjs";
 import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
 import { validateSignatureDrawing } from "../../signature-pad.mjs";
+import { cleanBankProgress } from "../../agreement-progress.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -157,6 +158,7 @@ export const publicAgreement = (storedRow: any) => {
     adminAnswers: row.admin_answers, clientAnswers: row.client_answers, status: row.status,
     sentAt: row.sent_at, completedAt: row.completed_at, signature: row.signature,
     recordHash: row.record_hash, expiresAt: row.expires_at, updatedAt: row.updated_at,
+    ...(row.status === "Sent" && row.snapshot.id === "money-bank-verification" && row.bank_progress ? {bankProgress:{values:cleanBankProgress(row.snapshot,row.bank_progress),updatedAt:row.updated_at}} : {}),
     ...(row.revision_root_id ? {revisionRootId:row.revision_root_id, legacyRevisionText:!row.prepared_snapshot && row.snapshot.kind !== "information"} : {}),
   };
 };
