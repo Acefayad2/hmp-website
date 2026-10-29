@@ -28,7 +28,7 @@ export function readAgreementEditor(editor) {
     const children = [...node.childNodes];
     children.forEach((child,i) => {
       // Contenteditable uses div/p containers for lines, including empty ones.
-      if (i && (["DIV","P","UL","OL","LI"].includes(child.nodeName) || ["DIV","P","UL","OL","LI"].includes(children[i-1].nodeName))) append("\n",marks);
+      if (i && children[i-1].nodeName !== "BR" && (["DIV","P","UL","OL","LI"].includes(child.nodeName) || ["DIV","P","UL","OL","LI"].includes(children[i-1].nodeName))) append("\n",marks);
       if (child.nodeName === "BR" && children.length === 1) return;
       walk(child,marks);
     });
