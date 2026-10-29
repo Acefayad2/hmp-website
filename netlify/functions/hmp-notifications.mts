@@ -15,12 +15,19 @@ export function createNotificationsHandler({getUserFn=getUser,databaseFactory=cr
     const db=databaseFactory(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
     if(request.method==="POST") {
       const body=await request.json().catch(()=>null);
-      if(body?.action!=="read" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body?.id||"")) return json({error:"Invalid notification"},400);
+      const validId=(id:unknown)=>typeof id==="string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
+      if(body?.action==="clear") {
+        if(!Array.isArray(body.ids) || !body.ids.length || body.ids.length>100 || !body.ids.every(validId)) return json({error:"Invalid notification selection"},400);
+        const {error}=await db.rpc("hmp_clear_completion_notifications",{p_ids:[...new Set(body.ids)],p_email:email});
+        return error?json({error:"Notifications could not be cleared. Please try again."},502):json({ok:true});
+      }
+      if(body?.action!=="read" || !validId(body?.id)) return json({error:"Invalid notification"},400);
       const {error}=await db.rpc("hmp_read_completion_notification",{p_id:body.id,p_email:email});
       return error?json({error:"Notification could not be marked read"},502):json({ok:true});
     }
     const {data,error}=await db.from("hmp_admin_notifications")
       .select("id,agreement_id,client_name,title,kind,created_at,read_by,email_accepted_at,email_error,attempts,first_attempt_at")
+      .not("cleared_by","cs",`{${JSON.stringify(email)}}`)
       .order("created_at",{ascending:false}).limit(100);
     if(error) return json({error:"Notifications could not be loaded"},502);
     return json({notifications:(data||[]).map(row=>({id:row.id,agreementId:row.agreement_id,clientName:row.client_name,title:row.title,kind:row.kind,createdAt:row.created_at,
