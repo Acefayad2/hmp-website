@@ -688,6 +688,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   #thread-list { max-height: 310px; overflow-y: auto; }
   .admin-conversation-placeholder { padding: 70px 24px; }
   .admin-conversation-heading { display: block; padding: 22px 20px; }
+  .admin-conversation-heading p.client-access-expiry { margin-top: 16px; }
   .conversation-copy-link { margin-top: 15px; }
   .conversation-heading-actions { justify-content: flex-start; }
   .conversation-heading-actions .conversation-copy-link { margin-top: 15px; }
