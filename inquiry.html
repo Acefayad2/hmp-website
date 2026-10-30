@@ -192,14 +192,13 @@
                 <option>Corporate gathering</option>
                 <option>Other</option>
               </select></label
-            ><label
+            >
+            <h3 class="full inquiry-event-heading">First event</h3>
+            <label
               >First Event Date<input
                 required
                 type="date"
                 name="celebration-date" /></label
-            ><label
-              >Second Event Date <small>optional</small
-              ><input type="date" name="second-date" /></label
             ><label class="full"
               >First event location and full address<textarea
                 required
@@ -220,7 +219,11 @@
               <input required type="time" name="service-start-time" /></label
             ><label
               >First Event Service End Time
-              <input required type="time" name="service-end-time" /></label
+              <input required type="time" name="service-end-time" /></label>
+            <h3 class="full inquiry-event-heading">Second event <small>optional</small></h3>
+            <label
+              >Second Event Date <small>optional</small
+              ><input type="date" name="second-date" /></label
             ><label class="full"
               >Second event location and full address <small>optional</small
               ><textarea name="second-location" rows="2"></textarea></label
@@ -241,8 +244,9 @@
               ><input type="time" name="second-service-start-time" /></label
             ><label
               >Second Event Service End Time <small>optional</small
-              ><input type="time" name="second-service-end-time" /></label
-            ><label
+              ><input type="time" name="second-service-end-time" /></label>
+            <h3 class="full inquiry-event-heading">Service summary</h3>
+            <label
               >Total hours of service
               <input required type="number" min="0.5" max="240" step="0.5" name="total-service-hours" /></label
             ><label

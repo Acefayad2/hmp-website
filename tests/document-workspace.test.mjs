@@ -36,7 +36,7 @@ test("invoices and contracts share one sidebar selection while preserving their 
   const navigate = runInNewContext(`let activeWorkspaceView; ${config}\n${navigation}\nsetWorkspaceView`, context);
   for (const view of ["invoices", "contracts"]) {
     navigate(view, true);
-    assert.equal($(".dashboard-header h1").textContent, "Invoices & Contracts");
+    assert.equal($(".dashboard-header h1").textContent, "Invoices & Agreements");
     assert.equal($("#document-tabs").hidden, false);
     assert.equal($("#invoice-workspace").hidden, view !== "invoices");
     assert.equal($("#contract-workspace").hidden, view !== "contracts");
