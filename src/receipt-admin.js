@@ -14,6 +14,7 @@ let activeDraft = null;
 const $ = selector => dialog.querySelector(selector);
 const message = text => { $("#receipt-status").textContent = text; };
 const standalone = () => $("[name=receiptMode]")?.value === "standalone";
+const richFields={note:'[name="note"]',serviceDescription:'[name="serviceDescription"]'};
 function updateMode() {
   const manual = standalone();
   $("#receipt-invoice-field").hidden = manual;
@@ -90,7 +91,7 @@ export async function openReceiptDraft(draft = null) {
     if (draft) {
       $("#receipt-invoice").value = draft.invoiceId || "";
       $("#receipt-invoice").onchange();
-      for (const [key, value] of Object.entries(receiptDraftPayload(draft.payload))) $(`[name=${key}]`).value = value;
+      for (const [key, value] of Object.entries(receiptDraftPayload(draft.payload))) if(key !== "textFormatting") $(`[name=${key}]`).value = value;
       updateMode();
       dirty = false;
       if (draft.invoiceId && !selected) message("The draft's invoice is no longer available. Your payment details are preserved; choose an eligible invoice before preparing a receipt.");
@@ -98,16 +99,17 @@ export async function openReceiptDraft(draft = null) {
     } else message(invoices.length ? "" : "No eligible invoices are available. Choose Standalone receipt to create one without an invoice, or save an invoice-linked draft for later.");
   } catch (error) {
     $("#receipt-invoice").innerHTML = '<option value="">Invoices unavailable</option>';
-    if (draft) for (const [key, value] of Object.entries(receiptDraftPayload(draft.payload))) $(`[name=${key}]`).value = value;
+    if (draft) for (const [key, value] of Object.entries(receiptDraftPayload(draft.payload))) if(key !== "textFormatting") $(`[name=${key}]`).value = value;
     $("#receipt-save-draft").disabled = false;
     message(`${error.message} You can still choose Standalone receipt; no invoice will be linked.`);
   }
   updateMode();
+  mountRichFields(richFields,draft?.payload?.textFormatting,dialog);
 }
 
 async function shareReceipt(copy) {
   if (busy || !$("#receipt-form").reportValidity()) return;
-  const values = Object.fromEntries(new FormData($("#receipt-form")));
+  const values = {...Object.fromEntries(new FormData($("#receipt-form"))),...collectRichFields(richFields,dialog)};
   if (values.receiptMode !== "standalone" && (!selected || selected.status === "Draft")) return message("Choose a sent invoice before sharing its receipt.");
   busy = true;
   try {
@@ -128,7 +130,7 @@ async function shareReceipt(copy) {
 
 async function saveDraft() {
   if (busy) return;
-  const values = Object.fromEntries(new FormData($("#receipt-form")));
+  const values = {...Object.fromEntries(new FormData($("#receipt-form"))),...collectRichFields(richFields,dialog)};
   const controls = [...dialog.querySelectorAll("input,select,textarea,button")];
   const previous = controls.map(control => control.disabled);
   busy = true;
@@ -158,7 +160,7 @@ async function prepare(print) {
   busy = true;
   const controls = [...dialog.querySelectorAll("input,select,textarea,button")];
   const previous = controls.map(control => control.disabled);
-  const values = Object.fromEntries(new FormData($("#receipt-form")));
+  const values = {...Object.fromEntries(new FormData($("#receipt-form"))),...collectRichFields(richFields,dialog)};
   controls.forEach(control => { control.disabled = true; });
   try {
     let receipt;
@@ -193,3 +195,4 @@ async function prepare(print) {
   } catch (error) { clearPreview(); message(error.message); }
   finally { busy = false; controls.forEach((control, i) => { control.disabled = previous[i]; }); }
 }
+import {mountRichFields,collectRichFields} from "./rich-text-fields.js";

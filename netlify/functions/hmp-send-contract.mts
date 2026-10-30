@@ -29,7 +29,7 @@ const date = (value: unknown) => {
   const parsed = new Date(`${String(value)}T12:00:00`);
   return Number.isNaN(parsed.getTime()) ? String(value) : new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric" }).format(parsed);
 };
-const section = (title: string, copy: unknown) => copy ? `<div style="margin-top:25px"><p style="margin:0 0 7px;color:#b67c42;font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">${title}</p><div style="line-height:1.7;color:#2e2022">${multiline(copy)}</div></div>` : "";
+const section = (title: string, copy: unknown, formatting?: any) => copy ? `<div style="margin-top:25px"><p style="margin:0 0 7px;color:#b67c42;font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase">${title}</p><div style="line-height:1.7;color:#2e2022">${formatting ? richTextHTML(copy,formatting) : multiline(copy)}</div></div>` : "";
 
 const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><head><style>@import url('https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap');</style></head><body style="margin:0;background:#f6efea;font-family:'Droid Serif',Georgia,serif;color:#2e2022">
   <div style="max-width:760px;margin:0 auto;padding:28px 14px">
@@ -43,15 +43,16 @@ const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><he
         <p style="margin:0 0 8px;color:#756467;font-size:11px;letter-spacing:1px;text-transform:uppercase">Prepared for</p>
         <h2 style="margin:0 0 7px;font-size:30px">${escapeHTML(contract.client_name)}</h2>
         <p style="margin:0;color:#756467;line-height:1.6">Effective date: ${date(contract.effective_date)}<br>Event: ${escapeHTML(contract.event_name || "Not specified")}<br>Event date: ${date(contract.event_date)}<br>Location: ${escapeHTML(contract.event_location || "Not specified")}</p>
-        ${section("Selected services", contract.services)}
-        ${section("Scope of services", contract.scope_of_work)}
+        ${section("Client address", contract.client_address,contract.text_formatting?.clientAddress)}
+        ${section("Selected services", contract.services,contract.text_formatting?.services)}
+        ${section("Scope of services", contract.scope_of_work,contract.text_formatting?.scopeOfWork)}
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:28px;border-collapse:collapse;background:#eadbd7;border-radius:12px">
           <tr><td style="padding:16px;color:#756467">Total agreement value</td><td align="right" style="padding:16px;font-size:20px;font-weight:700">${money(contract.total_amount)}</td></tr>
           <tr><td style="padding:0 16px 16px;color:#756467">Retainer</td><td align="right" style="padding:0 16px 16px;font-weight:700">${money(contract.retainer_amount)}</td></tr>
         </table>
-        ${section("Payment terms", contract.payment_terms)}
-        ${section("Cancellation and rescheduling", contract.cancellation_terms)}
-        ${section("Additional terms", contract.additional_terms)}
+        ${section("Payment terms", contract.payment_terms,contract.text_formatting?.paymentTerms)}
+        ${section("Cancellation and rescheduling", contract.cancellation_terms,contract.text_formatting?.cancellationTerms)}
+        ${section("Additional terms", contract.additional_terms,contract.text_formatting?.additionalTerms)}
         <div style="margin-top:30px;padding-top:22px;border-top:1px solid #5f3f41">
           <p style="margin:0 0 22px;line-height:1.65">By signing, both parties acknowledge that they reviewed this agreement and accept the services and terms stated above.</p>
           <table role="presentation" width="100%"><tr>
@@ -119,3 +120,4 @@ export const createSendContractHandler = ({getUserFn=getUser,databaseFactory=get
 export default createSendContractHandler();
 
 export const config: Config = { path: "/api/hmp-contracts/send" };
+import {richTextHTML} from "../../text-formatting.mjs";

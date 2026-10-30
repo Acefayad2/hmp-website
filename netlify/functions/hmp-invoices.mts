@@ -3,6 +3,7 @@ import { hmpSender } from "./_email-contact.mts";
 import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { invoiceStatuses } from "../../invoice-status.mjs";
+import {normalizeTextFormatting} from "../../text-formatting.mjs";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -74,6 +75,7 @@ export const normalizeInvoice = (record: Record<string, unknown>) => ({
   total: number(record.total),
   notes: record.notes || "",
   paymentTerms: record.payment_terms || "",
+  ...(record.text_formatting && Object.keys(record.text_formatting).length ? {textFormatting:record.text_formatting} : {}),
   inquiryId: record.inquiry_id || "",
   sentAt: record.sent_at || "",
   sentTo: record.sent_to || "",
@@ -100,6 +102,7 @@ export const cleanPayload = (body: Record<string, unknown>) => {
       return {
         id: text(item.id, 60) || crypto.randomUUID(),
         description,
+        ...normalizeTextFormatting(item,{description},["description"]),
         quantity,
         rate: money(rate),
         amount: money(quantity * rate),
@@ -144,6 +147,7 @@ export const cleanPayload = (body: Record<string, unknown>) => {
     total,
     notes: text(body.notes, 5000) || null,
     payment_terms: text(body.paymentTerms, 2000) || null,
+    text_formatting: normalizeTextFormatting(body,{eventAddress:text(body.eventAddress,1000),notes:text(body.notes,5000),paymentTerms:text(body.paymentTerms,2000)},["eventAddress","notes","paymentTerms"]).textFormatting || {},
     inquiry_id: inquiryId && uuidPattern.test(inquiryId) ? inquiryId : null,
     updated_at: new Date().toISOString(),
   };

@@ -72,7 +72,7 @@ function renderEditor() {
   const draft = active.status === "Draft";
   dialog.innerHTML = `<header><div><p>CLIENT FORM · ${escape(active.status)}</p><h2 id="agreement-editor-title">${escape(active.snapshot.title)}</h2></div><button class="agreement-button secondary" type="button" id="agreement-close">Close</button></header>
     <form id="agreement-admin-form"><p>Prepare the service details, then send a private form for the client to complete and sign. Sent forms are locked; use Create revision to change terms while preserving the original.</p>
-    ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label></div><h3>HMP service details</h3><p>All starred fields must be completed before sending. You can save an incomplete draft.</p><div id="agreement-admin-fields" class="agreement-grid">${fieldsHTML(agreementDraftFields(active.snapshot, active.adminAnswers), active.adminAnswers, "admin-answer", false)}</div>` : `<p>Prepared for ${escape(active.clientName)} · ${escape(active.clientEmail)}</p>${answersHTML(active.snapshot.adminFields, active.adminAnswers)}`}
+    ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label></div><h3>HMP service details</h3><p>All starred fields must be completed before sending. You can save an incomplete draft.</p><div id="agreement-admin-fields" class="agreement-grid">${fieldsHTML(agreementDraftFields(active.snapshot, active.adminAnswers), active.adminAnswers, "admin-answer", false)}</div>` : `<p>Prepared for ${escape(active.clientName)} · ${escape(active.clientEmail)}</p>${answersHTML(active.snapshot.adminFields, active.adminAnswers,active.snapshot.answerFormatting)}`}
     ${draft && active.snapshot.id !== "money-bank-verification" ? `<details class="agreement-panel"><summary>Edit agreement wording</summary><p>Changes here affect this draft only. Select text to format it; the toolbar appears while editing. Keep field placeholders such as {{serviceHours}} intact. Sent and signed copies remain unchanged.</p>${active.snapshot.pages.map((page, i) => agreementEditorHTML(i)).join("")}</details>` : ""}
     ${active.snapshot.id !== "money-bank-verification" ? `<details class="agreement-panel"><summary>Review full agreement text</summary><p>Client answers and HMP service details supply the matching blanks in this agreement. The event date supplied by the client fills event-date placeholders.</p>${termsHTML(active.snapshot)}</details>` : ""}
     ${active.status === "Completed" ? completionHTML(active) : ""}
@@ -127,6 +127,7 @@ function renderEditor() {
     });
   });
   form.onsubmit = event => {event.preventDefault(); if (!busy) perform("save");};
+  if(draft) mountRichFields(answerFields(),active.snapshot.answerFormatting,form);
   $("#agreement-send")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("send"); });
   $("#agreement-share")?.addEventListener("click", () => { if (!busy && form.reportValidity()) perform("share"); });
   $("#agreement-void")?.addEventListener("click", () => { if (!busy && confirm("Void this form? Its private link will stop working. Existing signed forms are never deleted.")) perform("void"); });
@@ -135,7 +136,7 @@ function renderEditor() {
     try {
       const values = formValues();
       const clientFields = active.snapshot.clientFields.map(field => field.id === "customizationApproval" && values.approvalWording ? {...field, label:values.approvalWording.label, options:[values.approvalWording.approve,values.approvalWording.decline]} : field);
-      printAgreement({...active, ...values, snapshot:{...active.snapshot, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientFields}});
+      printAgreement({...active, ...values, snapshot:{...active.snapshot, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, answerFormatting:values.answerFormatting, clientFields}});
     } catch(error) { $("#agreement-editor-status").textContent = error.message; }
   };
   $("#agreement-copy")?.addEventListener("click", async () => {
@@ -178,8 +179,9 @@ function formValues() {
     ? active.snapshot.pages.map((text, i) => ({text, formatting:active.snapshot.pageFormatting?.[i] || []}))
     : [...document.querySelectorAll("#agreement-admin-form [data-agreement-editor]")].map(readAgreementEditor);
   pages.forEach((page,i) => {if (!page.text.trim() || page.text.length > 15000) throw new Error(`Agreement page ${i+1} must contain text and be no longer than 15,000 characters.`);});
-  return {title:values.documentTitle, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, ...(values["approval-label"] !== undefined ? {approvalWording:{label:values["approval-label"],approve:values["approval-approve"],decline:values["approval-decline"]}} : {}), adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
+  return {title:values.documentTitle, answerFormatting:collectRichFields(answerFields(),$("#agreement-admin-form")).textFormatting, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, ...(values["approval-label"] !== undefined ? {approvalWording:{label:values["approval-label"],approve:values["approval-approve"],decline:values["approval-decline"]}} : {}), adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
 }
+const answerFields=()=>Object.fromEntries(active.snapshot.adminFields.filter(field=>field.type==="textarea").map(field=>[field.id,`[name="${field.id}"]`]));
 async function perform(action, sharing = {}) {
   if (busy) return;
   const status = $("#agreement-editor-status");
@@ -209,7 +211,7 @@ async function perform(action, sharing = {}) {
     dialog.querySelectorAll("[data-agreement-editor]").forEach(item => item.setAttribute("contenteditable","false"));
     status.textContent = action === "send" ? "Preparing and sending client form…" : "Saving…";
     if (values) {
-      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientName:values.clientName, clientEmail:values.clientEmail, answers:values.adminAnswers, approvalWording:values.approvalWording})});
+      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientName:values.clientName, clientEmail:values.clientEmail, answers:values.adminAnswers, answerFormatting:values.answerFormatting, approvalWording:values.approvalWording})});
       active = data.agreement; dirty = false;
     }
     let warning = "";
@@ -233,3 +235,4 @@ async function perform(action, sharing = {}) {
     link = "";
   } finally { busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(item => item.disabled = false); dialog.querySelectorAll("[data-agreement-editor]").forEach(item => item.setAttribute("contenteditable","true")); }
 }
+import {mountRichFields,collectRichFields} from "./rich-text-fields.js";

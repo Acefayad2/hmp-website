@@ -5,6 +5,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { prepareDocumentConversation, recordSentDocument } from "./_document-messages.mts";
 import { invoiceStatusLabel } from "../../invoice-status.mjs";
+import {richTextHTML} from "../../text-formatting.mjs";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -50,7 +51,7 @@ export const renderEmail = (invoice: Record<string, any>) => {
   const items = Array.isArray(invoice.items) ? invoice.items : [];
   const itemRows = items.map((item) => `
     <tr>
-      <td style="padding:14px 8px;border-bottom:1px solid #eadfda;color:#2e2022;overflow-wrap:anywhere">${multilineHTML(item.description)}</td>
+      <td style="padding:14px 8px;border-bottom:1px solid #eadfda;color:#2e2022;overflow-wrap:anywhere">${item.textFormatting?.description ? richTextHTML(item.description,item.textFormatting.description) : multilineHTML(item.description)}</td>
       <td style="padding:14px 8px;border-bottom:1px solid #eadfda;text-align:center;color:#756467">${escapeHTML(item.quantity)}</td>
       <td style="padding:14px 8px;border-bottom:1px solid #eadfda;text-align:right;color:#756467">${money(item.rate)}</td>
       <td style="padding:14px 8px;border-bottom:1px solid #eadfda;text-align:right;color:#2e2022;font-weight:600">${money(item.amount)}</td>
@@ -69,7 +70,7 @@ export const renderEmail = (invoice: Record<string, any>) => {
           <h2 style="margin:0 0 6px;font-family:Georgia,serif;font-size:30px">${escapeHTML(invoice.client_name)}</h2>
           <p style="margin:0;color:#756467">Issue date: ${date(invoice.issue_date)}<br>Due date: ${date(invoice.due_date)}</p>
           ${["Partially paid", "Paid"].includes(invoice.status) ? `<p><strong>Payment status: ${escapeHTML(invoiceStatusLabel(invoice.status))}</strong></p>` : ""}
-          ${invoice.event_address ? `<p style="margin:18px 0 0;color:#756467;overflow-wrap:anywhere"><strong style="color:#2e2022">Event address:</strong><br>${multilineHTML(invoice.event_address)}</p>` : ""}
+          ${invoice.event_address ? `<div style="margin:18px 0 0;color:#756467;overflow-wrap:anywhere"><strong style="color:#2e2022">Event address:</strong><br>${invoice.text_formatting?.eventAddress ? richTextHTML(invoice.event_address,invoice.text_formatting.eventAddress) : multilineHTML(invoice.event_address)}</div>` : ""}
           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-top:30px;border-collapse:collapse">
             <thead><tr style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#756467">
               <th align="left" style="padding:10px 8px;border-bottom:1px solid #5f3f41">Service</th>
@@ -86,8 +87,8 @@ export const renderEmail = (invoice: Record<string, any>) => {
               <tr><td style="padding:13px 5px 5px;border-top:1px solid #5f3f41;color:#2e2022;font-weight:700">Total</td><td align="right" style="padding-top:13px;border-top:1px solid #5f3f41;color:#2e2022;font-size:22px;font-weight:700">${money(invoice.total)}</td></tr>
             </table>
           </td></tr></table>
-          ${invoice.notes ? `<div style="margin-top:28px;padding:18px;background:#eadbd7;border-radius:12px"><strong>Notes</strong><p style="margin:7px 0 0;white-space:pre-wrap">${escapeHTML(invoice.notes)}</p></div>` : ""}
-          ${invoice.payment_terms ? `<p style="margin:24px 0 0;color:#756467"><strong style="color:#2e2022">Payment terms:</strong> ${escapeHTML(invoice.payment_terms)}</p>` : ""}
+          ${invoice.notes ? `<div style="margin-top:28px;padding:18px;background:#eadbd7;border-radius:12px"><strong>Notes</strong><div style="margin:7px 0 0;white-space:pre-wrap">${invoice.text_formatting?.notes ? richTextHTML(invoice.notes,invoice.text_formatting.notes) : escapeHTML(invoice.notes)}</div></div>` : ""}
+          ${invoice.payment_terms ? `<div style="margin:24px 0 0;color:#756467"><strong style="color:#2e2022">Payment terms:</strong> ${invoice.text_formatting?.paymentTerms ? richTextHTML(invoice.payment_terms,invoice.text_formatting.paymentTerms) : escapeHTML(invoice.payment_terms)}</div>` : ""}
         </div>
         <div style="padding:22px 34px;background:#5f3f41;color:#eadbd7;font-size:12px">
           HMP Luxury Event Services &nbsp; | &nbsp; ${escapeHTML(hmpReplyTo())} &nbsp; | &nbsp; 301-471-0990

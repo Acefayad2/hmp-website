@@ -102,3 +102,15 @@
   #agreement-print .agreement-answers { grid-template-columns:repeat(2,minmax(0,1fr)); }
   @page { size:letter; margin:0.65in; }
 }
+.rich-field-host { min-width: 0; width: 100%; }
+.rich-field-host .agreement-text-wrapper { margin: 0; }
+.rich-field-host .agreement-rich-editor { min-height: 7em; max-height: none; padding: 12px; overflow-wrap: anywhere; }
+.rich-field-host .agreement-format-toolbar { display: none; gap: 4px; flex-wrap: wrap; }
+.rich-field-host:focus-within .agreement-format-toolbar { display: flex; visibility: visible; }
+ol.agreement-bullet-list { list-style-type: decimal; }
+.rich-field-host .agreement-format-toolbar button { padding: 6px 9px; font-size: 12px; }
+.rich-field-label, .rich-field-source { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip-path: inset(50%); }
+@media print {
+  .rich-field-host .agreement-format-toolbar, .rich-field-host .agreement-format-help, .rich-field-source { display: none !important; }
+  .rich-field-host .agreement-rich-editor { border: 0; padding: 0; min-height: 0; overflow: visible; }
+}

@@ -31,11 +31,11 @@ export const createReceiptDraftHandler = ({ getUserFn = getUser, databaseFactory
   }
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
-  if (Number(request.headers.get("content-length") || 0) > 10000) return json({ error: "Draft is too large" }, 413);
+  if (Number(request.headers.get("content-length") || 0) > 64000) return json({ error: "Draft is too large" }, 413);
   let body;
   try {
     const raw = await request.text();
-    if (raw.length > 10000) return json({ error: "Draft is too large" }, 413);
+    if (raw.length > 64000) return json({ error: "Draft is too large" }, 413);
     body = JSON.parse(raw);
   } catch { return json({ error: "Invalid request" }, 400); }
   if (!body || typeof body !== "object" || Array.isArray(body)) return json({ error: "Invalid request" }, 400);

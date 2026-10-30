@@ -1,5 +1,6 @@
 export const escape = (value = "") => String(value).replace(/[&<>"']/g, c => ({"&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;"})[c]);
 import { formattedPageHTML } from "./agreement-formatting.mjs";
+import {richTextHTML} from "./text-formatting.mjs";
 import { signatureDrawingHTML } from "./signature-pad.mjs";
 const drawingsHTML = signature => Object.entries(signature?.drawings || {}).map(([key,drawing]) => {
   const label = {signatureName:"Signer",representativeOneSignature:"First representative",representativeTwoSignature:"Second representative"}[key];
@@ -85,11 +86,11 @@ export function fieldsHTML(fields, values = {}, prefix = "answer", required = tr
     return `<label class="agreement-field ${field.type === "textarea" || field.id === "serviceHours" ? "agreement-wide" : ""}" for="${id}"><span>${escape(field.label)}${field.calculated ? " (calculated)" : field.required ? " *" : " (optional)"}</span>${field.help ? `<small>${escape(field.help)}</small>` : ""}${input}</label>`;
   }).join("");
 }
-export function answersHTML(fields, values = {}) {
+export function answersHTML(fields, values = {}, formatting = {}) {
   return `<dl class="agreement-answers">${fields.map(field => {
     const value = values[field.id];
     const formatted = value !== undefined && value !== "" && field.type === "money" ? new Intl.NumberFormat("en-US", {style:"currency", currency:"USD"}).format(Number(value)) : value || "Not specified";
-    return `<div><dt>${escape(field.label)}</dt><dd>${escape(formatted)}</dd></div>`;
+    return `<div><dt>${escape(field.label)}</dt><dd>${field.type === "textarea" && formatting[field.id] ? richTextHTML(formatted,formatting[field.id]) : escape(formatted)}</dd></div>`;
   }).join("")}</dl>`;
 }
 export const termsHTML = snapshot => snapshot.pages.map((page, i) => `<section class="agreement-terms-page"><h3>Agreement text · ${i + 1} / ${snapshot.pages.length}</h3><div>${snapshot.pageFormatting?.[i] ? formattedPageHTML(page,snapshot.pageFormatting[i]) : escape(page)}</div></section>`).join("");
@@ -98,7 +99,7 @@ export function printAgreement(agreement) {
   document.querySelector("#agreement-print")?.remove();
   const section = document.createElement("section");
   section.id = "agreement-print";
-  section.innerHTML = `<h1>${escape(agreement.snapshot.title)}</h1><p>HMP Luxury Event Services · ${escape(agreement.status)} · Version ${escape(agreement.snapshot.version)}</p><p>Prepared for ${escape(agreement.clientName)} (${escape(agreement.clientEmail)})</p><p>The completed details below supply the corresponding blanks in the agreement text. Event-date placeholders refer to the event date supplied below.</p><h2>HMP service details</h2>${answersHTML(agreement.snapshot.adminFields, agreement.adminAnswers)}${agreement.status === "Completed" ? completionHTML(agreement) : "<p>Unsigned preview — not a completed agreement.</p>"}<h2>Agreement terms</h2>${termsHTML(agreement.snapshot)}`;
+  section.innerHTML = `<h1>${escape(agreement.snapshot.title)}</h1><p>HMP Luxury Event Services · ${escape(agreement.status)} · Version ${escape(agreement.snapshot.version)}</p><p>Prepared for ${escape(agreement.clientName)} (${escape(agreement.clientEmail)})</p><p>The completed details below supply the corresponding blanks in the agreement text. Event-date placeholders refer to the event date supplied below.</p><h2>HMP service details</h2>${answersHTML(agreement.snapshot.adminFields, agreement.adminAnswers,agreement.snapshot.answerFormatting)}${agreement.status === "Completed" ? completionHTML(agreement) : "<p>Unsigned preview — not a completed agreement.</p>"}<h2>Agreement terms</h2>${termsHTML(agreement.snapshot)}`;
   document.body.append(section);
   document.body.classList.add("printing-agreement");
   window.addEventListener("afterprint", () => {section.remove(); document.body.classList.remove("printing-agreement");}, {once:true});

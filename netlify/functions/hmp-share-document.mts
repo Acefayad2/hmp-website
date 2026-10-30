@@ -31,7 +31,7 @@ export const createShareDocumentHandler = ({ getUserFn = getUser, databaseFactor
   let body: Record<string, unknown>;
   try {
     const raw = await request.text();
-    if (raw.length > 20000) return json({error:"Document request is too large"},413);
+    if (raw.length > 64000) return json({error:"Document request is too large"},413);
     body = JSON.parse(raw);
     if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error();
   } catch { return json({ error: "Invalid request" }, 400); }

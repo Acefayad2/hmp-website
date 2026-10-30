@@ -7,12 +7,12 @@ export function validatePageFormatting(text, formatting = []) {
   return formatting.map(run => {
     if (!run || !Number.isInteger(run.start) || !Number.isInteger(run.end) || run.start < end || run.end <= run.start || run.end > text.length) throw new Error("Agreement formatting no longer matches the text. Reopen this draft and try again.");
     end = run.end;
-    return {start:run.start, end:run.end, ...(run.bold === true ? {bold:true} : {}), ...(run.italic === true ? {italic:true} : {}), ...(run.underline === true ? {underline:true} : {}), ...(alignments.includes(run.align) ? {align:run.align} : {}), ...(run.list === "bullet" ? {list:"bullet"} : {})};
+    return {start:run.start, end:run.end, ...(run.bold === true ? {bold:true} : {}), ...(run.italic === true ? {italic:true} : {}), ...(run.underline === true ? {underline:true} : {}), ...(alignments.includes(run.align) ? {align:run.align} : {}), ...(["bullet","number"].includes(run.list) ? {list:run.list} : {})};
   });
 }
 export function formattedPageHTML(text, formatting = []) {
   const runs = validatePageFormatting(text, formatting);
-  let offset = 0, inList = false;
+  let offset = 0, inList = "";
   const result = text.split("\n").map(line => {
     const start = offset, end = start + line.length;
     offset = end + 1;
@@ -26,13 +26,14 @@ export function formattedPageHTML(text, formatting = []) {
       if (run?.bold) part = `<strong>${part}</strong>`;
       return part;
     }).join("");
-    const bullet = runs.some(run => run.start <= start && run.end > start && run.list === "bullet");
-    const boundary = bullet && !inList ? '<ul class="agreement-bullet-list">' : !bullet && inList ? "</ul>" : "";
-    inList = bullet;
-    const tag = bullet ? "li" : "div";
+    const list = runs.find(run => run.start <= start && run.end > start && run.list)?.list;
+    const listTag = list === "number" ? "ol" : list === "bullet" ? "ul" : "";
+    const boundary = inList === listTag ? "" : `${inList ? `</${inList}>` : ""}${listTag ? `<${listTag} class="agreement-bullet-list">` : ""}`;
+    inList = listTag;
+    const tag = listTag ? "li" : "div";
     return `${boundary}<${tag} class="agreement-align-${alignment}">${html || "<br>"}</${tag}>`;
   }).join("");
-  return result + (inList ? "</ul>" : "");
+  return result + (inList ? `</${inList}>` : "");
 }
 // Replace placeholders while moving formatting ranges with the text they describe.
 export function replaceFormattedPage(text, formatting, replace) {

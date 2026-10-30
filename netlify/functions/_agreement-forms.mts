@@ -4,6 +4,7 @@ import { getAgreementTemplate, newAgreementSnapshot, moneyTablePaymentAmounts, r
 import { replaceFormattedPage, validatePageFormatting } from "../../agreement-formatting.mjs";
 import { validateSignatureDrawing } from "../../signature-pad.mjs";
 import { cleanBankProgress } from "../../agreement-progress.mjs";
+import {normalizeTextFormatting} from "../../text-formatting.mjs";
 
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const hash = (value: string) => createHash("sha256").update(value).digest("hex");
@@ -44,6 +45,11 @@ export function withCurrentDraftFields(row: any) {
   return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee,row.admin_answers?.retainerPercent)}};
 }
 export function editableSnapshot(snapshot: any, body: any) {
+  if (body.answers !== undefined) {
+    const keys=snapshot.adminFields.filter((field:any)=>field.type==="textarea").map((field:any)=>field.id);
+    const normalized=validateAnswers(snapshot.adminFields,body.answers,false);
+    snapshot={...snapshot,answerFormatting:normalizeTextFormatting({...body.answers,textFormatting:body.answerFormatting},normalized,keys).textFormatting || {}};
+  }
   if (body.approvalWording !== undefined) {
     if (!["customization-approval", "led-customization"].includes(snapshot.id)) throw new Error("This template does not have customization approval choices.");
     const wording = body.approvalWording;
@@ -60,7 +66,8 @@ export function editableSnapshot(snapshot: any, body: any) {
   if (snapshot.kind === "information") {
     const description = typeof body.description === "string" ? body.description.trim() : (snapshot.description || "");
     if (description.length > 5000) throw validationError([{field:"documentDescription", message:"Form introduction must be 5,000 characters or fewer."}]);
-    return {...snapshot, title, description};
+    const formatted=normalizeTextFormatting({description:body.description ?? description,textFormatting:body.textFormatting},{description},["description"]);
+    return {...snapshot, title, description, textFormatting:formatted.textFormatting || {}};
   }
   const pages = body.pages === undefined ? snapshot.pages : body.pages;
   if (!Array.isArray(pages) || pages.length !== snapshot.pages.length) throw new Error(`This agreement needs ${snapshot.pages.length} pages. Reopen the draft to restore any missing pages.`);

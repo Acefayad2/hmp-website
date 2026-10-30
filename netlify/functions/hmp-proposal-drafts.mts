@@ -30,11 +30,11 @@ export const createProposalDraftHandler = ({ getUserFn = getUser, databaseFactor
   }
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (!isSameOriginMutation(request)) return json({ error: "Invalid request origin" }, 403);
-  if (Number(request.headers.get("content-length") || 0) > 10000) return json({ error: "Draft is too large" }, 413);
+  if (Number(request.headers.get("content-length") || 0) > 64000) return json({ error: "Draft is too large" }, 413);
   let body: Record<string, any>;
   try {
     const input = await request.text();
-    if (input.length > 10000) return json({ error: "Draft is too large" }, 413);
+    if (input.length > 64000) return json({ error: "Draft is too large" }, 413);
     body = JSON.parse(input);
   } catch { return json({ error: "Invalid request" }, 400); }
   if (!body || Array.isArray(body) || typeof body !== "object") return json({ error: "Invalid request" }, 400);
@@ -54,8 +54,10 @@ export const createProposalDraftHandler = ({ getUserFn = getUser, databaseFactor
     .select("id").eq("id", conversationId).maybeSingle();
   if (conversationError) return json({ error: "Client conversation could not be verified" }, 502);
   if (!conversation) return json({ error: "Client conversation not found" }, 404);
-  const payload = normalizeProposal(body.payload && typeof body.payload === "object" && !Array.isArray(body.payload) ? body.payload : {});
-  if (JSON.stringify(payload).length > 6000) return json({ error: "Shorten the proposal details" }, 400);
+  let payload;
+  try {payload = normalizeProposal(body.payload && typeof body.payload === "object" && !Array.isArray(body.payload) ? body.payload : {});}
+  catch(error) {return json({error:error.message || "Invalid formatting"},400);}
+  if (JSON.stringify(payload).length > 64000) return json({ error: "Shorten the proposal details" }, 400);
   const now = new Date().toISOString();
   const query = id
     ? db.from(table).update({ conversation_id: conversationId, payload, updated_at: now }).eq("id", id).is("sent_at", null)

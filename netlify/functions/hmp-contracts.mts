@@ -2,6 +2,7 @@ import type { Config, Context } from "@netlify/functions";
 import { hmpSender } from "./_email-contact.mts";
 import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {normalizeTextFormatting} from "../../text-formatting.mjs";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -50,6 +51,7 @@ export const normalizeContract = (record: Record<string, unknown>) => ({
   paymentTerms: record.payment_terms || "",
   cancellationTerms: record.cancellation_terms || "",
   additionalTerms: record.additional_terms || "",
+  ...(record.text_formatting && Object.keys(record.text_formatting).length ? {textFormatting:record.text_formatting} : {}),
   hmpSignatureName: record.hmp_signature_name || "",
   hmpSignedAt: record.hmp_signed_at || "",
   clientSignatureName: record.client_signature_name || "",
@@ -62,7 +64,7 @@ export const normalizeContract = (record: Record<string, unknown>) => ({
   updatedAt: record.updated_at || "",
 });
 
-const cleanPayload = (body: Record<string, unknown>) => {
+export const cleanPayload = (body: Record<string, unknown>) => {
   const clientName = text(body.clientName, 200);
   const clientEmail = text(body.clientEmail, 320).toLowerCase();
   const effectiveDate = text(body.effectiveDate, 10);
@@ -102,6 +104,7 @@ const cleanPayload = (body: Record<string, unknown>) => {
     payment_terms: text(body.paymentTerms, 5000) || null,
     cancellation_terms: text(body.cancellationTerms, 5000) || null,
     additional_terms: text(body.additionalTerms, 10000) || null,
+    text_formatting: normalizeTextFormatting(body,{clientAddress:text(body.clientAddress,1000),eventLocation:text(body.eventLocation,500),services,scopeOfWork,paymentTerms:text(body.paymentTerms,5000),cancellationTerms:text(body.cancellationTerms,5000),additionalTerms:text(body.additionalTerms,10000)},["clientAddress","eventLocation","services","scopeOfWork","paymentTerms","cancellationTerms","additionalTerms"]).textFormatting || {},
     hmp_signature_name: text(body.hmpSignatureName, 200) || null,
     hmp_signed_at: optionalDate(body.hmpSignedAt),
     client_signature_name: text(body.clientSignatureName, 200) || null,
