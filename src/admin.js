@@ -15,7 +15,7 @@ import { loadInformationForms, openInformationDraft } from "./client-forms.js";
 import { collectDraftGroups, renderDraftGroups } from "./drafts-workspace.js";
 import { renderProposalsWorkspace } from "./proposals-workspace.js";
 import { renderDocumentCard } from "../document-message-ui.js";
-import { hubMessages, renderHubTabs } from "../client-hub.js";
+import { hubMessages, renderHubTabs, clientAccessNotice } from "../client-hub.js";
 import { mountHubNotes } from "./hub-notes.js";
 import { clientActivityItems } from "../client-activity.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
@@ -1084,6 +1084,7 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation").hidden = false;
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = [thread.clientEmail, thread.clientPhone].filter(Boolean).join(" · ");
+  $("#admin-client-access-expiry").textContent = clientAccessNotice(thread);
   const textButton = $("#send-admin-text");
   textButton.disabled = !thread.clientPhone;
   textButton.title = thread.clientPhone ? `Text ${thread.clientPhone}` : "Add a phone number on the inquiry before texting";
