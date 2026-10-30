@@ -1,5 +1,15 @@
 import { parseProposal } from "./proposal-ui.js";
 import {latestPublishedDocuments} from "./document-versions.mjs";
+import {expiryLabel} from "./document-expiry.mjs";
+
+export function clientAccessNotice(thread, now = Date.now()) {
+  const expires = Date.parse(thread?.expiresAt);
+  if (!Number.isFinite(expires)) return "Client access expiration is unavailable. Check the link expiration before sharing.";
+  const date = expiryLabel(thread.expiresAt);
+  if (expires <= now) return `Client access expired: ${date}.`;
+  if (!thread.active) return `Client access is inactive. Saved expiration: ${date}.`;
+  return `Client access expires: ${date}.`;
+}
 
 export const hubSections = [
   ["all", "Overview"],

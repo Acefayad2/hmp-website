@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import { hubMessages, hubSectionFor } from "../client-hub.js";
+import { hubMessages, hubSectionFor, clientAccessNotice } from "../client-hub.js";
 import { createMessagesHandler } from "../netlify/functions/hmp-messages.mts";
 
 const conversationId = "11111111-1111-4111-8111-111111111111";
@@ -58,6 +58,23 @@ const request = (body, origin="https://hmpeds.com") => new Request("https://hmpe
 });
 const body = {action:"share-form",conversationId,formId};
 const handler = (db,user={email:"admin@example.test"},fetchFn=fetch) => createMessagesHandler({getUserFn:async()=>user,databaseFactory:()=>db,fetchFn});
+
+test("hub access notice uses saved portal expiry in Eastern time, including expired and inactive links",()=>{
+  const now=Date.parse("2026-10-30T12:00:00Z");
+  const thread={active:true,expiresAt:"2026-11-16T04:59:59.999Z"};
+  assert.equal(clientAccessNotice(thread,now),"Client access expires: November 15, 2026 at 11:59 PM Eastern time.");
+  assert.equal(clientAccessNotice({...thread,expiresAt:"2026-10-30T03:59:59.999Z"},now),"Client access expired: October 29, 2026 at 11:59 PM Eastern time.");
+  assert.match(clientAccessNotice({...thread,active:false},now),/^Client access is inactive\. Saved expiration:/);
+  assert.match(clientAccessNotice(thread,Date.parse(thread.expiresAt)),/^Client access expired:/);
+  for(const expiresAt of [undefined,null,"","invalid"]) assert.match(clientAccessNotice({active:false,expiresAt},now),/expiration is unavailable/);
+});
+
+test("hub expiry notice stays outside tabs and refreshes whenever the selected thread is rendered",()=>{
+  const html=readFileSync(new URL("../admin.html",import.meta.url),"utf8");
+  const source=readFileSync(new URL("../src/admin.js",import.meta.url),"utf8");
+  assert.match(html,/<p class="client-access-expiry" id="admin-client-access-expiry"><\/p>\s*<\/header>\s*<nav/);
+  assert.ok(source.includes('$("#admin-client-access-expiry").textContent = clientAccessNotice(thread);'));
+});
 
 test("personalized client heading capitalizes Event Hub and uses textContent", () => {
   const source = readFileSync(new URL("../conversation.js", import.meta.url), "utf8");

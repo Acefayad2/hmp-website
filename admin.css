@@ -288,6 +288,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-conversation-heading .kicker { margin: 0 0 7px; color: var(--gold); }
 .admin-conversation-heading h3 { margin: 0; font: 600 31px/1 var(--serif); }
 .admin-conversation-heading p:last-child { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+.admin-conversation-heading .client-access-expiry { margin: 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--ivory); color: var(--plum); font-size: 14px; line-height: 1.5; }
 .conversation-copy-link { border-color: var(--line); color: var(--plum); }
 .conversation-heading-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .conversation-heading-actions .primary-button { width: auto; min-height: 42px; margin: 0; padding: 0 17px; }
