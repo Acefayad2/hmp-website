@@ -474,6 +474,7 @@ if (form) {
           `Inquiry sync failed with status ${inquiryResponse.status}`,
         );
       form.reset();
+      if (submissionId) submissionId.value = "";
       Object.values(serviceNotices).forEach((notice) => { notice.acknowledged = false; });
       syncInquiryFields();
       showInquiryStatus(

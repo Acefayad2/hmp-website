@@ -77,6 +77,7 @@ test("synthetic failure and retry announce only their actual results", async () 
   assert.match(f.status.textContent, /could not send your inquiry/i);
   assert.equal(f.classes.has("error"), true);
   assert.equal(f.resetCount, 0);
+  assert.equal(f.submissionId.value, "synthetic-submission-id", "a failed retry keeps its idempotency key");
 
   const retry = f.submitForm();
   assert.equal(f.status.textContent, "", "a new attempt clears the stale failure");
@@ -85,6 +86,7 @@ test("synthetic failure and retry announce only their actual results", async () 
   assert.equal(f.classes.has("error"), false);
   assert.equal(f.resetCount, 1);
   assert.equal(f.fetchCount, 2);
+  assert.equal(f.submissionId.value, "", "a completed inquiry gets a fresh key next time");
 });
 
 test("dismissal and navigation remove stale announcements", async () => {

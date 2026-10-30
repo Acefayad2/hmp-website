@@ -95,6 +95,7 @@ export const normalizeAdminMessage = (value: unknown) => {
     celebrationType: cleanText(proposal.celebrationType, 200),
     eventDate: cleanText(proposal.eventDate, 10),
     eventTime: cleanText(proposal.eventTime, 100),
+    serviceTimeFrame: cleanText(proposal.serviceTimeFrame, 100),
     eventLocation: cleanText(proposal.eventLocation, 500),
     guestCount: number(proposal.guestCount, 100_000),
     serviceHours: normalizeServiceHours(proposal.serviceHours),

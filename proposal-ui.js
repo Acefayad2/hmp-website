@@ -16,6 +16,7 @@ export const normalizeProposal = (value = {}) => ({
   celebrationType: text(value.celebrationType, 200),
   eventDate: text(value.eventDate, 10),
   eventTime: text(value.eventTime, 100),
+  serviceTimeFrame: text(value.serviceTimeFrame, 100),
   eventLocation: text(value.eventLocation, 500),
   guestCount: number(value.guestCount, 100_000),
   serviceHours: normalizeServiceHours(value.serviceHours),
@@ -150,6 +151,7 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
     detail("Guest count", value.guestCount ? String(value.guestCount) : "To be confirmed"),
     detail("Service hours", value.serviceHours ? String(value.serviceHours) : "To be confirmed"),
   );
+  if (value.serviceTimeFrame) details.append(detail("Service Time Frame", value.serviceTimeFrame));
 
   article.append(header, prepared, details);
   const serviceItems = [

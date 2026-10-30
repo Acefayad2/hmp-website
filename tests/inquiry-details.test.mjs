@@ -10,8 +10,10 @@ const answers = {
   service:"Multiple services", "service-option":"Arrival + Directory", "multiple-services-detail":"Seating\nMoney table", "other-service-detail":"Custom service",
   "guest-count":"270", "parking-fee":"No", "celebration-type":"Wedding", "celebration-date":"2026-11-07",
   location:"First Hall\n10 Example Lane", "start-time":"17:00", "end-time":"22:00", "vendor-exit-time":"00:30",
+  "service-start-time":"16:30", "service-end-time":"22:30", "total-service-hours":"6",
   "second-date":"2026-11-08", "second-location":"Second Hall\n20 Example Lane", "second-guest-count":"150",
   "second-start-time":"10:00", "second-end-time":"15:00", "second-vendor-exit-time":"16:00",
+  "second-service-start-time":"09:30", "second-service-end-time":"15:30",
   "referral-source":"Referral", "source-detail":"Friend", "additional-information":"Additional notes\nSecond line",
 };
 const mapping = {
@@ -20,7 +22,9 @@ const mapping = {
   "guest-count":["guestCount","guest_count"],"parking-fee":["parkingFee","parking_fee"],"celebration-type":["celebrationType","celebration_type"],
   "celebration-date":["celebrationDate","celebration_date"],location:["location","location"],"start-time":["startTime","start_time"],"end-time":["endTime","end_time"],
   "vendor-exit-time":["vendorExitTime"],"second-date":["secondDate","second_date"],"second-location":["secondLocation"],"second-guest-count":["secondGuestCount"],
+  "service-start-time":["serviceStartTime"],"service-end-time":["serviceEndTime"],"total-service-hours":["totalServiceHours"],
   "second-start-time":["secondStartTime"],"second-end-time":["secondEndTime"],"second-vendor-exit-time":["secondVendorExitTime"],
+  "second-service-start-time":["secondServiceStartTime"],"second-service-end-time":["secondServiceEndTime"],
   "referral-source":["referralSource","referral_source"],"source-detail":["sourceDetail","referral_detail"],"additional-information":["additionalInformation","additional_information"],
 };
 const record = () => ({submission_id:"11111111-1111-4111-8111-111111111111",raw_payload:{...answers,subject:"Hidden transport metadata",unrecognized:"Do not expose"},
@@ -72,7 +76,7 @@ test("detail renderer escapes submitted markup, keeps multiline answers and labe
   assert.doesNotMatch(html,/<img/);
   assert.match(html,/&lt;img/);
   assert.match(html,/\nSecond line/);
-  for(const [label,time] of [["First event start time","17:00"],["First event end time","22:00"],["First event vendor exit time","00:30"],["Second event start time","10:00"],["Second event end time","15:00"],["Second event vendor exit time","16:00"]]) {
+  for(const [label,time] of [["First event start time","17:00"],["First event end time","22:00"],["First event vendor exit time","00:30"],["First event service start time","16:30"],["First event service end time","22:30"],["Second event start time","10:00"],["Second event end time","15:00"],["Second event vendor exit time","16:00"],["Second event service start time","09:30"],["Second event service end time","15:30"],["Total hours of service","6"]]) {
     assert.ok(html.includes(`<dt>${label}</dt><dd>${time}</dd>`));
   }
 });

@@ -95,11 +95,12 @@ test("Drafts has a sidebar route, grouped view, save control, and search", () =>
 test("N/A and zero equipment persist through saving, reopening and updating a proposal draft", async () => {
   const db = database();
   const handle = createProposalDraftHandler({ getUserFn: async () => ({ email: "admin@example.test" }), databaseFactory: () => db });
-  const payload = { title: "Guest Seating", clientName: "Sample Client", serviceHours: "n/a", associates: "", machines: 0 };
+  const payload = { title: "Guest Seating", clientName: "Sample Client", serviceHours: "n/a", serviceTimeFrame: "6:30 PM–10:30 PM", associates: "", machines: 0 };
   const saved = await handle(request({ action: "save", conversationId, payload }));
   assert.equal(saved.status, 200);
   const list = await (await handle(new Request("https://hmpeds.com/api/hmp-proposal-drafts"))).json();
   assert.equal(list.drafts[0].payload.serviceHours, "N/A");
+  assert.equal(list.drafts[0].payload.serviceTimeFrame, "6:30 PM–10:30 PM");
   assert.equal(list.drafts[0].payload.associates, 0);
   assert.equal(list.drafts[0].payload.machines, 0);
   await handle(request({ action: "save", id: draftId, conversationId, payload: { ...payload, serviceHours: 4.5, associates: 2 } }));

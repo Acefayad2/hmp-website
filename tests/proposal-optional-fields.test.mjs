@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { normalizeAdminMessage } from "../netlify/functions/hmp-messages.mts";
 import { normalizeProposal, parseProposal, serializeProposal, renderProposalCard } from "../proposal-ui.js";
+import { validTotalServiceHours } from "../netlify/functions/hmp-inquiry.mts";
 
 const proposal = { clientName: "Sample Client", serviceFee: 900, serviceHours: "N/A", associates: 0, machines: 0 };
 
@@ -42,4 +43,22 @@ test("hours input accepts N/A and half-hours and rejects invalid ranges and incr
   const accepted = new RegExp(`^(?:${pattern})$`, "v");
   for (const value of ["N/A", "n/a", "NA", "0", "4", "4.5", "240", "240.0"]) assert.ok(accepted.test(value), value);
   for (const value of ["four", "4.25", "240.5", "241", "-1", "1e2"]) assert.ok(!accepted.test(value), value);
+});
+
+test("optional Service Time Frame persists and only renders when supplied", () => {
+  const original = globalThis.document;
+  const createElement = () => ({ children: [], textContent: "", append(...children) { this.children.push(...children); } });
+  globalThis.document = { createElement };
+  const allText = node => [node.textContent, ...node.children.map(allText)].join(" ");
+  try {
+    const sent = parseProposal(normalizeAdminMessage(serializeProposal({ ...proposal, serviceTimeFrame: "6:30 PM–10:30 PM" })));
+    assert.equal(sent.serviceTimeFrame, "6:30 PM–10:30 PM");
+    assert.match(allText(renderProposalCard(sent, { showActions: false })), /Service Time Frame 6:30 PM–10:30 PM/);
+    assert.doesNotMatch(allText(renderProposalCard(proposal, { showActions: false })), /Service Time Frame/);
+  } finally { globalThis.document = original; }
+});
+
+test("required total service hours accepts only bounded half-hour increments", () => {
+  for (const value of ["0.5", "4", "4.5", "240"]) assert.equal(validTotalServiceHours(value), true, value);
+  for (const value of ["", "0", "4.25", "240.5", "hours", null]) assert.equal(validTotalServiceHours(value), false, String(value));
 });
