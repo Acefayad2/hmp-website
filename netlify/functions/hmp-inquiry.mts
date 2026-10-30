@@ -17,6 +17,9 @@ const requiredFields = [
   "start-time",
   "end-time",
   "vendor-exit-time",
+  "service-start-time",
+  "service-end-time",
+  "total-service-hours",
   "guest-count",
   "parking-fee",
   "celebration-type",
@@ -30,6 +33,12 @@ const json = (body: Record<string, unknown>, status = 200) =>
 
 const text = (value: unknown) =>
   typeof value === "string" ? value.trim() : "";
+
+export const validTotalServiceHours = (value: unknown) => {
+  const candidate = Number(text(value));
+  return Number.isFinite(candidate) && candidate >= 0.5 && candidate <= 240
+    && Number.isInteger(candidate * 2);
+};
 
 const escapeHtml = (value: unknown) =>
   text(value)
@@ -98,9 +107,12 @@ const sendInquiryEmails = async (
   );
   const submitted = (row.raw_payload || {}) as Record<string, unknown>;
   const schedule = [
-    `Start: ${text(submitted["start-time"]) || "Not provided"}`,
-    `End: ${text(submitted["end-time"]) || "Not provided"}`,
+    `Event start: ${text(submitted["start-time"]) || "Not provided"}`,
+    `Event end: ${text(submitted["end-time"]) || "Not provided"}`,
     `Vendor exit: ${text(submitted["vendor-exit-time"]) || "Not provided"}`,
+    `Service start: ${text(submitted["service-start-time"]) || "Not provided"}`,
+    `Service end: ${text(submitted["service-end-time"]) || "Not provided"}`,
+    `Total service hours: ${text(submitted["total-service-hours"]) || "Not provided"}`,
   ]
     .map(escapeHtml)
     .join("<br>");
@@ -123,6 +135,8 @@ const sendInquiryEmails = async (
     ["First event start time", submitted["start-time"]],
     ["First event end time", submitted["end-time"]],
     ["First event vendor exit time", submitted["vendor-exit-time"]],
+    ["First event service start time", submitted["service-start-time"]],
+    ["First event service end time", submitted["service-end-time"]],
     ["Second event date", row.second_date],
     ["Second event location", submitted["second-location"]],
     ["Second event guest count", submitted["second-guest-count"]],
@@ -132,6 +146,9 @@ const sendInquiryEmails = async (
       "Second event vendor exit time",
       submitted["second-vendor-exit-time"],
     ],
+    ["Second event service start time", submitted["second-service-start-time"]],
+    ["Second event service end time", submitted["second-service-end-time"]],
+    ["Total hours of service", submitted["total-service-hours"]],
     ["How did you hear about us?", row.referral_source],
     ["Referral name or other source", row.referral_detail],
     [
@@ -286,6 +303,9 @@ export default async (request: Request, _context: Context) => {
       { ok: false, error: "Required inquiry details are missing" },
       400,
     );
+  }
+  if (!validTotalServiceHours(payload["total-service-hours"])) {
+    return json({ ok: false, error: "Total hours of service is invalid" }, 400);
   }
 
   const client = getDatabase();

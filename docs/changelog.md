@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-10-30
+
+- Collect required first-event service start/end times and total service hours, with optional second-event service times, then retain them in inquiry records, Admin details, and confirmation emails.
+- Add an optional Service Time Frame to proposal drafts and client/print proposals, prefilled from the inquiry when available.
+
 ## 2026-10-27
 
 - Reopen the existing Admin verification flow when Forms access expires, preserving typed entries and requiring an explicit retry instead of replaying a write.
