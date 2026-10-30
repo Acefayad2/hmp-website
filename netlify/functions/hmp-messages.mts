@@ -267,6 +267,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         service: inquiry.service || "Event inquiry",
         celebrationDate: inquiry.celebration_date || "",
         inquiryStatus: inquiry.status || "New",
+        archivedAt: row.archived_at || null,
         active: !row.revoked_at && new Date(row.token_expires_at).getTime() > Date.now(),
         expiresAt: row.token_expires_at,
         lastMessageAt: row.last_message_at,
@@ -304,6 +305,15 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (action === "archive" || action === "restore") {
+    const conversationId = cleanText(body.conversationId, 36);
+    if (!uuidPattern.test(conversationId)) return json({error:"Invalid client hub"},400);
+    const {data, error} = await client.rpc("hmp_set_hub_archived", {p_id:conversationId,p_archived:action === "archive"});
+    if (error) return json({error:"Client hub could not be updated. Refresh and try again."},502);
+    if (!data) return json({error:"Client hub not found"},404);
+    return json({ok:true});
+  }
 
   if (action === "seating-activity") {
     const conversationId = cleanText(body.conversationId, 36);
@@ -500,9 +510,10 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     let expiresAt;
     try { expiresAt = linkExpiration(body.expirationDate); }
     catch (cause) { return json({error:cause instanceof Error ? cause.message : "Choose a valid expiration date."},400); }
-    const {data: existing,error: readError} = await client.from("hmp_client_conversations").select("id,revoked_at").eq("id",conversationId).maybeSingle();
+    const {data: existing,error: readError} = await client.from("hmp_client_conversations").select("id,revoked_at,archived_at").eq("id",conversationId).maybeSingle();
     if (readError) return json({error:"Client portal could not be loaded."},502);
     if (!existing) return json({error:"Client portal not found."},404);
+    if (existing.archived_at) return json({error:"Restore this archived client hub before changing its link."},409);
     if (existing.revoked_at) return json({error:"This portal was revoked. Create a new link instead."},409);
     const {error: saveError} = await client.from("hmp_client_conversations").update({token_expires_at:expiresAt,updated_at:new Date().toISOString()}).eq("id",conversationId);
     if (saveError) return json({error:"Expiration could not be saved."},502);
@@ -518,11 +529,13 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       .eq("submission_id", inquiryId)
       .maybeSingle();
     if (!inquiry) return json({ error: "Inquiry not found" }, 404);
-    const { data: existing } = await client
+    const { data: existing, error: existingError } = await client
       .from("hmp_client_conversations")
-      .select("id")
+      .select("id,archived_at")
       .eq("inquiry_id", inquiryId)
       .maybeSingle();
+    if (existingError) return json({error:"Client hub could not be checked. Refresh and try again."},502);
+    if (existing?.archived_at) return json({error:"Restore this archived client hub before creating or sending a link."},409);
     const conversationId = existing?.id || crypto.randomUUID();
     const nonce = newNonce();
     const token = conversationToken(conversationId, nonce);
@@ -611,6 +624,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       .maybeSingle();
     if (!conversation) return json({ error: "Conversation not found" }, 404);
     const portalOnly = body.portalOnly === true && message.startsWith(proposalPrefix);
+    if (conversation.archived_at) return json({error:"Restore this archived client hub before sending a message or proposal."},409);
     if (portalOnly && (conversation.revoked_at || !(Date.parse(conversation.token_expires_at)>Date.now()))) return json({error:"This client link is inactive. Create an active link in Messages before sharing."},409);
     const sharedLink = portalOnly ? clientConversationUrl(conversation.id,conversation.token_nonce)+"&section=proposals" : "";
     let attachments;

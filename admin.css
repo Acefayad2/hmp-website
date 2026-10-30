@@ -793,3 +793,5 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   #receipt-print .receipt-header, #receipt-print tr, #receipt-print .receipt-totals, #receipt-print footer { break-inside: avoid; }
   #receipt-print thead { display: table-header-group; }
 }
+.hub-archive-filter { display: block; margin: 0 18px 18px; font-size: 13px; }
+.hub-archive-filter select { margin-top: 8px; width: 100%; }
