@@ -3,6 +3,7 @@ import {latestPublishedDocuments} from "./document-versions.mjs";
 import {expiryLabel} from "./document-expiry.mjs";
 
 export function clientAccessNotice(thread, now = Date.now()) {
+  if (thread?.archivedAt) return "Archived — client access to this hub is disabled. Restore to return to the saved link settings. Separate document and Guest Seating links keep their own settings.";
   const expires = Date.parse(thread?.expiresAt);
   if (!Number.isFinite(expires)) return "Client access expiration is unavailable. Check the link expiration before sharing.";
   const date = expiryLabel(thread.expiresAt);

@@ -1085,6 +1085,8 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = [thread.clientEmail, thread.clientPhone].filter(Boolean).join(" · ");
   $("#admin-client-access-expiry").textContent = clientAccessNotice(thread);
+  $("#archive-active-conversation").textContent = thread.archivedAt ? "Restore hub" : "Archive hub";
+  for (const id of ["send-new-active-link", "reset-client-pin", "set-active-link-expiration", "open-proposal-editor"]) $("#" + id).disabled = Boolean(thread.archivedAt);
   const textButton = $("#send-admin-text");
   textButton.disabled = !thread.clientPhone;
   textButton.title = thread.clientPhone ? `Text ${thread.clientPhone}` : "Add a phone number on the inquiry before texting";
@@ -1104,10 +1106,14 @@ const openMessageThread = (threadId) => {
 const renderMessageThreads = () => {
   const list = $("#thread-list");
   list.replaceChildren();
-  $("#thread-count").textContent = messageThreads.length;
-  $("#thread-empty").hidden = messageThreads.length > 0;
-  list.hidden = messageThreads.length === 0;
-  messageThreads.forEach((thread) => {
+  const filter = $("#hub-archive-filter").value;
+  const visibleThreads = messageThreads.filter(thread => filter === "all" || Boolean(thread.archivedAt) === (filter === "archived"));
+  $("#thread-count").textContent = visibleThreads.length;
+  $("#thread-empty").hidden = visibleThreads.length > 0;
+  $("#thread-empty h3").textContent = filter === "archived" ? "No archived hubs" : "No conversations yet";
+  $("#thread-empty p").textContent = filter === "archived" ? "Archived conversations will appear here. Nothing is deleted." : "Create a private link from an inquiry to begin.";
+  list.hidden = visibleThreads.length === 0;
+  visibleThreads.forEach((thread) => {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "thread-row";
@@ -1126,7 +1132,7 @@ const renderMessageThreads = () => {
     const service = document.createElement("small");
     service.textContent = `${eventServiceLabel(thread.service)} · ${formatDate(thread.celebrationDate)}`;
     const status = document.createElement("em");
-    status.textContent = thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
+    status.textContent = thread.archivedAt ? "Archived · client access disabled" : thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
     button.append(top, service, status);
     list.append(button);
   });
@@ -2576,6 +2582,25 @@ $("#reset-client-pin").addEventListener("click", () => {
   if (thread) sendNewConversationLink(thread.inquiryId, $("#admin-message-status"), true);
 });
 $("#delete-active-conversation").addEventListener("click", deleteActiveConversation);
+$("#hub-archive-filter").addEventListener("change", renderMessageThreads);
+$("#archive-active-conversation").addEventListener("click", async () => {
+  const thread = messageThreads.find(item => item.id === activeThreadId);
+  if (!thread) return;
+  const restoring = Boolean(thread.archivedAt);
+  if (!confirm(restoring
+    ? "Restore this hub? Its original link settings will apply again. Expired or previously revoked links stay inactive. No email is sent."
+    : "Archive this hub and disable its client portal link? Messages and documents will be preserved. Separate document and Guest Seating links keep their own access settings.")) return;
+  const button = $("#archive-active-conversation");
+  button.disabled = true;
+  try {
+    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:restoring ? "restore" : "archive",conversationId:thread.id})});
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Client hub could not be updated.");
+    $("#hub-archive-filter").value = restoring ? "active" : "archived";
+    await loadMessages();
+    setMessage($("#admin-message-status"), restoring ? "Client hub restored. No email was sent." : "Client hub archived. Its client link is now disabled.", true);
+  } catch(error) {setMessage($("#admin-message-status"),error.message);} finally {button.disabled=false;}
+});
 $("#open-proposal-editor").addEventListener("click", openProposalEditor);
 $("#create-proposal-button").addEventListener("click", createProposalFromWorkspace);
 $("#add-inquiry-button").addEventListener("click", openManualInquiry);

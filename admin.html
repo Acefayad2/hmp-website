@@ -187,6 +187,7 @@
             <div class="messages-layout" id="message-conversations-panel" role="tabpanel" aria-labelledby="message-conversations-tab">
               <aside class="thread-panel">
                 <div class="thread-panel-heading"><strong>Client hubs</strong><span id="thread-count">0</span></div>
+                <label class="hub-archive-filter">Show client hubs<select id="hub-archive-filter"><option value="active">Not archived</option><option value="archived">Archived</option><option value="all">All</option></select></label>
                 <div id="thread-list"></div>
                 <div class="thread-empty" id="thread-empty">
                   <span>☾</span><h3>No conversations yet</h3><p>Create a private link from an inquiry to begin.</p>
@@ -206,6 +207,7 @@
                       <button class="primary-button" id="send-new-active-link" type="button">Send new link</button>
                       <button class="secondary-button" id="text-active-link" type="button">Text current link</button>
                       <button class="secondary-button" id="reset-client-pin" type="button">Reset client PIN</button>
+                      <button class="secondary-button" id="archive-active-conversation" type="button">Archive hub</button>
                       <button class="conversation-delete-button" id="delete-active-conversation" type="button">Delete conversation</button>
                     </div>
                     <p class="client-access-expiry" id="admin-client-access-expiry"></p>
