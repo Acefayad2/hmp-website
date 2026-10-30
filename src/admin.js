@@ -174,10 +174,10 @@ const workspaceViews = {
     title: "Proposals",
   },
   invoices: {
-    title: "Invoices & Contracts",
+    title: "Invoices & Agreements",
   },
   contracts: {
-    title: "Invoices & Contracts",
+    title: "Invoices & Agreements",
   },
   forms: {
     title: "Forms",
