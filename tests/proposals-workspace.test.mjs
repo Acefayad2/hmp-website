@@ -50,7 +50,7 @@ test("additional information starts blank and survives proposal serialization", 
   assert.match(html, /id="proposal-additional-information"/);
   assert.match(source, /additionalInformation: "#proposal-additional-information"/);
   assert.match(source, /additionalInformation: "",/);
-  assert.match(handler, /additionalInformation: cleanText\(proposal.additionalInformation, 600\)/);
+  assert.match(handler, /normalizeProposal\(proposal\)/);
   assert.equal(parseProposal(serializeProposal({ additionalInformation: "Parking is available behind the venue." })).additionalInformation,
     "Parking is available behind the venue.");
 });

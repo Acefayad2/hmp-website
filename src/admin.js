@@ -1,4 +1,5 @@
 import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
+import {mountRichFields,collectRichFields,setRichField,richFieldFormatting} from "./rich-text-fields.js";
 import { mountAdminVerification } from "./admin-verification.js";
 import { chooseDocumentSharing, copySharedLink } from "./document-sharing.js";
 import {linkExpiration} from "../document-expiry.mjs";
@@ -733,9 +734,9 @@ const proposalFormFields = {
   calendarUrl: "#proposal-calendar-url",
 };
 
-const proposalPayload = () => Object.fromEntries(
+const proposalPayload = () => ({...Object.fromEntries(
   Object.entries(proposalFormFields).map(([key, selector]) => [key, $(selector).value]),
-);
+),...collectRichFields(proposalFormFields)});
 
 const proposalDirtyState = createProposalDirtyState({
   read: proposalPayload,
@@ -784,6 +785,7 @@ const openProposalEditor = () => {
     $(selector).value = values[key] ?? "";
   });
   setMessage($("#proposal-editor-message"), "");
+  mountRichFields(proposalFormFields);
   proposalDirtyState.begin();
   $("#proposal-editor-dialog").showModal();
 };
@@ -798,6 +800,7 @@ const openProposalDraft = (draft) => {
   openProposalEditor();
   activeProposalDraftId = draft.id;
   Object.entries(proposalFormFields).forEach(([key, selector]) => { $(selector).value = draft.payload?.[key] ?? ""; });
+  mountRichFields(proposalFormFields,draft.payload?.textFormatting);
   proposalDirtyState.begin();
 };
 
@@ -908,7 +911,7 @@ const sendProposal = async (event) => {
     return;
   }
   const message = serializeProposal(proposal);
-  if (message.length > 4000) {
+  if (message.length > 64000) {
     setMessage($("#proposal-editor-message"), "Shorten the service details or notes before sending.");
     return;
   }
@@ -1511,6 +1514,7 @@ const invoiceDueDate = () => {
 const resizeInvoiceTextareas = () => {
   if (!$("#invoice-editor-dialog").open) return;
   document.querySelectorAll("#invoice-sheet textarea").forEach((field) => {
+    if (field.classList.contains("rich-field-source")) return;
     field.style.height = "auto";
     field.style.height = `${field.scrollHeight + 2}px`;
   });
@@ -1530,6 +1534,10 @@ const renderInvoiceItems = () => {
     )
     .join("");
   calculateInvoiceTotals();
+  document.querySelectorAll("#invoice-items [data-item-field=description]").forEach(field => {
+    const item=invoiceItems.find(item=>item.id===field.closest("[data-line-item]").dataset.lineItem);
+    setRichField(field,item?.textFormatting?.description);
+  });
   resizeInvoiceTextareas();
 };
 
@@ -1618,6 +1626,7 @@ const openInvoiceEditor = (invoice = null) => {
   });
   if (inactive) setMessage($("#invoice-editor-message"), "Restore this invoice before editing or sending it.");
   if(!inactive)lockIssuedDocumentControls($("#invoice-form"),invoice,"invoice");
+  mountRichFields(invoiceFormFields,values.textFormatting);
   if(invoice&&invoice.status!=="Draft"&&!inactive)setMessage($("#invoice-editor-message"),"Issued content is preserved. Choose Create revision to change it. Payment status can still be updated.");
   mountDocumentVersions($("#invoice-editor-dialog"),{kind:"invoice",id:invoice?.id,status:invoice?.status,open:async(id,record)=>{await loadInvoices();openInvoiceEditor(record||invoices.find(item=>item.id===id));}});
   $("#invoice-editor-dialog").showModal();
@@ -1629,7 +1638,8 @@ const invoicePayload = () => ({
   ...Object.fromEntries(
     Object.entries(invoiceFormFields).map(([key, selector]) => [key, $(selector).value]),
   ),
-  items: invoiceItems,
+  ...collectRichFields(invoiceFormFields),
+  items: invoiceItems.map(item=>({...item,textFormatting:{description:richFieldFormatting([...document.querySelectorAll("#invoice-items [data-item-field=description]")].find(field=>field.closest("[data-line-item]").dataset.lineItem===item.id))}})),
 });
 
 const renderInvoices = () => {
@@ -1735,6 +1745,7 @@ const openContractEditor = (contract = null) => {
   $("#send-contract").textContent = "Send to Client Portal";
   setMessage($("#contract-editor-message"), "");
   lockIssuedDocumentControls($("#contract-form"),contract,"contract");
+  mountRichFields(contractFormFields,values.textFormatting);
   if(contract&&contract.status!=="Draft")setMessage($("#contract-editor-message"),"Issued content is preserved. Choose Create revision to change it.");
   mountDocumentVersions($("#contract-editor-dialog"),{kind:"contract",id:contract?.id,status:contract?.status,open:async(id,record)=>{await loadContracts();openContractEditor(record||contracts.find(item=>item.id===id));}});
   $("#contract-editor-dialog").showModal();
@@ -1742,6 +1753,7 @@ const openContractEditor = (contract = null) => {
 
 const contractPayload = () => ({
   ...(activeContractId ? { id: activeContractId } : {}),
+  ...collectRichFields(contractFormFields),
   ...Object.fromEntries(
     Object.entries(contractFormFields).map(([key, selector]) => [key, $(selector).value]),
   ),
@@ -2669,6 +2681,7 @@ window.addEventListener("resize", resizeInvoiceTextareas);
 window.addEventListener("beforeprint", () => {
   document.querySelectorAll("#invoice-sheet .invoice-print-text").forEach((node) => node.remove());
   document.querySelectorAll("#invoice-sheet textarea").forEach((field) => {
+    if (field.classList.contains("rich-field-source")) return;
     const text = document.createElement("div");
     text.className = "invoice-print-text";
     text.textContent = field.value;
@@ -2694,6 +2707,7 @@ $("#invoice-items").addEventListener("input", (event) => {
   item[input.dataset.itemField] = input.dataset.itemField === "description"
     ? input.value
     : Number(input.value);
+  if(input.dataset.itemField === "description") item.textFormatting={description:richFieldFormatting(input)};
   calculateInvoiceTotals();
 });
 $("#invoice-items").addEventListener("click", (event) => {

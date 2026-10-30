@@ -6,7 +6,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { readMessageHistory } from "./_message-history.mts";
 import { privateLink } from "./_agreement-forms.mts";
 import { stableId } from "./_document-messages.mts";
-import { normalizeServiceHours } from "../../proposal-ui.js";
+import { normalizeProposal } from "../../proposal-ui.js";
 import {linkExpiration, businessDate} from "../../document-expiry.mjs";
 import { normalizeCalendarUrl } from "../../calendar-link.js";
 import {
@@ -77,44 +77,16 @@ const linkedSeatingEvent = async (client: SupabaseClient, url: string) => {
 };
 
 export const normalizeAdminMessage = (value: unknown) => {
-  const message = cleanText(value, 4000);
-  if (!message.startsWith(proposalPrefix)) return message;
-  let proposal: Record<string, unknown>;
-  try {
-    proposal = JSON.parse(message.slice(proposalPrefix.length));
-  } catch {
-    throw new Error("Proposal details are invalid");
-  }
-  const number = (candidate: unknown, max: number) => {
-    const parsed = Number(candidate);
-    return Number.isFinite(parsed) ? Math.min(max, Math.max(0, parsed)) : 0;
-  };
-  const normalized = {
-    title: cleanText(proposal.title, 160) || "Service Proposal",
-    clientName: cleanText(proposal.clientName, 200),
-    celebrationType: cleanText(proposal.celebrationType, 200),
-    eventDate: cleanText(proposal.eventDate, 10),
-    eventTime: cleanText(proposal.eventTime, 100),
-    serviceTimeFrame: cleanText(proposal.serviceTimeFrame, 100),
-    eventLocation: cleanText(proposal.eventLocation, 500),
-    guestCount: number(proposal.guestCount, 100_000),
-    serviceHours: normalizeServiceHours(proposal.serviceHours),
-    associates: number(proposal.associates, 100),
-    machines: number(proposal.machines, 100),
-    serviceDetails: cleanText(proposal.serviceDetails, 1400),
-    notes: cleanText(proposal.notes, 1600),
-    additionalInformation: cleanText(proposal.additionalInformation, 600),
-    serviceFee: number(proposal.serviceFee, 1_000_000),
-    validUntil: cleanText(proposal.validUntil, 10),
-    ...(proposal.linkExpiresAt ? {linkExpiresAt:cleanText(proposal.linkExpiresAt,32)} : {}),
-    paymentTerms: cleanText(proposal.paymentTerms, 600),
-    calendarUrl: normalizeCalendarUrl(proposal.calendarUrl),
-  };
-  if (!normalized.clientName || !normalized.serviceFee) {
-    throw new Error("Proposal client and service fee are required");
-  }
-  const serialized = `${proposalPrefix}${JSON.stringify(normalized)}`;
-  if (serialized.length > 4000) throw new Error("Proposal details are too long");
+  if (typeof value !== "string" || !value.trim().startsWith(proposalPrefix)) return cleanText(value,4000);
+  if (value.length > 64000) throw new Error("Proposal details are too long");
+  let proposal;
+  try {proposal=JSON.parse(value.trim().slice(proposalPrefix.length));}
+  catch {throw new Error("Proposal details are invalid");}
+  if (!proposal || typeof proposal !== "object" || Array.isArray(proposal)) throw new Error("Proposal details are invalid");
+  const normalized=normalizeProposal(proposal);
+  if (!normalized.clientName || !normalized.serviceFee) throw new Error("Proposal client and service fee are required");
+  const serialized=proposalPrefix+JSON.stringify(normalized);
+  if (serialized.length > 64000) throw new Error("Proposal details are too long");
   return serialized;
 };
 

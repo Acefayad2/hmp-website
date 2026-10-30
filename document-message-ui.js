@@ -1,8 +1,9 @@
 import { receiptHTML } from "./receipt-template.mjs";
+import {richTextHTML} from "./text-formatting.mjs";
 import { expired, expiryLabel } from "./document-expiry.mjs";
 const money = value => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(value) || 0);
 const fieldLabels = {
-  client_name:"Prepared for",issue_date:"Issue date",due_date:"Due date",effective_date:"Effective date",
+  client_name:"Prepared for",client_address:"Client address",issue_date:"Issue date",due_date:"Due date",effective_date:"Effective date",
   event_name:"Event",event_date:"Event date",event_address:"Event address",event_location:"Event location",
   services:"Services",scope_of_work:"Scope of services",payment_terms:"Payment terms",
   payment_status:"Payment status when shared",
@@ -85,14 +86,14 @@ export function renderDocumentCard(copy, { showActions = true, expanded = false,
   for(const [key,label] of Object.entries(fieldLabels)) {
     if(copy[key] == null || copy[key] === "") continue;
     const term=document.createElement("dt"), value=document.createElement("dd");
-    term.textContent=label;value.textContent=String(copy[key]);fields.append(term,value);
+    term.textContent=label;if(copy.textFormatting?.[key])value.innerHTML=richTextHTML(copy[key],copy.textFormatting[key]);else value.textContent=String(copy[key]);fields.append(term,value);
   }
   content.append(fields);
   if(copy.kind === "invoice") {
     const items=document.createElement("ol");items.className="sent-document-items";
     for(const item of Array.isArray(copy.items) ? copy.items : []) {
-      const row=document.createElement("li"), description=document.createElement("p"), value=document.createElement("p");
-      description.textContent=item.description;value.textContent=`${item.quantity} × ${money(item.rate)} — ${money(item.amount)}`;
+      const row=document.createElement("li"), description=document.createElement("div"), value=document.createElement("p");
+      if(item.textFormatting?.description)description.innerHTML=richTextHTML(item.description,item.textFormatting.description);else description.textContent=item.description;value.textContent=`${item.quantity} × ${money(item.rate)} — ${money(item.amount)}`;
       row.append(description,value);items.append(row);
     }
     const totals=document.createElement("p");

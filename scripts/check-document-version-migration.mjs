@@ -17,10 +17,23 @@ try {
     create function hmp_preserve_completed_agreement() returns trigger language plpgsql as $$begin if old.status='Completed' then raise exception 'Completed agreements cannot be changed'; end if;return new;end;$$;
     create trigger hmp_preserve_completed_agreement before update or delete on hmp_client_agreements for each row execute function hmp_preserve_completed_agreement();`);
   await db.exec(readFileSync(new URL("../supabase/migrations/20261018150750_document_version_registry.sql",import.meta.url),"utf8"));
+  await db.exec("alter table hmp_client_messages add constraint hmp_client_messages_body_check check(char_length(body)<=4000)");
+  await db.exec(readFileSync(new URL("../supabase/migrations/20261030162437_document_text_formatting.sql",import.meta.url),"utf8"));
+  const rich={notes:[{start:0,end:4,bold:true}]};
+  const richId=crypto.randomUUID();
+  await db.query("insert into hmp_admin_invoices(id,status,text_formatting) values($1,'Draft',$2)",[richId,rich]);
+  assert.deepEqual((await db.query("select text_formatting from hmp_admin_invoices where id=$1",[richId])).rows[0].text_formatting,rich);
+  await db.query("update hmp_admin_invoices set status='Paid' where id=$1",[richId]);
+  await assert.rejects(db.query("update hmp_admin_invoices set text_formatting='{}' where id=$1",[richId]),/issued record is preserved/);
+  await db.query("insert into hmp_client_messages(id,sender,body) values($1,'admin',$2)",[crypto.randomUUID(),'HMP_PROPOSAL_V1:'+"x".repeat(6000)]);
+  await assert.rejects(db.query("insert into hmp_client_messages(id,sender,body) values($1,'client',$2)",[crypto.randomUUID(),'HMP_PROPOSAL_V1:'+"x".repeat(6000)]),/body_check/);
+  await assert.rejects(db.query("insert into hmp_client_messages(id,sender,body) values($1,'admin',$2)",[crypto.randomUUID(),'HMP_PROPOSAL_V1:'+"x".repeat(64000)]),/body_check/);
   const clone=async(kind,source,newId=crypto.randomUUID())=>{
     const result=await db.query("select hmp_create_document_revision($1,$2,$3,$4,$5,$6) id",[kind,source,newId,"n".repeat(32),newId.replaceAll("-","").repeat(2),"qa@example.test"]);
     return result.rows[0].id;
   };
+  const richRevision=await clone("invoice",richId);
+  assert.deepEqual((await db.query("select text_formatting from hmp_admin_invoices where id=$1",[richRevision])).rows[0].text_formatting,rich,"Revisions preserve formatting without changing the paid original");
   for(const kind of ["invoice","contract","form","proposal"]){
     const source=crypto.randomUUID();
     const table={invoice:"hmp_admin_invoices",contract:"hmp_admin_contracts",form:"hmp_client_agreements",proposal:"hmp_admin_proposal_drafts"}[kind];

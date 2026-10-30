@@ -71,7 +71,8 @@ test("receipt draft writes reject outsiders, cross-origin requests, invalid IDs,
   assert.equal((await handle(request({}, "https://other.test"))).status, 403);
   assert.equal((await handle(request({ invoiceId: "bad" }))).status, 400);
   assert.equal((await handle(request({ id: draftId }))).status, 400);
-  assert.equal((await handle(request({ payload: { note: "x".repeat(10001) } }))).status, 413);
+  assert.equal((await handle(request({ payload: { note: "x".repeat(64001) } }))).status, 413);
+  assert.equal((await handle(request({ payload: { note: "x".repeat(1001) } }))).status, 400);
   assert.equal((await handle(request([]))).status, 400);
   assert.equal(db.writes.length, 0);
 });

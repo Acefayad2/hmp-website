@@ -1,4 +1,5 @@
 import { normalizeCalendarUrl } from "./calendar-link.js";
+import {normalizeTextFormatting, richTextHTML} from "./text-formatting.mjs";
 
 export const PROPOSAL_PREFIX = "HMP_PROPOSAL_V1:";
 
@@ -10,7 +11,8 @@ const number = (value, max = 1_000_000) => {
 export const normalizeServiceHours = (value) => typeof value === "string" && /^n\/?a$/i.test(value.trim())
   ? "N/A" : number(value, 240);
 
-export const normalizeProposal = (value = {}) => ({
+export const normalizeProposal = (value = {}) => {
+const normalized = {
   title: /^invoice$/i.test(text(value.title, 160)) ? "Proposal" : text(value.title, 160) || "Service Proposal",
   clientName: text(value.clientName, 200),
   celebrationType: text(value.celebrationType, 200),
@@ -30,7 +32,9 @@ export const normalizeProposal = (value = {}) => ({
   ...(value.linkExpiresAt ? {linkExpiresAt:text(value.linkExpiresAt,32)} : {}),
   paymentTerms: text(value.paymentTerms, 600),
   calendarUrl: normalizeCalendarUrl(value.calendarUrl),
-});
+};
+return {...normalized,...normalizeTextFormatting(value,normalized,["eventLocation","serviceDetails","notes","additionalInformation","paymentTerms"])};
+};
 
 export const serializeProposal = (proposal) =>
   `${PROPOSAL_PREFIX}${JSON.stringify(normalizeProposal(proposal))}`;
@@ -159,16 +163,26 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
     ...(value.machines ? [`${value.machines} Money Counting Machine${value.machines === 1 ? "" : "s"}`] : []),
     ...lines(value.serviceDetails),
   ];
-  if (serviceItems.length) article.append(listSection("Service details", serviceItems));
+  if (serviceItems.length) {
+    if (value.textFormatting?.serviceDetails) {
+      const section = listSection("Service details",serviceItems.slice(0,serviceItems.length-lines(value.serviceDetails).length));
+      const content = document.createElement("div"); content.innerHTML=richTextHTML(value.serviceDetails,value.textFormatting.serviceDetails);
+      section.append(content); article.append(section);
+    } else article.append(listSection("Service details", serviceItems));
+  }
   const noteItems = lines(value.notes);
-  if (noteItems.length) article.append(listSection("Please note", noteItems));
+  if (noteItems.length) {
+    const section=listSection("Please note",value.textFormatting?.notes ? [] : noteItems);
+    if(value.textFormatting?.notes) {const content=document.createElement("div");content.innerHTML=richTextHTML(value.notes,value.textFormatting.notes);section.append(content);}
+    article.append(section);
+  }
   if (value.additionalInformation) {
     const section = document.createElement("section");
     const heading = document.createElement("h4");
     heading.textContent = "Additional information";
-    const content = document.createElement("p");
+    const content = document.createElement("div");
     content.className = "proposal-additional-information";
-    content.textContent = value.additionalInformation;
+    if(value.textFormatting?.additionalInformation)content.innerHTML = richTextHTML(value.additionalInformation,value.textFormatting.additionalInformation);else content.textContent=value.additionalInformation;
     section.append(heading, content);
     article.append(section);
   }
@@ -183,9 +197,9 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
   article.append(total);
 
   if (value.paymentTerms) {
-    const terms = document.createElement("p");
+    const terms = document.createElement("div");
     terms.className = "proposal-payment-terms";
-    terms.textContent = value.paymentTerms;
+    if(value.textFormatting?.paymentTerms)terms.innerHTML = richTextHTML(value.paymentTerms,value.textFormatting.paymentTerms);else terms.textContent=value.paymentTerms;
     article.append(terms);
   }
   if (value.validUntil) {

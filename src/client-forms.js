@@ -68,13 +68,15 @@ function render() {
     <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
+  const richFields={description:'[name="documentDescription"]',...Object.fromEntries(active.snapshot.adminFields.filter(field=>field.type==="textarea").map(field=>[field.id,`[name="${field.id}"]`]))};
+  if(draft)mountRichFields(richFields,{...active.snapshot.answerFormatting,...active.snapshot.textFormatting},form);
   const previewButton = document.createElement("button");
   previewButton.type = "button"; previewButton.className = "agreement-button secondary"; previewButton.textContent = "Preview form";
   previewButton.onclick = () => {
     if (!draft) return previewInformation(active);
     const values = Object.fromEntries(new FormData(form));
     previewInformation({...active, clientName:values.clientName, clientEmail:values.clientEmail,
-      snapshot:{...active.snapshot,title:values.documentTitle,description:values.documentDescription},
+      snapshot:{...active.snapshot,title:values.documentTitle,description:values.documentDescription,...collectRichFields(richFields,form),answerFormatting:collectRichFields(richFields,form).textFormatting},
       adminAnswers:Object.fromEntries(active.snapshot.adminFields.map(field => [field.id,values[field.id] || ""]))});
   };
   form.querySelector(".agreement-actions").prepend(previewButton);
@@ -133,7 +135,7 @@ async function perform(action, sharing = {}) {
   try {
     if (active.status === "Draft" && action !== "void") {
       const answers = Object.fromEntries(active.snapshot.adminFields.map(field => [field.id, values[field.id] || ""]));
-      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, clientName:values.clientName, clientEmail:values.clientEmail, title:values.documentTitle, description:values.documentDescription, answers})});
+      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, clientName:values.clientName, clientEmail:values.clientEmail, title:values.documentTitle, description:values.documentDescription, answers, textFormatting:collectRichFields({description:'[name="documentDescription"]'},$("#information-admin-form")).textFormatting, answerFormatting:collectRichFields(Object.fromEntries(active.snapshot.adminFields.filter(f=>f.type==="textarea").map(f=>[f.id,`[name="${f.id}"]`])),$("#information-admin-form")).textFormatting})});
       active = data.agreement; dirty = false;
     }
     let warning = "";
@@ -152,3 +154,4 @@ async function perform(action, sharing = {}) {
     link = "";
   } finally {busy = false; dialog.querySelectorAll("button,input,textarea,select").forEach(el => el.disabled = false);}
 }
+import {mountRichFields,collectRichFields} from "./rich-text-fields.js";

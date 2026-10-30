@@ -11,14 +11,15 @@ export const stableId = (value: string) => {
 export const documentSnapshot = (kind: "invoice" | "contract", record: Record<string, any>) => {
   const fields = kind === "invoice"
     ? ["client_name", "issue_date", "due_date", "event_name", "event_date", "event_address", "subtotal", "discount_amount", "tax_rate", "tax_amount", "total", "notes", "payment_terms"]
-    : ["client_name", "effective_date", "event_name", "event_date", "event_location", "services", "scope_of_work", "total_amount", "retainer_amount", "payment_terms", "cancellation_terms", "additional_terms", "hmp_signature_name", "hmp_signed_at", "client_signature_name", "client_signed_at"];
+    : ["client_name", "client_address", "effective_date", "event_name", "event_date", "event_location", "services", "scope_of_work", "total_amount", "retainer_amount", "payment_terms", "cancellation_terms", "additional_terms", "hmp_signature_name", "hmp_signed_at", "client_signature_name", "client_signed_at"];
   return {
     kind, id: record.id, number: record[`${kind}_number`],
     ...(record.revision_root_id ? {revisionRootId:record.revision_root_id} : {}),
     ...Object.fromEntries(fields.map(field => [field, record[field] ?? null])),
+    ...(record.text_formatting ? {textFormatting:Object.fromEntries(Object.entries(record.text_formatting).map(([key,runs])=>[key.replace(/[A-Z]/g,c=>"_"+c.toLowerCase()),runs]))} : {}),
     ...(kind === "invoice" ? {
       ...(["Partially paid", "Paid"].includes(record.status) ? { payment_status: invoiceStatusLabel(record.status) } : {}),
-      items: (record.items || []).map((item: any) => ({description:item.description, quantity:item.quantity, rate:item.rate, amount:item.amount})),
+      items: (record.items || []).map((item: any) => ({description:item.description, quantity:item.quantity, rate:item.rate, amount:item.amount,...(item.textFormatting ? {textFormatting:item.textFormatting} : {})})),
     } : {}),
   };
 };

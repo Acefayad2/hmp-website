@@ -1,4 +1,5 @@
 import { paymentMethods, standaloneReceiptDetails } from "./receipt-template.mjs";
+import {normalizeTextFormatting} from "./text-formatting.mjs";
 
 // Drafts may be incomplete; confirmation is deliberately never persisted.
 export function receiptDraftPayload(input = {}) {
@@ -16,5 +17,6 @@ export function receiptDraftPayload(input = {}) {
     const date = new Date(`${payload.paymentDate}T12:00:00Z`);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(payload.paymentDate) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== payload.paymentDate) throw new Error("Enter a valid payment date or leave it blank in the draft.");
   }
-  return input.receiptMode === "standalone" ? { ...payload, receiptMode: "standalone", ...standaloneReceiptDetails(input) } : payload;
+  const result=input.receiptMode === "standalone" ? { ...payload, receiptMode: "standalone", ...standaloneReceiptDetails(input) } : payload;
+  return {...result,...normalizeTextFormatting(input,result,["note","serviceDescription"])};
 }
