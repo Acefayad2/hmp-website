@@ -101,7 +101,6 @@ export const ensureBookedHub = async (client: SupabaseClient, inquiryId: string)
   const { error } = await client.from("hmp_client_conversations").upsert({
     id, inquiry_id: inquiryId, token_nonce: nonce,
     access_token_hash: tokenHash(conversationToken(id, nonce)),
-    token_expires_at: new Date(Date.now() + 365 * 86400000).toISOString(),
   }, { onConflict: "inquiry_id", ignoreDuplicates: true });
   if (error) throw new Error("Hub creation failed");
   const saved = await read();
