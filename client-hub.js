@@ -7,9 +7,12 @@ export function clientAccessNotice(thread, now = Date.now()) {
   const expires = Date.parse(thread?.expiresAt);
   if (!Number.isFinite(expires)) return "Client access expiration is unavailable. Check the link expiration before sharing.";
   const date = expiryLabel(thread.expiresAt);
-  if (expires <= now) return `Client access expired: ${date}.`;
-  if (!thread.active) return `Client access is inactive. Saved expiration: ${date}.`;
-  return `Client access expires: ${date}.`;
+  const rule = thread.expirationMode === "event" ? " Automatic: 7 days after the last event (or hub creation if no event date is saved)."
+    : thread.expirationMode === "custom" ? " Custom date chosen by Admin."
+    : thread.expirationMode === "legacy" ? " Existing saved date preserved; use Change link expiration to switch to automatic." : "";
+  if (expires <= now) return `Client access expired: ${date}.${rule}`;
+  if (!thread.active) return `Client access is inactive. Saved expiration: ${date}.${rule}`;
+  return `Client access expires: ${date}.${rule}`;
 }
 
 export const hubSections = [

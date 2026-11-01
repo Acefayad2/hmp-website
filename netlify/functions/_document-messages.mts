@@ -55,7 +55,7 @@ export async function prepareDocumentConversation(client: any, kind: "invoice" |
   if (error) throw new Error("Client conversation could not be checked. No email was sent.");
   if (!conversation) {
     const id = crypto.randomUUID(), nonce = newNonce();
-    const {error: createError} = await client.from("hmp_client_conversations").upsert({id,inquiry_id:inquiryId,token_nonce:nonce,access_token_hash:tokenHash(conversationToken(id,nonce)),token_expires_at:new Date(Date.now()+365*86400000).toISOString()},{onConflict:"inquiry_id",ignoreDuplicates:true});
+    const {error: createError} = await client.from("hmp_client_conversations").upsert({id,inquiry_id:inquiryId,token_nonce:nonce,access_token_hash:tokenHash(conversationToken(id,nonce))},{onConflict:"inquiry_id",ignoreDuplicates:true});
     if (createError) throw new Error("Client conversation could not be created. No email was sent.");
     ({data:conversation,error} = await client.from("hmp_client_conversations").select("*").eq("inquiry_id",inquiryId).maybeSingle());
   }

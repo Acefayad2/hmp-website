@@ -2572,12 +2572,12 @@ $("#copy-active-link").addEventListener("click", async () => {
 $("#set-active-link-expiration").addEventListener("click", async () => {
   const thread = messageThreads.find(candidate => candidate.id === activeThreadId);
   if (!thread) return;
-  const sharing = await chooseDocumentSharing({portalAccess:true,expiresAt:thread.expiresAt});
+  const sharing = await chooseDocumentSharing({portalAccess:true,expiresAt:thread.expiresAt,expirationMode:thread.expirationMode});
   if (!sharing) return;
   const button = $("#set-active-link-expiration");
   button.disabled = true;
   try {
-    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"set-link-expiration",conversationId:thread.id,expirationDate:sharing.expirationDate})});
+    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"set-link-expiration",conversationId:thread.id,expirationDate:sharing.expirationDate,expirationMode:sharing.expirationMode})});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Expiration could not be saved.");
     await loadMessages();

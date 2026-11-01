@@ -103,7 +103,6 @@ const ensureConversation = async (client: { from: (table: string) => any }, inqu
     inquiry_id: inquiryId,
     access_token_hash: tokenHash(token),
     token_nonce: nonce,
-    token_expires_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
     revoked_at: null,
     updated_at: now,
   });

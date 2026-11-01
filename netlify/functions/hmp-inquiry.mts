@@ -375,9 +375,6 @@ export default async (request: Request, _context: Context) => {
       inquiry_id: submissionId,
       access_token_hash: tokenHash(token),
       token_nonce: nonce,
-      token_expires_at: new Date(
-        Date.now() + 365 * 24 * 60 * 60 * 1000,
-      ).toISOString(),
     });
   if (conversationError) {
     console.error("Secure conversation creation failed", conversationError.code);

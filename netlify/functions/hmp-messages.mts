@@ -242,6 +242,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         archivedAt: row.archived_at || null,
         active: !row.revoked_at && new Date(row.token_expires_at).getTime() > Date.now(),
         expiresAt: row.token_expires_at,
+        expirationMode: row.expiration_mode,
         lastMessageAt: row.last_message_at,
         lastSender: row.last_sender,
         clientUrl: clientConversationUrl(row.id, row.token_nonce),
@@ -479,17 +480,22 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
   if (action === "set-link-expiration") {
     const conversationId = cleanText(body.conversationId, 36);
     if (!uuidPattern.test(conversationId)) return json({error:"Invalid client portal"},400);
+    const expirationMode = body.expirationMode || "custom";
+    if (!["event", "custom"].includes(expirationMode)) return json({error:"Choose automatic or custom expiration."},400);
     let expiresAt;
-    try { expiresAt = linkExpiration(body.expirationDate); }
+    try { if (expirationMode === "custom") expiresAt = linkExpiration(body.expirationDate); }
     catch (cause) { return json({error:cause instanceof Error ? cause.message : "Choose a valid expiration date."},400); }
     const {data: existing,error: readError} = await client.from("hmp_client_conversations").select("id,revoked_at,archived_at").eq("id",conversationId).maybeSingle();
     if (readError) return json({error:"Client portal could not be loaded."},502);
     if (!existing) return json({error:"Client portal not found."},404);
     if (existing.archived_at) return json({error:"Restore this archived client hub before changing its link."},409);
-    if (existing.revoked_at) return json({error:"This portal was revoked. Create a new link instead."},409);
-    const {error: saveError} = await client.from("hmp_client_conversations").update({token_expires_at:expiresAt,updated_at:new Date().toISOString()}).eq("id",conversationId);
-    if (saveError) return json({error:"Expiration could not be saved."},502);
-    return json({ok:true,expiresAt});
+    // Saving a future deadline does not clear revocation. Admin must still
+    // deliberately create a new link before this revoked hub can be shared.
+    const {data: saved,error: saveError} = await client.from("hmp_client_conversations")
+      .update({expiration_mode:expirationMode,...(expiresAt ? {token_expires_at:expiresAt} : {}),updated_at:new Date().toISOString()})
+      .eq("id",conversationId).select("token_expires_at").maybeSingle();
+    if (saveError || !saved) return json({error:"Expiration could not be saved."},502);
+    return json({ok:true,expiresAt:saved.token_expires_at});
   }
 
   if (action === "create-link" || action === "send-link" || action === "reset-pin") {
@@ -503,26 +509,27 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     if (!inquiry) return json({ error: "Inquiry not found" }, 404);
     const { data: existing, error: existingError } = await client
       .from("hmp_client_conversations")
-      .select("id,archived_at")
+      .select("id,archived_at,token_expires_at")
       .eq("inquiry_id", inquiryId)
       .maybeSingle();
     if (existingError) return json({error:"Client hub could not be checked. Refresh and try again."},502);
     if (existing?.archived_at) return json({error:"Restore this archived client hub before creating or sending a link."},409);
+    if (existing && !(Date.parse(existing.token_expires_at) > Date.now())) return json({error:"This event's client access has expired. Use Change link expiration to choose a future custom date before creating or sending a new link. No email was sent."},409);
     const conversationId = existing?.id || crypto.randomUUID();
     const nonce = newNonce();
     const token = conversationToken(conversationId, nonce);
-    const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
     const row = {
       id: conversationId,
       inquiry_id: inquiryId,
       access_token_hash: tokenHash(token),
       token_nonce: nonce,
-      token_expires_at: expiresAt,
       revoked_at: null,
       updated_at: new Date().toISOString(),
     };
-    const { error } = await client.from("hmp_client_conversations").upsert(row, { onConflict: "inquiry_id" });
-    if (error) return json({ error: "Private link could not be created" }, 502);
+    const { data: saved, error } = await client.from("hmp_client_conversations").upsert(row, { onConflict: "inquiry_id" }).select("token_expires_at").maybeSingle();
+    if (error || !saved) return json({ error: "Private link could not be created" }, 502);
+    const expiresAt = saved.token_expires_at;
+    if (!(Date.parse(expiresAt) > Date.now())) return json({error:"This event's client access has expired. Use Change link expiration to choose a future custom date before sharing. No email was sent."},409);
     const clientUrl = `https://hmpeds.com/conversation#token=${token}`;
     const emailed = action === "send-link" || action === "reset-pin"
       ? await sendAccessLink(inquiry, clientUrl, fetchFn).catch(() => false)
