@@ -5,7 +5,7 @@ import { issueVerification } from "../netlify/functions/_admin-verification.mts"
 
 test("Money Table SSO verification fails closed and only exposes an authorized identity", async () => {
   globalThis.Netlify={env:{get:()=>"synthetic-secret"}};
-  const proof=issueVerification({id:"admin-id",email:"admin@example.com"});
+  const proof=issueVerification({id:"admin-id",email:"admin@example.com",lastSignInAt:new Date().toISOString()});
   let calls = 0, ok = true, fail = false, email = "admin@example.com";
   const handle = createSsoHandler({emails:()=>["admin@example.com"], fetchFn:async(url, options)=>{
     calls++;
@@ -22,7 +22,9 @@ test("Money Table SSO verification fails closed and only exposes an authorized i
   assert.equal((await handle(request("hmp_admin_sso=synthetic-token"))).status,401);
   const response = await handle(request(`hmp_admin_sso=synthetic-token; hmp_admin_verified=${proof}`));
   assert.equal(response.headers.get("cache-control"),"no-store");
-  assert.deepEqual(await response.json(),{user:{id:"admin-id",email,name:"HMP Admin"}});
+  const result=await response.json();
+  assert.deepEqual(result.user,{id:"admin-id",email,name:"HMP Admin"});
+  assert.ok(result.expiresAt>Date.now() && result.expiresAt<=Date.now()+12*3600000);
   email="not-admin@example.com";
   assert.equal((await handle(request("hmp_admin_sso=synthetic-token"))).status,401);
   ok=false;

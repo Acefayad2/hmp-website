@@ -1,5 +1,5 @@
 import type { Config, Context } from "@netlify/functions";
-import { getUser, hasAdminVerification, cookieHeader, verificationCookie, challengeCookie } from "./_admin-verification.mts";
+import { getUser, hasAdminVerification, cookieHeader, verificationCookie, challengeCookie, adminSessionExpiresAt } from "./_admin-verification.mts";
 
 const SSO_COOKIE = "hmp_admin_sso";
 
@@ -60,7 +60,7 @@ export const createSsoHandler = ({ getUserFn = getUser, fetchFn = fetch, emails 
       const email = String(identity.email || "").trim().toLowerCase();
       if (!identity.id || !emails().includes(email)) return response({ error: "Unauthorized" }, 401);
       if (!verificationFn(request, {id:identity.id,email})) return response({ error: "Complete email verification in HMP Admin first." }, 401);
-      return response({ user: { id: identity.id, email, name: "HMP Admin" } }, 200);
+      return response({ user: { id: identity.id, email, name: "HMP Admin" }, expiresAt:adminSessionExpiresAt(request,{id:identity.id,email}) }, 200);
     } catch { return response({ error: "Sign-in verification unavailable" }, 503); }
   }
 

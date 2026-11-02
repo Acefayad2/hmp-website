@@ -30,6 +30,13 @@ export function mountAdminVerification({form,loginForm,passwordForm,authShell,da
     async ensure(user){
       const response=await fetch('/api/hmp-admin-verification',{credentials:'same-origin',cache:'no-store'});
       const result=await response.json();
+      if(result.requiresPassword){
+        pendingUser=null;form.hidden=true;authShell.hidden=false;dashboard.hidden=true;passwordForm.hidden=true;loginForm.hidden=false;
+        const status=loginForm.querySelector('[role="status"]');
+        if(status)status.textContent=result.error;
+        loginForm.querySelector('input[type="password"]')?.focus();
+        return false;
+      }
       if(!response.ok)throw new Error(result.error||'Could not verify your Admin sign-in.');
       if(result.verified){form.hidden=true;pendingUser=null;return true;}
       authShell.hidden=false;dashboard.hidden=true;loginForm.hidden=true;passwordForm.hidden=true;form.hidden=false;
