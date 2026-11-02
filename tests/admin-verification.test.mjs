@@ -4,7 +4,7 @@ import {readFileSync,readdirSync} from 'node:fs';
 import {createAdminVerificationHandler} from '../netlify/functions/hmp-admin-verification.mts';
 import {issueVerification,hasAdminVerification,cookieHeader} from '../netlify/functions/_admin-verification.mts';
 
-const user={id:'synthetic-admin',email:'admin@example.com'};
+const user={id:'synthetic-admin',email:'admin@example.com',lastSignInAt:new Date().toISOString()};
 const env={HMP_ADMIN_EMAILS:user.email,SUPABASE_URL:'https://synthetic.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'test-only-secret',RESEND_API_KEY:'test-only-mail',HMP_COMMUNICATION_EMAIL:'eventsconcierge@hmpeds.com'};
 globalThis.Netlify={env:{get:key=>env[key]}};
 const request=(body, cookie='', method='POST',origin='https://hmpeds.com')=>new Request('https://hmpeds.com/api/hmp-admin-verification',{
@@ -94,7 +94,8 @@ test('proofs are signed, time limited and bound to the exact account',()=>{
   assert.equal(hasAdminVerification(req,user,env.SUPABASE_SERVICE_ROLE_KEY,now),true);
   for(const identity of [{...user,id:'another'},{...user,email:'other@example.com'}])assert.equal(hasAdminVerification(req,identity),false);
   assert.equal(hasAdminVerification(req,user,'wrong-secret'),false);
-  assert.equal(hasAdminVerification(req,user,env.SUPABASE_SERVICE_ROLE_KEY,now+3600000),false);
+  assert.equal(hasAdminVerification(req,user,env.SUPABASE_SERVICE_ROLE_KEY,now+3600000),true);
+  assert.equal(hasAdminVerification(req,user,env.SUPABASE_SERVICE_ROLE_KEY,now+12*3600000),false);
   assert.equal(hasAdminVerification(request({},`hmp_admin_verified=${token}a`,'GET'),user),false);
   assert.doesNotMatch(cookieHeader(new Request('https://preview.netlify.app'),'proof','value',60),/Domain=/);
 });
@@ -102,6 +103,23 @@ test('sign-out clears verification, challenge and shared-login cookies',async()=
   const response=await fixture().handler(request({},'','DELETE'));
   assert.equal(response.status,200);assert.equal(response.headers.getSetCookie().length,3);
   for(const cookie of response.headers.getSetCookie())assert.match(cookie,/Max-Age=0/);
+});
+test('expired or unknown password sign-in cannot restart verification through a refreshed Identity session',async()=>{
+  for(const lastSignInAt of [undefined,'invalid',new Date(Date.now()-12*3600000-1).toISOString()]){
+    const f=fixture({user:{...user,lastSignInAt}});
+    const response=await f.handler(request({},'','GET'));
+    assert.equal(response.status,401);
+    assert.equal((await response.json()).requiresPassword,true);
+    assert.equal((await f.send()).response.status,401);
+    assert.equal(f.mail.length,0);
+  }
+});
+test('reissuing a proof preserves the original twelve-hour deadline',()=>{
+  const start=Date.now(),identity={...user,lastSignInAt:new Date(start).toISOString()};
+  const token=issueVerification(identity,env.SUPABASE_SERVICE_ROLE_KEY,start+11*3600000);
+  const req=request({},`hmp_admin_verified=${token}`,'GET');
+  assert.equal(hasAdminVerification(req,identity,env.SUPABASE_SERVICE_ROLE_KEY,start+12*3600000-1),true);
+  assert.equal(hasAdminVerification(req,identity,env.SUPABASE_SERVICE_ROLE_KEY,start+12*3600000),false);
 });
 test('all website Admin endpoints use the server verification guard',()=>{
   const endpoints=['dashboard','messages','invoices','contracts','reviews','sms','notifications','agreement-forms','document-versions','message-signature','proposal-drafts','receipt-drafts','review-requests','send-contract','send-invoice','share-document','sso'];

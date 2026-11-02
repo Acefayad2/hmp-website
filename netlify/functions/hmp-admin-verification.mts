@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomInt, randomUUID } from "node:crypto";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { hmpSender } from "./_email-contact.mts";
-import { challengeCookie, verificationCookie, verificationLifetime, readCookie, codeHash, issueVerification, hasAdminVerification, cookieHeader } from "./_admin-verification.mts";
+import { challengeCookie, verificationCookie, readCookie, codeHash, issueVerification, hasAdminVerification, cookieHeader, signInExpiresAt } from "./_admin-verification.mts";
 
 const json = (body: unknown, status=200) => Response.json(body,{status,headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
 export const createAdminVerificationHandler = ({getUserFn=getUser,databaseFactory=createClient,fetchFn=fetch,now=Date.now,randomCode=()=>String(randomInt(100000,1000000))}={}) => async(request: Request) => {
@@ -20,7 +20,11 @@ export const createAdminVerificationHandler = ({getUserFn=getUser,databaseFactor
     const email=user?.email?.trim().toLowerCase();
     const allowed=(Netlify.env.get("HMP_ADMIN_EMAILS")||"").split(",").map(v=>v.trim().toLowerCase()).filter(Boolean);
     if (!user?.id || !email || !allowed.includes(email)) return json({error:"Sign in with an authorized HMP Admin account first."},401);
-    if (request.method==="GET") return json({verified:hasAdminVerification(request,user),email});
+    const verified = hasAdminVerification(request,user,undefined,now());
+    const expiresAt = signInExpiresAt(user,now());
+    if (!verified && !expiresAt) return json({error:"Your 12-hour Admin session has ended. Please sign in with your password again.",requiresPassword:true},401);
+    if (request.method==="GET") return json({verified,email});
+    if (!expiresAt) return json({error:"Please sign in with your password again.",requiresPassword:true},401);
     const url=Netlify.env.get("SUPABASE_URL"),secret=Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if(!url||!secret) return json({error:"Login verification is temporarily unavailable."},503);
     const raw=await request.text();
@@ -59,7 +63,7 @@ export const createAdminVerificationHandler = ({getUserFn=getUser,databaseFactor
     if(consumed.error)throw new Error("Verification storage unavailable");
     if(consumed.data?.length!==1)return json({error:"That code is incorrect, expired, or already used. Use the newest code or request another."},401);
     const response=json({ok:true,verified:true});
-    response.headers.append("Set-Cookie",cookieHeader(request,verificationCookie,issueVerification(user,secret,now()),verificationLifetime));
+    response.headers.append("Set-Cookie",cookieHeader(request,verificationCookie,issueVerification(user,secret,now()),Math.max(1,Math.floor((expiresAt-now())/1000))));
     response.headers.append("Set-Cookie",cookieHeader(request,challengeCookie,"",0));
     return response;
   } catch { return json({error:"Login verification is temporarily unavailable. Please try again."},503); }

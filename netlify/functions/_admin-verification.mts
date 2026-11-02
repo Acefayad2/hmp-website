@@ -3,7 +3,14 @@ import { getUser as identityUser } from "@netlify/identity";
 
 export const verificationCookie = "hmp_admin_verified";
 export const challengeCookie = "hmp_admin_challenge";
-export const verificationLifetime = 3600;
+export const verificationLifetime = 12 * 60 * 60;
+// Identity token refresh does not reset lastSignInAt. Anchor the deadline to
+// the authenticated sign-in, not a page load or a new email-code request.
+export const signInExpiresAt = (user: {lastSignInAt?: string}, now = Date.now()) => {
+  const started = Date.parse(user.lastSignInAt || "");
+  return Number.isFinite(started) && started <= now && started + verificationLifetime * 1000 > now
+    ? started + verificationLifetime * 1000 : 0;
+};
 export const securitySecret = () => Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 export const readCookie = (request: Request, name: string) => {
   const entry = (request.headers.get("cookie") || "").split(";").map(v => v.trim()).find(v => v.startsWith(`${name}=`));
@@ -12,9 +19,11 @@ export const readCookie = (request: Request, name: string) => {
 const mac = (secret: string, value: string) => createHmac("sha256", secret).update(value).digest("hex");
 export const codeHash = (secret: string, user: {id:string;email?:string}, nonce: string, code: string) =>
   mac(secret, `hmp-admin-code:v1:${user.id}:${user.email?.toLowerCase()}:${nonce}:${code}`);
-export const issueVerification = (user: {id:string;email?:string}, secret = securitySecret(), now = Date.now()) => {
+export const issueVerification = (user: {id:string;email?:string;lastSignInAt?:string}, secret = securitySecret(), now = Date.now()) => {
   if (!secret) throw new Error("Verification unavailable");
-  const payload = Buffer.from(JSON.stringify({id:user.id,email:user.email?.toLowerCase(),expires:now+verificationLifetime*1000,nonce:randomUUID()})).toString("base64url");
+  const expires = signInExpiresAt(user, now);
+  if (!expires) throw new Error("Please sign in with your password again.");
+  const payload = Buffer.from(JSON.stringify({id:user.id,email:user.email?.toLowerCase(),expires,nonce:randomUUID()})).toString("base64url");
   return `${payload}.${mac(secret, `hmp-admin-verified:v1:${payload}`)}`;
 };
 export const hasAdminVerification = (request: Request, user: {id:string;email?:string}, secret = securitySecret(), now = Date.now()) => {
@@ -34,6 +43,10 @@ export const cookieHeader = (request: Request, name: string, value: string, maxA
   const host = new URL(request.url).hostname;
   const domain = host === "hmpeds.com" || host.endsWith(".hmpeds.com") ? "; Domain=hmpeds.com" : "";
   return `${name}=${encodeURIComponent(value)}${domain}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+};
+export const adminSessionExpiresAt = (request: Request, user: {id:string;email?:string}) => {
+  if (!hasAdminVerification(request,user)) return 0;
+  return JSON.parse(Buffer.from(readCookie(request,verificationCookie).split('.')[0], 'base64url').toString()).expires as number;
 };
 // Every Admin data endpoint must check both Identity and the email-code proof.
 export async function getUser(request: Request) {
