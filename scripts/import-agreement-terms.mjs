@@ -14,6 +14,7 @@ const sources = [
   ["led-customization", "led-customization-addendum.pdf"],
   ["customization-approval", "customization-approval.pdf"],
   ["money-collecting", "money-collecting-agreement.pdf"],
+  ["money-changing", "money-changing-agreement.pdf"],
   ["money-collecting-changing", "money-collecting-changing-agreement.pdf"],
   ["money-bank-verification", "money-bank-verification.pdf"],
 ];
@@ -27,7 +28,7 @@ const records = Object.fromEntries(sources.map(([id, filename]) => {
     sourceText = sourceText.replaceAll("six (6) included revisions", "four (4) included revisions")
       .replaceAll("six (6) revisions", "four (4) revisions");
   }
-  if (["money-collecting", "money-collecting-changing"].includes(id)) {
+  if (["money-changing", "money-collecting", "money-collecting-changing"].includes(id)) {
     // These are reusable templates: old prices, dates and preparer's notes must
     // not appear as fixed terms in a new client's copy.
     const takeClause = (key, start, end) => {
@@ -36,9 +37,10 @@ const records = Object.fromEntries(sources.map(([id, filename]) => {
       optionalClauses[key] = match[0].replace(/\( IF NOT NEEDED REMOVE\)|\( remove if not NEEDED\)/g, "").trim();
       sourceText = sourceText.replace(match[0], `{{${key}}}\n${"\f".repeat((match[0].match(/\f/g) || []).length)}`);
     };
-    takeClause("commissionClause", "^[ \\t]*Commission on Large Collections \\( IF NOT NEEDED REMOVE\\)", "^[ \\t]*Independent Contractor Status");
+    takeClause("commissionClause", "^[ \\t]*Commission on Large Collections \\( IF NOT NEEDED REMOVE\\)", "\\f|^[ \\t]*Independent Contractor Status");
     takeClause("travelClause", "^[ \\t]*Travel Fee \\( remove if not NEEDED\\)", "^[ \\t]*Trust & Responsibility Clause");
     sourceText = sourceText.replace("(INSERT DATE )", "{{agreementDate}}")
+      .replaceAll("(IF ADDED)", "(if booked)")
       .replace(/HMP Service Fee: \$[\d,.]+/, "HMP Service Fee: {{serviceFee}}")
       .replace(/\b\d+(?:\.\d+)? Service Hours\b/, "{{serviceHours}} Service Hours")
       .replace(/30% Non-Refundable Retainer due by[^\n]*/, "30% Non-Refundable Retainer due by: {{retainerDue}}")
@@ -49,10 +51,10 @@ const records = Object.fromEntries(sources.map(([id, filename]) => {
       .replace("(The final total will be presented to the Client at the\nconclusion of the service.) ONLY KEEP THIS PART THEY BOOKED GRAND TOTAL\nSERVICE IF NOT REMOVE IT!!!!!", "{{grandTotalClause}}");
   }
   return [id, {
-    version:"2026-10-12.1",
+    version:id === "money-changing" ? "2026-11-02.1" : "2026-10-12.1",
     sourceFile:filename,
     sourceSha256:createHash("sha256").update(readFileSync(path)).digest("hex"),
-    ...(["money-collecting", "money-collecting-changing"].includes(id) ? {optionalClauses} : {}),
+    ...(["money-changing", "money-collecting", "money-collecting-changing"].includes(id) ? {optionalClauses} : {}),
     pages:sourceText.split("\f").map(page => page.replaceAll("\u200b", "").trim()).filter(Boolean),
   }];
 }));
