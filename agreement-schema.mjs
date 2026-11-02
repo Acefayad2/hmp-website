@@ -40,6 +40,11 @@ const moneyTableDetails = [
 const moneyTableClient = [...eventFields, field("guestCount", "Estimated number of guests", "number"), field("vendorAccess", "Venue vendor access time"), field("moneyBank", "Recommended money bank", "money", false), marketing];
 export const agreementTemplates = [
   {
+    id: "money-changing", title: "Money Table Service Agreement — Money Changing",
+    adminFields:moneyTableDetails,
+    clientFields:moneyTableClient,
+  },
+  {
     id: "guest-seating", title: "Guest Seating Experience Services Agreement",
     adminFields: [field("selectedService", "Selected service / package", "select", true, ["Guest Arrival", "Arrival + Directory"]), field("guestListDue", "Final guest seating list due", "date"), ...setup, ...payment, ...representative],
     clientFields: [...eventFields, field("guestCount", "Estimated number of guests", "number"), field("vendorAccess", "Venue vendor access time"), marketing],
@@ -120,8 +125,8 @@ export function newAgreementSnapshot(template, source) {
   if (template.id === "customization-approval") {
     snapshot.pages = source.pages.map(page => page.replace(/Client Approval:\n☐ I approve the customization and associated additional fee\.\n\n☐ I decline the additional customization\./, "Client Approval:\nPlease record your approval choice in the client approval section of this form."));
   }
-  if (["money-collecting","money-collecting-changing"].includes(template.id)) {
-    snapshot.version="2026-10-18.1";
+  if (["money-changing","money-collecting","money-collecting-changing"].includes(template.id)) {
+    snapshot.version=source.version > "2026-10-18.1" ? source.version : "2026-10-18.1";
     snapshot.pages=source.pages.map(page=>page
       .replace("An initial 30% non-refundable retainer & a signed agreement must be secured prior to any\nservices being performed by Vendor.","{{retainerClause}}")
       .replace("30% Non-Refundable Retainer due by: {{retainerDue}}","{{retainerPayment}}"));
@@ -184,7 +189,7 @@ export function validationError(issues) {
 // Keep the same allowlist on the editor and server; never silently strip draft wording.
 const moneyPlaceholders = new Set(["agreementDate", "serviceFee", "serviceHours", "retainerDue", "retainerClause", "retainerPayment", "finalPaymentDue", "serviceStartTime", "serviceEndTime", "cancellationDeadline", "cancellationRefundAmount", "commissionClause", "travelClause", "grandTotalClause"]);
 export function agreementTextIssues(snapshot) {
-  if (!["money-collecting", "money-collecting-changing"].includes(snapshot.id)) return [];
+  if (!["money-changing", "money-collecting", "money-collecting-changing"].includes(snapshot.id)) return [];
   return snapshot.pages.flatMap((page, pageIndex) => {
     const issues = [];
     for (const match of page.matchAll(/\{\{[^{}\r\n]*(?:\}\})?|\}\}/g)) {

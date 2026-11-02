@@ -375,8 +375,8 @@ test("old bank drafts gain optional second signer without rewriting custom terms
   }
 });
 
-test("eight templates retain sourced terms and approved four-revision limit", () => {
-  assert.equal(agreementTemplates.length,8);
+test("nine templates retain sourced terms and approved four-revision limit", () => {
+  assert.equal(agreementTemplates.length,9);
   for(const t of agreementTemplates) {
     const s=snapshotFor(t.id);
     assert.ok(s.pages.length >= 1);
@@ -387,6 +387,22 @@ test("eight templates retain sourced terms and approved four-revision limit", ()
   const led=snapshotFor("led-customization").pages.join("\n");
   assert.match(led,/Included Revisions: 4 Revisions/);
   assert.doesNotMatch(led,/six\s*\(6\)/);
+});
+
+test("separate Money Changing terms preserve bank verification without optional commission", () => {
+  const snapshot=snapshotFor("money-changing"), original=structuredClone(snapshot);
+  const answers=validateAnswers(snapshot.adminFields,{...inputFor(snapshot.adminFields),serviceFee:"1200",serviceHours:"6",retainerPercent:"",customPaymentTerms:"Payment by arrangement.",retainerDue:"",includeCommission:"No",includeTravelFee:"No",includeGrandTotal:"No"});
+  const issued=issuedSnapshot(snapshot,answers), text=issued.pages.join("\n");
+  assert.equal(issued.pages.length,5);
+  assert.match(text,/Money Changing Service Only/);
+  assert.match(text,/3 Money Associates/);
+  assert.match(text,/3 Money Counting Machines/);
+  assert.match(text,/Money Bank Transfer & Verification/);
+  assert.match(text,/seven \(7\) days/);
+  assert.match(text,/Payment by arrangement/);
+  assert.match(text,/\$1200\.00/);
+  assert.doesNotMatch(text,/\{\{|INSERT|REMOVE|IF ADDED|10\/06\/2025|1,115|409\.50|30%|Commission on Large Collections/);
+  assert.deepEqual(snapshot,original);
 });
 test("validation covers required data, explicit choices, dates, limits and injection escaping", () => {
   const fields=snapshotFor("guest-seating").clientFields;
