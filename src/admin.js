@@ -104,6 +104,7 @@ const adminNotifications = mountAdminNotifications({
 let inquiries = [];
 const hubNotes = mountHubNotes({
   form: $("#hub-notes-form"), input: $("#hub-notes-input"),
+  history: $("#hub-notes-history"),
   saveButton: $("#save-hub-notes"), reloadButton: $("#reload-hub-notes"), status: $("#hub-notes-status"),
   loadThreads: async () => { await loadMessages(); return messageThreads; },
   onSaved: inquiry => {
@@ -476,7 +477,6 @@ const saveInquiry = async (event) => {
         priority: $("#manage-priority").value,
         followUpDate: $("#manage-follow-up").value,
         owner: $("#manage-owner").value,
-        internalNotes: $("#manage-notes").value,
       }),
     });
     const data = await response.json().catch(() => ({}));

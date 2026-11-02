@@ -153,15 +153,24 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
 
     const id = cleanText(body.id, 36);
     if (!uuidPattern.test(id)) return json({ error: "Invalid inquiry" }, 400);
-    if (body.action === "save-notes") {
+    if (body.action === "save-notes" || body.action === "append-notes") {
       if (typeof body.internalNotes !== "string" || body.internalNotes.length > 5000)
         return json({ error: "Notes must be text, up to 5,000 characters." }, 400);
       if (body.expectedVersion !== null && (typeof body.expectedVersion !== "string" ||
           body.expectedVersion.length > 40 || !Number.isFinite(Date.parse(body.expectedVersion))))
         return json({ error: "Reload the client hub before saving notes." }, 400);
+      const note = body.internalNotes.trim();
+      if (!note) return json({ error: "Enter a note before saving." }, 400);
+      const {data:existing,error:readError} = await client.from("hmp_admin_inquiries")
+        .select("internal_notes,updated_at").eq("submission_id",id).maybeSingle();
+      if (readError) return json({error:"Saved notes could not be loaded. Please try again."},502);
+      if (!existing || (existing.updated_at ?? null) !== body.expectedVersion)
+        return json({error:"Another update was saved. Reload saved notes, then add your note. Your draft is still here."},409);
+      const timestamp = new Date(Math.max(Date.now(),Date.parse(existing.updated_at || "") + 1 || 0)).toISOString();
+      const history = [existing.internal_notes,`[${timestamp} · ${email}]\n${note}`].filter(Boolean).join("\n\n");
       let query = client.from("hmp_admin_inquiries").update({
-        internal_notes: body.internalNotes.trim() || null,
-        updated_at: new Date().toISOString(),
+        internal_notes: history,
+        updated_at: timestamp,
       }).eq("submission_id", id);
       // Compare-and-swap: never replace a colleague's newer inquiry/notes edit.
       query = body.expectedVersion === null ? query.is("updated_at", null) : query.eq("updated_at", body.expectedVersion);
@@ -191,7 +200,6 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
     const priority = cleanText(body.priority, 16);
     const followUpDate = cleanText(body.followUpDate, 10);
     const owner = cleanText(body.owner, 100);
-    const internalNotes = cleanText(body.internalNotes, 5000);
 
     if (!statuses.has(status)) return json({ error: "Invalid status" }, 400);
     if (!priorities.has(priority)) return json({ error: "Invalid priority" }, 400);
@@ -206,7 +214,6 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
         priority,
         follow_up_date: followUpDate || null,
         owner: owner || null,
-        internal_notes: internalNotes || null,
         updated_at: new Date().toISOString(),
       })
       .eq("submission_id", id)

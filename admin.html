@@ -217,11 +217,12 @@
                     <h3 id="hub-notes-title">Internal notes</h3>
                     <p>Private to HMP Admin staff for this client’s event. These are the same notes shown on the inquiry. They are never sent to the client.</p>
                     <form id="hub-notes-form">
-                      <label for="hub-notes-input">Meeting and team notes</label>
+                      <div id="hub-notes-history" aria-label="Saved note history"></div>
+                      <label for="hub-notes-input">Add a meeting or team note</label>
                       <textarea id="hub-notes-input" rows="10" maxlength="5000" aria-describedby="hub-notes-help" placeholder="Add meeting details, follow-ups, and context for the HMP team…"></textarea>
-                      <p id="hub-notes-help">Up to 5,000 characters. Select Save notes to share changes with your HMP Admin team.</p>
+                      <p id="hub-notes-help">Each note is saved with its date and Admin email. Earlier notes stay in the history. Up to 5,000 characters per note.</p>
                       <div class="hub-notes-actions">
-                        <button class="secondary-button" id="save-hub-notes" type="submit">Save notes</button>
+                        <button class="secondary-button" id="save-hub-notes" type="submit">Add note</button>
                         <button class="secondary-button" id="reload-hub-notes" type="button">Reload saved notes</button>
                       </div>
                       <p class="form-message" id="hub-notes-status" role="status"></p>
@@ -547,8 +548,8 @@
             <input id="manage-owner" name="owner" type="text" maxlength="100" placeholder="Team member" />
           </label>
           <label class="management-notes">
-            <span>Internal notes</span>
-            <textarea id="manage-notes" name="internalNotes" rows="5" maxlength="5000" placeholder="Private notes for the HMP team"></textarea>
+            <span>Internal note history — add notes in Client Hub → Notes</span>
+            <textarea id="manage-notes" rows="5" readonly placeholder="No private notes yet"></textarea>
           </label>
         </div>
         <div class="management-actions">
