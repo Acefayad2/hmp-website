@@ -26,7 +26,7 @@ function fixture() {
       async maybeSingle() {
         if (fail) return { error: { code: "FAIL" } };
         if (!filters.every(match => match(row))) return { data: null };
-        writes.push(patch); Object.assign(row, patch);
+        if(patch){writes.push(patch); Object.assign(row, patch);}
         return { data: { ...row } };
       },
     };
@@ -35,16 +35,17 @@ function fixture() {
 }
 const body = { id, action: "save-notes", internalNotes: "Updated meeting notes", expectedVersion: version };
 
-test("save updates only private notes and timestamp; stale edits cannot replace newer notes", async () => {
+test("save appends dated private notes without replacing history; stale edits cannot replace newer notes", async () => {
   const f = fixture();
   const response = await f.handler(request(body));
   assert.equal(response.status, 200);
-  assert.equal((await response.json()).inquiry.internalNotes, body.internalNotes);
+  const saved=(await response.json()).inquiry.internalNotes;
+  assert.match(saved,/^Meeting notes\n\n\[.*admin@example.test\]\nUpdated meeting notes$/);
   assert.deepEqual(Object.keys(f.writes[0]).sort(), ["internal_notes", "updated_at"]);
   assert.equal(f.row.status, "Booked");
   assert.equal(f.row.owner, "HMP");
   assert.equal((await f.handler(request({ ...body, internalNotes: "stale" }))).status, 409);
-  assert.equal(f.row.internal_notes, body.internalNotes);
+  assert.equal(f.row.internal_notes, saved);
 });
 
 test("notes require verified Admin, same origin, valid text and a version", async () => {
@@ -62,8 +63,10 @@ test("notes require verified Admin, same origin, valid text and a version", asyn
 test("empty notes, legacy null timestamps, missing records and DB failures are safe", async () => {
   const f = fixture();
   f.row.updated_at = null;
-  assert.equal((await f.handler(request({ ...body, expectedVersion: null, internalNotes: "" }))).status, 200);
-  assert.equal(f.row.internal_notes, null);
+  assert.equal((await f.handler(request({ ...body, expectedVersion: null, internalNotes: "" }))).status, 400);
+  assert.equal(f.row.internal_notes, "Meeting notes");
+  assert.equal((await f.handler(request({ ...body, expectedVersion: null, internalNotes: "Additional note" }))).status, 200);
+  assert.match(f.row.internal_notes,/Meeting notes[^]*Additional note/);
   assert.equal((await f.handler(request({ ...body, id: "22222222-2222-4222-8222-222222222222" }))).status, 409);
   f.fail();
   assert.equal((await f.handler(request(body))).status, 502);
@@ -99,7 +102,7 @@ test("editor preserves per-event drafts on refresh/switch; errors retain text an
   editor.open({ ...first, internalNotes: "Someone else's new note" });
   assert.equal(input.value, "Unsaved");
   editor.open({ ...first, inquiryId: "other", internalNotes: "Other event" });
-  assert.equal(input.value, "Other event");
+  assert.equal(input.value, "");
   editor.open(first);
   assert.equal(input.value, "Unsaved");
   globalThis.fetch = async (url, options) => {
@@ -118,5 +121,5 @@ test("editor preserves per-event drafts on refresh/switch; errors retain text an
   warned = false;
   events.beforeunload({ preventDefault() { warned = true; } }); assert.equal(warned, false);
   await reloadButton.events.click();
-  assert.equal(input.value, "Server latest");
+  assert.equal(input.value, "");
 });
