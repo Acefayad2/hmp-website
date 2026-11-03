@@ -73,7 +73,8 @@ test("hub expiry notice stays outside tabs and refreshes whenever the selected t
   const html=readFileSync(new URL("../admin.html",import.meta.url),"utf8");
   const source=readFileSync(new URL("../src/admin.js",import.meta.url),"utf8");
   assert.match(html,/<p class="client-access-expiry" id="admin-client-access-expiry"><\/p>\s*<\/header>\s*<nav/);
-  assert.ok(source.includes('$("#admin-client-access-expiry").textContent = clientAccessNotice(thread);'));
+  assert.ok(source.includes('$("#admin-client-access-expiry").textContent = thread.deletedAt ?'));
+  assert.ok(source.includes(': clientAccessNotice(thread);'));
 });
 
 test("personalized client heading capitalizes Event Hub and uses textContent", () => {

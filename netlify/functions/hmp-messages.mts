@@ -240,6 +240,8 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         celebrationDate: inquiry.celebration_date || "",
         inquiryStatus: inquiry.status || "New",
         archivedAt: row.archived_at || null,
+        deletedAt: row.deleted_at || null,
+        purgeAt: row.deleted_at ? new Date(Date.parse(row.deleted_at) + 30 * 86400000).toISOString() : null,
         active: !row.revoked_at && new Date(row.token_expires_at).getTime() > Date.now(),
         expiresAt: row.token_expires_at,
         expirationMode: row.expiration_mode,
@@ -278,6 +280,12 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     return json({ error: "Invalid request" }, 400);
   }
   const action = cleanText(body.action, 32);
+
+  if (uuidPattern.test(String(body.conversationId || "")) && !["delete","restore-deleted","seating-activity"].includes(action)) {
+    const {data:hub,error:hubError}=await client.from("hmp_client_conversations").select("deleted_at").eq("id",body.conversationId).maybeSingle();
+    if(hubError)return json({error:"Client hub could not be checked. Please retry."},502);
+    if(hub?.deleted_at)return json({error:"Restore this hub from Deleted before making changes."},409);
+  }
 
   if (action === "archive" || action === "restore") {
     const conversationId = cleanText(body.conversationId, 36);
@@ -543,35 +551,13 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     });
   }
 
-  if (action === "delete") {
+  if (action === "delete" || action === "restore-deleted") {
     const conversationId = cleanText(body.conversationId, 36);
-    if (!uuidPattern.test(conversationId)) return json({ error: "Invalid conversation" }, 400);
-    const { data: conversation } = await client
-      .from("hmp_client_conversations")
-      .select("id")
-      .eq("id", conversationId)
-      .maybeSingle();
-    if (!conversation) return json({ error: "Conversation not found" }, 404);
-    const { data: uploadRows, error: uploadReadError } = await client
-      .from("hmp_conversation_attachment_uploads")
-      .select("path")
-      .eq("conversation_id", conversationId);
-    if (uploadReadError) return json({ error: "Conversation files could not be prepared for deletion" }, 502);
-    const { error: deleteError } = await client
-      .from("hmp_client_conversations")
-      .delete()
-      .eq("id", conversationId);
-    if (deleteError) {
-      console.error("Conversation delete failed", deleteError.code);
-      return json({ error: "Conversation could not be deleted" }, 502);
-    }
-    const paths = (uploadRows || []).map((row) => row.path).filter(Boolean);
-    let cleanupPending = false;
-    for (let index = 0; index < paths.length; index += 100) {
-      const { error } = await client.storage.from(ATTACHMENT_BUCKET).remove(paths.slice(index, index + 100));
-      if (error) cleanupPending = true;
-    }
-    return json({ ok: true, cleanupPending });
+    if (!uuidPattern.test(conversationId)) return json({error:"Invalid client hub"},400);
+    const {data,error} = await client.rpc("hmp_set_hub_deleted",{p_id:conversationId,p_deleted:action === "delete"});
+    if(error) return json({error:action === "restore-deleted" ? "This hub could not be restored. Its 30-day recovery period may have ended." : "This hub could not be moved to Deleted. Please retry."},409);
+    if(!data) return json({error:"Client hub not found"},404);
+    return json({ok:true});
   }
 
   if (action === "send") {
