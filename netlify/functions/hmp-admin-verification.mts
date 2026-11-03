@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import { randomInt, randomUUID } from "node:crypto";
 import { isSameOriginMutation } from "./_conversation-security.mts";
 import { hmpSender } from "./_email-contact.mts";
-import { challengeCookie, verificationCookie, readCookie, codeHash, issueVerification, hasAdminVerification, cookieHeader, signInExpiresAt } from "./_admin-verification.mts";
+import { challengeCookie, verificationCookie, readCookie, codeHash, issueVerification, hasAdminVerification, cookieHeader, signInExpiresAt, passwordCookie, issuePasswordProof, passwordExpiresAt, verificationLifetime } from "./_admin-verification.mts";
 
 const json = (body: unknown, status=200) => Response.json(body,{status,headers:{"Cache-Control":"private, no-store","X-Content-Type-Options":"nosniff"}});
 export const createAdminVerificationHandler = ({getUserFn=getUser,databaseFactory=createClient,fetchFn=fetch,now=Date.now,randomCode=()=>String(randomInt(100000,1000000))}={}) => async(request: Request) => {
@@ -13,7 +13,7 @@ export const createAdminVerificationHandler = ({getUserFn=getUser,databaseFactor
     if (request.method!=="GET" && !isSameOriginMutation(request)) return json({error:"Invalid request origin"},403);
     if (request.method==="DELETE") {
       const response=json({ok:true});
-      for(const name of [verificationCookie,challengeCookie,"hmp_admin_sso"]) response.headers.append("Set-Cookie",cookieHeader(request,name,"",0));
+      for(const name of [verificationCookie,challengeCookie,passwordCookie,"hmp_admin_sso"]) response.headers.append("Set-Cookie",cookieHeader(request,name,"",0));
       return response;
     }
     const user=await getUserFn();
@@ -21,22 +21,40 @@ export const createAdminVerificationHandler = ({getUserFn=getUser,databaseFactor
     const allowed=(Netlify.env.get("HMP_ADMIN_EMAILS")||"").split(",").map(v=>v.trim().toLowerCase()).filter(Boolean);
     if (!user?.id || !email || !allowed.includes(email)) return json({error:"Sign in with an authorized HMP Admin account first."},401);
     const verified = hasAdminVerification(request,user,undefined,now());
-    const expiresAt = signInExpiresAt(user,now());
-    if (!verified && !expiresAt) return json({error:"Your 12-hour Admin session has ended. Please sign in with your password again.",requiresPassword:true},401);
+    const expiresAt = passwordExpiresAt(request,user,undefined,now()) || signInExpiresAt(user,now());
+    if (request.method==="GET" && !verified && !expiresAt) return json({error:"Your 12-hour Admin session has ended. Please sign in with your password again.",requiresPassword:true},401);
     if (request.method==="GET") return json({verified,email});
-    if (!expiresAt) return json({error:"Please sign in with your password again.",requiresPassword:true},401);
     const url=Netlify.env.get("SUPABASE_URL"),secret=Netlify.env.get("SUPABASE_SERVICE_ROLE_KEY");
     if(!url||!secret) return json({error:"Login verification is temporarily unavailable."},503);
     const raw=await request.text();
-    if(raw.length>1000)return json({error:"Invalid verification request."},400);
+    if(raw.length>10000)return json({error:"Invalid verification request."},400);
     let body;try{body=JSON.parse(raw)}catch{return json({error:"Invalid verification request."},400)}
-    if(!["send","verify"].includes(body?.action))return json({error:"Invalid verification action."},400);
+    if(!["password","send","verify"].includes(body?.action))return json({error:"Invalid verification action."},400);
     const db=databaseFactory(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
     const limit=async(kind:string,count:number,window:number)=>{
       const result=await db.rpc("hmp_take_seating_rate_limit",{p_key:`rate-limits/admin-login/${kind}/${user.id}`,p_limit:count,p_window_ms:window});
       if(result.error||!Number.isSafeInteger(result.data))throw new Error("Rate limiting unavailable");
       return result.data;
     };
+    if(body.action==="password") {
+      if(typeof body.password!=="string"||!body.password||body.password.length>4096)return json({error:"Enter your password."},400);
+      if(await limit("password",10,600_000))return json({error:"Too many sign-in attempts. Wait 10 minutes before trying again."},429);
+      const authentication=await fetchFn("https://hmpeds.com/.netlify/identity/token",{
+        method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},
+        body:new URLSearchParams({grant_type:"password",username:email,password:body.password}).toString(),signal:AbortSignal.timeout(10000)
+      });
+      if(!authentication.ok)return json({error:"The email or password is incorrect."},401);
+      const authenticated=await authentication.json();
+      if(typeof authenticated.access_token!=="string")return json({error:"Unable to verify this account."},401);
+      const identityResponse=await fetchFn("https://hmpeds.com/.netlify/identity/user",{headers:{Authorization:`Bearer ${authenticated.access_token}`},signal:AbortSignal.timeout(10000)});
+      if(!identityResponse.ok)return json({error:"Unable to verify this account."},401);
+      const identity=await identityResponse.json();
+      if(identity.id!==user.id||identity.email?.toLowerCase()!==email)return json({error:"Unable to verify this account."},401);
+      const response=json({ok:true});
+      response.headers.append("Set-Cookie",cookieHeader(request,passwordCookie,issuePasswordProof(user,secret,now()),verificationLifetime));
+      return response;
+    }
+    if (!expiresAt) return json({error:"Please sign in with your password again.",requiresPassword:true},401);
     let nonce=readCookie(request,challengeCookie);
     if(!/^[0-9a-f-]{36}$/.test(nonce))nonce=randomUUID();
     const key=`admin-login-challenge/${user.id}/${nonce}`;
@@ -63,7 +81,7 @@ export const createAdminVerificationHandler = ({getUserFn=getUser,databaseFactor
     if(consumed.error)throw new Error("Verification storage unavailable");
     if(consumed.data?.length!==1)return json({error:"That code is incorrect, expired, or already used. Use the newest code or request another."},401);
     const response=json({ok:true,verified:true});
-    response.headers.append("Set-Cookie",cookieHeader(request,verificationCookie,issueVerification(user,secret,now()),Math.max(1,Math.floor((expiresAt-now())/1000))));
+    response.headers.append("Set-Cookie",cookieHeader(request,verificationCookie,issueVerification({...user,lastSignInAt:new Date(expiresAt-verificationLifetime*1000).toISOString()},secret,now()),Math.max(1,Math.floor((expiresAt-now())/1000))));
     response.headers.append("Set-Cookie",cookieHeader(request,challengeCookie,"",0));
     return response;
   } catch { return json({error:"Login verification is temporarily unavailable. Please try again."},503); }

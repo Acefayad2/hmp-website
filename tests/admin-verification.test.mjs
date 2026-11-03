@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,readdirSync} from 'node:fs';
 import {createAdminVerificationHandler} from '../netlify/functions/hmp-admin-verification.mts';
-import {issueVerification,hasAdminVerification,cookieHeader} from '../netlify/functions/_admin-verification.mts';
+import {issueVerification,hasAdminVerification,cookieHeader,passwordExpiresAt,hasAdminVerification as verifiedPasswordCannotGrantAccess} from '../netlify/functions/_admin-verification.mts';
 
 const user={id:'synthetic-admin',email:'admin@example.com',lastSignInAt:new Date().toISOString()};
 const env={HMP_ADMIN_EMAILS:user.email,SUPABASE_URL:'https://synthetic.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'test-only-secret',RESEND_API_KEY:'test-only-mail',HMP_COMMUNICATION_EMAIL:'eventsconcierge@hmpeds.com'};
@@ -36,7 +36,15 @@ function fixture(options={}){
     },
   };
   const handler=createAdminVerificationHandler({getUserFn:async()=>options.user===undefined?user:options.user,databaseFactory:()=>db,now:()=>time,
-    randomCode:()=> '234567',fetchFn:async(url,init)=>{assert.equal(url,'https://api.resend.com/emails');mail.push(JSON.parse(init.body));return Response.json({}, {status:options.mailError?500:200});}});
+    randomCode:()=> '234567',fetchFn:async(url,init)=>{if(url.endsWith('/.netlify/identity/token')){
+      assert.equal(new URLSearchParams(init.body).get('grant_type'),'password');
+      return Response.json({access_token:'synthetic-token'},{status:options.passwordError?400:200});
+    }
+    if(url.endsWith('/.netlify/identity/user')){
+      assert.equal(init.headers.Authorization,'Bearer synthetic-token');
+      return Response.json(options.wrongIdentity?{id:'other',email:'other@example.com'}:{id:user.id,email:user.email});
+    }
+    assert.equal(url,'https://api.resend.com/emails');mail.push(JSON.parse(init.body));return Response.json({}, {status:options.mailError?500:200});}});
   const send=async(cookie='')=>{
     const response=await handler(request({action:'send',email:'attacker@example.com'},cookie));
     return {response,cookie:response.headers.getSetCookie()[0]?.split(';')[0]||cookie};
@@ -101,7 +109,7 @@ test('proofs are signed, time limited and bound to the exact account',()=>{
 });
 test('sign-out clears verification, challenge and shared-login cookies',async()=>{
   const response=await fixture().handler(request({},'','DELETE'));
-  assert.equal(response.status,200);assert.equal(response.headers.getSetCookie().length,3);
+  assert.equal(response.status,200);assert.equal(response.headers.getSetCookie().length,4);
   for(const cookie of response.headers.getSetCookie())assert.match(cookie,/Max-Age=0/);
 });
 test('expired or unknown password sign-in cannot restart verification through a refreshed Identity session',async()=>{
@@ -130,4 +138,41 @@ test('all website Admin endpoints use the server verification guard',()=>{
   for(const file of readdirSync(new URL('../netlify/functions/',import.meta.url)).filter(f=>f.endsWith('.mts')&&!['_admin-verification.mts','hmp-admin-verification.mts'].includes(f))){
     assert.doesNotMatch(readFileSync(new URL(`../netlify/functions/${file}`,import.meta.url),'utf8'),/from ["']@netlify\/identity["']/);
   }
+});
+
+test('accounts without provider sign-in timestamps can verify password then email code',async()=>{
+  const f=fixture({user:{id:user.id,email:user.email}});
+  const password=await f.handler(request({action:'password',password:'synthetic-password'}));
+  assert.equal(password.status,200);
+  const cookie=password.headers.getSetCookie()[0].split(';')[0];
+  const expires=passwordExpiresAt(request({},cookie),user);
+  assert.ok(expires>Date.now());
+  assert.equal(verifiedPasswordCannotGrantAccess(request({},cookie),user),false);
+  const sent=await f.send(cookie);assert.equal(sent.response.status,200);
+  const completed=await f.handler(request({action:'verify',code:'234567'},cookie+'; '+sent.cookie));
+  assert.equal(completed.status,200);
+  const proof=completed.headers.getSetCookie()[0].split(';')[0];
+  assert.equal(verifiedPasswordCannotGrantAccess(request({},proof),user),true);
+  f.advance(12*60*60*1000+1);
+  const expired=await f.handler(request({},cookie,'GET'));assert.equal(expired.status,401);
+  assert.equal((await expired.json()).requiresPassword,true);
+});
+test('password proof rejects wrong password and mismatched Identity account',async()=>{
+  for(const option of [{passwordError:true},{wrongIdentity:true}]){
+    const f=fixture({...option,user:{id:user.id,email:user.email}});
+    const response=await f.handler(request({action:'password',password:'synthetic-password'}));
+    assert.equal(response.status,401);assert.equal(response.headers.get('set-cookie'),null);
+  }
+});
+test('password proof cannot be forged, transferred, or extended by requesting an email code',async()=>{
+  const f=fixture({user:{id:user.id,email:user.email}});
+  const response=await f.handler(request({action:'password',password:'synthetic-password'}));
+  const cookie=response.headers.getSetCookie()[0].split(';')[0];
+  const expires=passwordExpiresAt(request({},cookie),user);
+  assert.equal(passwordExpiresAt(request({},cookie),{...user,id:'other'}),0);
+  assert.equal(passwordExpiresAt(request({},cookie+'a'),user),0);
+  f.advance(60_000);
+  const sent=await f.send(cookie);assert.equal(sent.response.status,200);
+  assert.equal(passwordExpiresAt(request({},cookie),user),expires);
+  assert.ok(!sent.response.headers.get('set-cookie').includes('hmp_admin_password'));
 });

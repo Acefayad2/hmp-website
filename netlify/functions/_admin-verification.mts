@@ -2,6 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { getUser as identityUser } from "@netlify/identity";
 
 export const verificationCookie = "hmp_admin_verified";
+export const passwordCookie = "hmp_admin_password";
 export const challengeCookie = "hmp_admin_challenge";
 export const verificationLifetime = 12 * 60 * 60;
 // Identity token refresh does not reset lastSignInAt. Anchor the deadline to
@@ -38,6 +39,24 @@ export const hasAdminVerification = (request: Request, user: {id:string;email?:s
     const proof = JSON.parse(Buffer.from(payload,"base64url").toString());
     return proof.id===user.id && proof.email===user.email.toLowerCase() && Number.isSafeInteger(proof.expires) && proof.expires>now && proof.expires<=now+verificationLifetime*1000;
   } catch { return false; }
+};
+// A separate, signed password proof supports Identity accounts without last_sign_in_at.
+// It cannot be used as the email-code proof because the HMAC purpose differs.
+export const issuePasswordProof = (user: {id:string;email?:string}, secret = securitySecret(), now = Date.now()) => {
+  if (!secret) throw new Error("Verification unavailable");
+  const payload=Buffer.from(JSON.stringify({id:user.id,email:user.email?.toLowerCase(),expires:now+verificationLifetime*1000})).toString("base64url");
+  return `${payload}.${mac(secret, `hmp-admin-password:v1:${payload}`)}`;
+};
+export const passwordExpiresAt = (request: Request, user: {id:string;email?:string}, secret = securitySecret(), now=Date.now()) => {
+  const token=readCookie(request,passwordCookie);
+  if(!secret||token.length>2000)return 0;
+  const [payload,signature,extra]=token.split('.');
+  if(extra!==undefined||!payload||!/^[a-f0-9]{64}$/.test(signature||''))return 0;
+  if(!timingSafeEqual(Buffer.from(signature),Buffer.from(mac(secret,`hmp-admin-password:v1:${payload}`))))return 0;
+  try {
+    const proof=JSON.parse(Buffer.from(payload,'base64url').toString());
+    return proof.id===user.id && proof.email===user.email?.toLowerCase() && Number.isSafeInteger(proof.expires) && proof.expires>now && proof.expires<=now+verificationLifetime*1000 ? proof.expires : 0;
+  }catch{return 0;}
 };
 export const cookieHeader = (request: Request, name: string, value: string, maxAge: number) => {
   const host = new URL(request.url).hostname;

@@ -2277,10 +2277,12 @@ loginForm.addEventListener("submit", async (event) => {
   try {
     await fetch("/api/hmp-admin-verification",{method:"DELETE",credentials:"same-origin"}).then(response=>{if(!response.ok)throw new Error("Unable to start a secure sign-in.");});
     const user = await login($("#login-email").value.trim(), $("#login-password").value);
+    const passwordCheck=await fetch("/api/hmp-admin-verification",{method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"password",password:$("#login-password").value})});
+    if(!passwordCheck.ok){const result=await passwordCheck.json();throw new Error(result.error||"Could not verify your password. Please try again.");}
     $("#login-password").value="";
     await enterDashboard(user);
   } catch (error) {
-    setMessage(authMessage, error?.status === 401 ? "The email or password is incorrect." : "We could not sign you in. Please try again.");
+    setMessage(authMessage, error?.status === 401 ? "The email or password is incorrect." : (error?.message || "We could not sign you in. Please try again."));
   } finally {
     button.disabled = false;
   }
