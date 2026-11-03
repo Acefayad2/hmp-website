@@ -1087,9 +1087,10 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation").hidden = false;
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = [thread.clientEmail, thread.clientPhone].filter(Boolean).join(" · ");
-  $("#admin-client-access-expiry").textContent = clientAccessNotice(thread);
-  $("#archive-active-conversation").textContent = thread.archivedAt ? "Restore hub" : "Archive hub";
-  for (const id of ["send-new-active-link", "reset-client-pin", "set-active-link-expiration", "open-proposal-editor"]) $("#" + id).disabled = Boolean(thread.archivedAt);
+  $("#admin-client-access-expiry").textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt, true)}. Client access is disabled. Signed documents and financial records are preserved.` : clientAccessNotice(thread);
+  $("#delete-active-conversation").hidden = Boolean(thread.deletedAt);
+  $("#archive-active-conversation").textContent = thread.deletedAt ? "Restore from Deleted" : thread.archivedAt ? "Restore hub" : "Archive hub";
+  for (const id of ["send-new-active-link", "reset-client-pin", "set-active-link-expiration", "open-proposal-editor"]) $("#" + id).disabled = Boolean(thread.archivedAt || thread.deletedAt);
   const textButton = $("#send-admin-text");
   textButton.disabled = !thread.clientPhone;
   textButton.title = thread.clientPhone ? `Text ${thread.clientPhone}` : "Add a phone number on the inquiry before texting";
@@ -1110,11 +1111,11 @@ const renderMessageThreads = () => {
   const list = $("#thread-list");
   list.replaceChildren();
   const filter = $("#hub-archive-filter").value;
-  const visibleThreads = messageThreads.filter(thread => filter === "all" || Boolean(thread.archivedAt) === (filter === "archived"));
+  const visibleThreads = messageThreads.filter(thread => filter === "all" || (filter === "deleted" ? Boolean(thread.deletedAt) : !thread.deletedAt && Boolean(thread.archivedAt) === (filter === "archived")));
   $("#thread-count").textContent = visibleThreads.length;
   $("#thread-empty").hidden = visibleThreads.length > 0;
-  $("#thread-empty h3").textContent = filter === "archived" ? "No archived hubs" : "No conversations yet";
-  $("#thread-empty p").textContent = filter === "archived" ? "Archived conversations will appear here. Nothing is deleted." : "Create a private link from an inquiry to begin.";
+  $("#thread-empty h3").textContent = filter === "deleted" ? "No deleted hubs" : filter === "archived" ? "No archived hubs" : "No conversations yet";
+  $("#thread-empty p").textContent = filter === "deleted" ? "Deleted hubs can be restored for 30 days. Signed and financial records are preserved." : filter === "archived" ? "Archived conversations will appear here. Nothing is deleted." : "Create a private link from an inquiry to begin.";
   list.hidden = visibleThreads.length === 0;
   visibleThreads.forEach((thread) => {
     const button = document.createElement("button");
@@ -1135,7 +1136,7 @@ const renderMessageThreads = () => {
     const service = document.createElement("small");
     service.textContent = `${eventServiceLabel(thread.service)} · ${formatDate(thread.celebrationDate)}`;
     const status = document.createElement("em");
-    status.textContent = thread.archivedAt ? "Archived · client access disabled" : thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
+    status.textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt)}` : thread.archivedAt ? "Archived · client access disabled" : thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
     button.append(top, service, status);
     list.append(button);
   });
@@ -1468,7 +1469,7 @@ const sendAdminMessage = async (event) => {
 const deleteActiveConversation = async () => {
   const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
   if (!thread) return;
-  if (!window.confirm(`Permanently delete the conversation with ${thread.clientName}? All messages, proposals, and attachments in this conversation will be removed, and the client link will stop working.`)) return;
+  if (!window.confirm(`Move the conversation with ${thread.clientName} to Deleted? Client access stops now. You can restore it for 30 days; then its conversation messages and attachments are permanently removed. Signed agreements, invoices, receipts, and payment records are preserved.`)) return;
   const button = $("#delete-active-conversation");
   button.disabled = true;
   setMessage($("#admin-message-status"), "Deleting conversation…");
@@ -2600,14 +2601,14 @@ $("#hub-archive-filter").addEventListener("change", renderMessageThreads);
 $("#archive-active-conversation").addEventListener("click", async () => {
   const thread = messageThreads.find(item => item.id === activeThreadId);
   if (!thread) return;
-  const restoring = Boolean(thread.archivedAt);
+  const restoring = Boolean(thread.archivedAt || thread.deletedAt);
   if (!confirm(restoring
     ? "Restore this hub? Its original link settings will apply again. Expired or previously revoked links stay inactive. No email is sent."
     : "Archive this hub and disable its client portal link? Messages and documents will be preserved. Separate document and Guest Seating links keep their own access settings.")) return;
   const button = $("#archive-active-conversation");
   button.disabled = true;
   try {
-    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:restoring ? "restore" : "archive",conversationId:thread.id})});
+    const response = await fetch("/api/hmp-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:thread.deletedAt ? "restore-deleted" : restoring ? "restore" : "archive",conversationId:thread.id})});
     const data = await response.json();
     if (!response.ok) throw new Error(data.error || "Client hub could not be updated.");
     $("#hub-archive-filter").value = restoring ? "active" : "archived";

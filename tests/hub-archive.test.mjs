@@ -10,7 +10,7 @@ const request=(action,origin="https://hmpeds.com",conversationId=id)=>new Reques
 test("hub archive and restore require same-origin Admin and report RPC failure",async()=>{
   const calls=[];
   let result={data:true,error:null};
-  const databaseFactory=()=>({rpc:async(name,args)=>{calls.push({name,args});return result;}});
+  const databaseFactory=()=>({from:()=>({select(){return this;},eq(){return this;},maybeSingle:async()=>({data:{deleted_at:null}})}),rpc:async(name,args)=>{calls.push({name,args});return result;}});
   const handler=createMessagesHandler({databaseFactory,getUserFn:async()=>({email:"admin@example.test"})});
   const unauthorized=createMessagesHandler({databaseFactory,getUserFn:async()=>null});
   assert.equal((await unauthorized(request("archive"))).status,401);
