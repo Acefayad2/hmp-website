@@ -78,7 +78,7 @@ test("sessions cannot cross private links, survive reset versions, be forged, or
   assert.equal((await requireClientPin(request("GET",null,cookie),db,portalPinId("message:test-client","reset-link"),secret)).status,401);
   assert.equal((await requireClientPin(request("GET",null,cookie),db,portalPinId("seating:test-client","private-link"),secret)).status,401);
   const now=Date.now;
-  try { Date.now=()=>now()+9*60*60*1000; assert.equal((await requireClientPin(request("GET",null,cookie),db,id,secret)).status,401); }
+  try { Date.now=()=>now()+13*60*60*1000; assert.equal((await requireClientPin(request("GET",null,cookie),db,id,secret)).status,401); }
   finally { Date.now=now; }
   db.rows.get(id).version=randomUUID();
   assert.equal((await requireClientPin(request("GET",null,cookie),db,id,secret)).status,401);
@@ -96,3 +96,19 @@ test("simultaneous PIN creation cannot overwrite another successful enrollment",
   assert.deepEqual(results.map(r=>r.status).sort(),[200,409]);
 });
 
+
+
+test("client PIN session lasts twelve hours without sliding on activity",async()=>{
+ const db=pinDatabase(); const original=Date.now; const start=original();
+ try {
+  Date.now=()=>start;
+  const response=await requireClientPin(request("POST",pinBody),db,id,secret,"setup");
+  assert.match(response.headers.get("set-cookie"),/Max-Age=43200/);
+  const cookie=cookieOf(response);
+  Date.now=()=>start+12*60*60*1000-1;
+  assert.equal(await requireClientPin(request("GET",null,cookie),db,id,secret),null);
+  Date.now=()=>start+12*60*60*1000;
+  const expired=await requireClientPin(request("GET",null,cookie),db,id,secret);
+  assert.equal(expired.status,401);assert.equal((await expired.json()).code,"CLIENT_PIN_REQUIRED");
+ } finally {Date.now=original;}
+});
