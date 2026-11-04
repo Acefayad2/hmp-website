@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 const derive = promisify(scrypt);
 const table = "hmp_client_portal_pins";
-const duration = 8 * 60 * 60 * 1000;
+const duration = 12 * 60 * 60 * 1000;
 type PinRecord = { id: string; pin_hash: string | null; version: string };
 
 export const portalPinId = (scope: string, privateToken: string) =>

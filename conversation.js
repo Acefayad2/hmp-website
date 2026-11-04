@@ -311,6 +311,9 @@ window.addEventListener("beforeunload", (event) => {
 
 if (validToken) {
   loadConversation();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") loadConversation({ quiet: true });
+  });
   setInterval(() => {
     if (document.visibilityState === "visible") loadConversation({ quiet: true });
   }, 12000);
