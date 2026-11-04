@@ -7,6 +7,7 @@ await mkdir(`${outputDirectory}/assets/brand`, { recursive: true });
 
 const productionFiles = [
   "index.html",
+  "identity-landing.js",
   "about.html",
   "services.html",
   "guest-seating.html",
