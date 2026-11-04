@@ -20,23 +20,24 @@ function fixture(responses) {
       toggle: (name, enabled) => enabled ? classes.add(name) : classes.delete(name),
     },
   };
-  const submit = { disabled: false, textContent: "", innerHTML: "" };
+  const submit = { before() {}, disabled: false, textContent: "", innerHTML: "" };
   const submissionId = { value: "" };
   let submitHandler;
   let resetCount = 0;
   const form = {
     addEventListener: (name, handler) => { if (name === "submit") submitHandler = handler; },
-    querySelector: (selector) => selector === "[type=submit]" ? submit : submissionId,
+    querySelector: (selector) => selector.includes("type=") ? submit : submissionId,
     reset: () => { resetCount += 1; },
   };
   let timeout;
   const windowListeners = {};
   let fetchCount = 0;
   runInNewContext(code, {
-    document: { querySelector: (selector) => selector === "#inquiry-form" ? form : status },
+    AbortController,
+    document: { createElement: () => ({setAttribute(){},replaceChildren(){}}), querySelector: (selector) => selector === "#inquiry-form" ? form : status },
     window: { addEventListener: (name, handler) => { windowListeners[name] = handler; } },
-    clearTimeout: () => { timeout = undefined; },
-    setTimeout: (handler, delay) => { assert.equal(delay, 7000); timeout = handler; return 1; },
+    clearTimeout: (id) => { if(id === 7000) timeout = undefined; },
+    setTimeout: (handler, delay) => { if(delay===7000) timeout = handler; return delay; },
     showServiceNotice: () => false,
     serviceNotices: {},
     syncInquiryFields: () => {},
