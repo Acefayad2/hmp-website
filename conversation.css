@@ -145,3 +145,12 @@ footer a { color:var(--ink); }
 .client-pin-form a { color: #604545; text-decoration: underline; }
 #client-pin-status { color: #9a2424; }
 .client-sign-out { margin: 16px 24px 0; align-self: flex-end; }
+
+.message-copy, .admin-message > .message-copy { display: block; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.message-copy strong { font-size: inherit; letter-spacing: normal; text-transform: none; }
+.message-copy a { color: inherit; text-decoration: underline; }
+.message-copy .agreement-align-left { text-align: left; }
+.message-copy .agreement-align-center { text-align: center; }
+.message-copy .agreement-align-right { text-align: right; }
+.message-copy ul { list-style-type: disc; padding-left: 1.5em; }
+.message-copy ol { list-style-type: decimal; padding-left: 1.5em; }

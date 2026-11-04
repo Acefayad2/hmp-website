@@ -1,3 +1,4 @@
+import {normalizeMessageFormatting} from "../../message-formatting.mjs";
 import {readInternalNotes, internalNotesText} from "../../internal-note-history.mjs";
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
@@ -216,7 +217,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       inquiryIds.length
         ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,phone,service,celebration_date,status,internal_notes,updated_at").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [], error: null }),
-      readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,attachments,document,created_at,edited_at,email_notified_at,email_notification_error,revision_root_id"),
+      readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,text_formatting,attachments,document,created_at,edited_at,email_notified_at,email_notification_error,revision_root_id"),
     ]);
     // A database/schema failure is not an empty conversation. Keep the UI's
     // existing data and surface a retryable error instead of hiding messages.
@@ -257,6 +258,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
             sender: message.sender,
             senderName: message.sender_name || (message.sender === "admin" ? "HMP representative" : inquiry.client_name || "Client"),
             body: message.body,
+            formatting: message.text_formatting || [],
             document: message.document || null,
             ...(message.revision_root_id?{revisionRootId:message.revision_root_id}:{}),
             attachments: message.signedAttachments,
@@ -420,7 +422,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       .eq("sender", "admin").is("deleted_at", null).maybeSingle();
     if (readError) return json({ error: "Message could not be loaded" }, 502);
     if (!existing) return json({ error: "Admin message not found" }, 404);
-    let changes: Record<string, string>;
+    let changes: Record<string, unknown>;
     if (action === "edit-message") {
       if (existing.document || String(existing.body || "").startsWith(proposalPrefix)) {
         return json({ error: "Proposal and document messages cannot be edited here" }, 400);
@@ -436,7 +438,10 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       }
       const message = cleanText(body.message, 4000);
       if (!message) return json({ error: "Enter a message" }, 400);
-      changes = { body: message, edited_at: new Date().toISOString() };
+      let formatting;
+      try { formatting=normalizeMessageFormatting(body.message,message,body.formatting); }
+      catch { return json({error:"Message formatting is invalid. Simplify it and try again."},400); }
+      changes = { body: message, text_formatting: formatting, edited_at: new Date().toISOString() };
     } else {
       changes = { deleted_at: new Date().toISOString() };
     }
@@ -574,6 +579,9 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : "Message is invalid" }, 400);
     }
+    let formatting=[];
+    try { if (!message.startsWith(proposalPrefix)) formatting=normalizeMessageFormatting(body.message,message,body.formatting); }
+    catch { return json({error:"Message formatting is invalid. Simplify it and try again."},400); }
     const suppliedRequestId = cleanText(body.requestId, 36);
     const requestId = uuidPattern.test(suppliedRequestId)
       ? suppliedRequestId
@@ -605,24 +613,24 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const now = new Date().toISOString();
     const { data: inserted, error } = await client
       .from("hmp_client_messages")
-      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message, attachments, email_notification_error: portalOnly ? null : "Email notification not yet confirmed. Retry if this status persists." })
-      .select("id,sender,sender_name,body,attachments,created_at")
+      .insert({ id: requestId, conversation_id: conversationId, sender: "admin", sender_name: user.name || "HMP representative", body: message, text_formatting: formatting, attachments, email_notification_error: portalOnly ? null : "Email notification not yet confirmed. Retry if this status persists." })
+      .select("id,sender,sender_name,body,text_formatting,attachments,created_at")
       .single();
     if (error?.code === "23505") {
       const { data: existing } = await client
         .from("hmp_client_messages")
-        .select("id,sender,sender_name,body,attachments,created_at,email_notified_at,email_notification_error")
+        .select("id,sender,sender_name,body,text_formatting,attachments,created_at,email_notified_at,email_notification_error")
         .eq("id", requestId)
         .eq("conversation_id", conversationId)
         .eq("sender", "admin")
         .maybeSingle();
-      if (existing) return json({ ok: true, duplicate: true, clientUrl:sharedLink, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, attachments: existing.attachments, createdAt: existing.created_at }, ...(portalOnly ? {} : await notifyStoredMessage(client,inquiry,conversation,existing,fetchFn)) });
+      if (existing) return json({ ok: true, duplicate: true, clientUrl:sharedLink, message: { id: existing.id, sender: existing.sender, senderName: existing.sender_name, body: existing.body, formatting: existing.text_formatting || [], attachments: existing.attachments, createdAt: existing.created_at }, ...(portalOnly ? {} : await notifyStoredMessage(client,inquiry,conversation,existing,fetchFn)) });
     }
     if (error || !inserted) return json({ error: "Message could not be sent" }, 502);
     await completeAttachmentUploads(client, attachments);
     await client.from("hmp_client_conversations").update({ last_message_at: now, last_sender: "admin", updated_at: now }).eq("id", conversationId);
     const notification = portalOnly ? {} : await notifyStoredMessage(client,inquiry,conversation,inserted,fetchFn);
-    return json({ ok: true, clientUrl:sharedLink, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, attachments: inserted.attachments, createdAt: inserted.created_at }, ...notification });
+    return json({ ok: true, clientUrl:sharedLink, message: { id: inserted.id, sender: inserted.sender, senderName: inserted.sender_name, body: inserted.body, formatting: inserted.text_formatting || [], attachments: inserted.attachments, createdAt: inserted.created_at }, ...notification });
   }
 
   return json({ error: "Invalid action" }, 400);

@@ -802,3 +802,20 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .hub-note-card > div { margin-top: 14px; }
 
 .hub-notes .rich-field-host .agreement-format-toolbar { display: flex; visibility: visible; }
+
+/* Give Client Hub replies room to compose, including on touch screens. */
+#admin-message-input + .rich-field-host .agreement-rich-editor,
+.admin-message-editor .agreement-rich-editor { min-height: 14rem; max-height: 32rem; overflow-y: auto; resize: vertical; }
+#admin-message-input + .rich-field-host .agreement-format-toolbar,
+.admin-message-editor .agreement-format-toolbar { display: flex; visibility: visible; }
+
+.admin-message-composer > .rich-field-host { display: block; }
+
+.message-copy, .admin-message > .message-copy { display: block; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
+.message-copy strong { font-size: inherit; letter-spacing: normal; text-transform: none; }
+.message-copy a { color: inherit; text-decoration: underline; }
+.message-copy .agreement-align-left { text-align: left; }
+.message-copy .agreement-align-center { text-align: center; }
+.message-copy .agreement-align-right { text-align: right; }
+.message-copy ul { list-style-type: disc; padding-left: 1.5em; }
+.message-copy ol { list-style-type: decimal; padding-left: 1.5em; }

@@ -96,7 +96,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
     // Keep deletion markers until revision selection, otherwise deleting the
     // current share resurrects an older copy in the client's document tabs.
     // Deleted content is filtered before signing attachments or returning data.
-    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,attachments,document,created_at,edited_at,revision_root_id,deleted_at", { includeDeleted: true });
+    const { data: messages, error } = await readMessageHistory(client, [conversation.id], "id,sender,sender_name,body,text_formatting,attachments,document,created_at,edited_at,revision_root_id,deleted_at", { includeDeleted: true });
     if (error) return json({ error: "Conversation is temporarily unavailable." }, 502);
     const currentMessages = await Promise.all(latestPublishedDocuments(messages || []).map(async message => {
       if (message.document?.kind !== "form") return message;
@@ -124,6 +124,7 @@ export const createConversationHandler = ({databaseFactory=getDatabase}={}) => a
         sender: message.sender,
         senderName: message.sender_name || (message.sender === "admin" ? "HMP representative" : inquiry.client_name || "Client"),
         body: message.body,
+        formatting: message.text_formatting || [],
         document: message.document || null,
         ...(message.revision_root_id?{revisionRootId:message.revision_root_id}:{}),
         attachments: message.signedAttachments,
