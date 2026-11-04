@@ -14,7 +14,7 @@ function composer(admin, failure) {
   const context = {
     activeThreadId: "thread", token: "sample", globalThis: { crypto: { randomUUID: () => "request-id" } },
     $: selector => selector.endsWith("message-input") ? input : selector.endsWith("message-attachments") ? attachments : status,
-    selectedFiles: () => [], setAttachmentBusy: (el, previews, value) => { el.disabled = value; },
+    richFieldFormatting: () => [], selectedFiles: () => [], setAttachmentBusy: (el, previews, value) => { el.disabled = value; },
     setMessage: (el, message) => { el.textContent = message; }, uploadAttachments: () => upload,
     fetch: async () => ({ ok: !failure, json: async () => ({ error: "Send failed" }) }),
     pinRequired: () => false, clearStagedAttachments() {}, updateAttachmentSummary() {}, renderAttachmentPreviews() {},

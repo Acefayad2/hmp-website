@@ -1,3 +1,4 @@
+import {renderMessageText} from "./message-formatting.mjs";
 import {
   appendAttachments,
   stageAttachments,
@@ -120,8 +121,9 @@ const renderMessages = (messages) => {
     const name = document.createElement("strong");
     name.textContent = message.sender === "client" ? "You" : "HMP representative";
     const proposal = parseProposal(message.body);
-    const copy = document.createElement("p");
-    if (message.sender === "admin") appendLinkedText(copy, message.body);
+    const copy = document.createElement("div");
+    copy.className = "message-copy";
+    if (message.sender === "admin") renderMessageText(copy, message.body, message.formatting);
     else copy.textContent = message.body;
     const time = document.createElement("time");
     time.dateTime = message.createdAt;

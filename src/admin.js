@@ -1,3 +1,4 @@
+import {renderMessageText} from "../message-formatting.mjs";
 import { loadAgreementForms, openAgreementDraft } from "./agreement-admin.js";
 import {mountRichFields,collectRichFields,setRichField,richFieldFormatting} from "./rich-text-fields.js";
 import { mountAdminVerification } from "./admin-verification.js";
@@ -610,8 +611,9 @@ const renderAdminMessages = (thread) => {
       meta.append(edited);
     }
     const proposal = parseProposal(message.body);
-    const copy = document.createElement("p");
-    if (message.sender === "admin") appendLinkedText(copy, message.body);
+    const copy = document.createElement("div");
+    copy.className = "message-copy";
+    if (message.sender === "admin") renderMessageText(copy, message.body, message.formatting);
     else copy.textContent = message.body;
     article.append(meta);
     const documentCard=message.sender === "admin" ? renderDocumentCard(message.document, {enforceExpiry:false}) : null;
@@ -667,10 +669,10 @@ const renderAdminMessages = (thread) => {
   if (!list.hidden) list.scrollTop = list.scrollHeight;
 };
 
-const changeAdminMessage = async (action, conversationId, messageId, message) => {
+const changeAdminMessage = async (action, conversationId, messageId, message, formatting) => {
   const response = await fetch("/api/hmp-messages", {
     method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, conversationId, messageId, message }),
+    body: JSON.stringify({ action, conversationId, messageId, message, formatting }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Message could not be changed.");
@@ -701,10 +703,11 @@ const showAdminMessageEditor = (article, conversationId, message) => {
     event.preventDefault();
     if (!input.value.trim()) return;
     save.disabled = true;
-    try { await changeAdminMessage("edit-message", conversationId, message.id, input.value); }
+    try { await changeAdminMessage("edit-message", conversationId, message.id, input.value, richFieldFormatting(input)); }
     catch (error) { setMessage($("#admin-message-status"), error.message); save.disabled = false; }
   });
   article.append(editor);
+  setRichField(input,message.formatting);
   input.focus();
 };
 
@@ -1411,7 +1414,7 @@ const sendAdminMessage = async (event) => {
   event.preventDefault();
   if (!activeThreadId || $("#admin-message-attachments").disabled) return;
   const input = $("#admin-message-input");
-  const message = input.value.trim();
+  const message = input.value;
   const attachmentInput = $("#admin-message-attachments");
   let files;
   try {
@@ -1448,7 +1451,7 @@ const sendAdminMessage = async (event) => {
       method: "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send", conversationId: activeThreadId, message, requestId, attachments }),
+      body: JSON.stringify({ action: "send", conversationId: activeThreadId, message, formatting: richFieldFormatting(input), requestId, attachments }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Reply could not be sent.");
@@ -2420,7 +2423,9 @@ $("#insert-message-signature").addEventListener("click", () => {
   const input = $("#admin-message-input");
   const result = insertMessageSignature(input.value, messageSignature, input.maxLength);
   if (result.error) return setMessage($("#admin-message-status"), result.error);
+  const formatting = richFieldFormatting(input);
   input.value = result.message;
+  setRichField(input,formatting);
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
   setMessage($("#admin-message-status"), "Signature added to the draft. Review it before sending.", true);
@@ -2445,7 +2450,7 @@ const fillLinkText = (target, name, url) => {
 const sendAdminText = async () => {
   if (!activeThreadId || $("#admin-message-attachments").disabled) return;
   const input = $("#admin-message-input");
-  const message = input.value.trim();
+  const message = input.value;
   const attachmentInput = $("#admin-message-attachments");
   if (pendingFiles(attachmentInput).length) {
     setMessage($("#admin-message-status"), "Remove attachments before sending a text. Files still go out with Send reply.");
@@ -2653,7 +2658,9 @@ const insertCalendarLink = (value, label) => {
     setMessage($("#admin-message-status"), "Shorten your reply before adding the calendar link.");
     return false;
   }
+  const formatting = richFieldFormatting(messageInput);
   messageInput.value += addition;
+  setRichField(messageInput,formatting);
   messageInput.focus();
   setMessage($("#admin-message-status"), "Calendar link added to the reply. Click Send reply to share it.");
   return true;
@@ -2835,3 +2842,5 @@ onAuthChange((event, user) => {
     syncSharedSession().catch(() => {});
   }
 });
+
+setRichField($("#admin-message-input"));

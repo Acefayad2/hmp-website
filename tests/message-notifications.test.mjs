@@ -190,3 +190,19 @@ test("IMG_1964: proposal pricing date is a server-enforced end-of-day access dea
   }
   assert.equal(messages.length,0);
 });
+
+test("reply formatting survives save and edit; invalid ranges are rejected", async () => {
+  const messages=[];
+  const h=handler(fakeDatabase(messages),async()=>new Response("{}"));
+  const response=await h(request({...sendBody,message:"  Hello  ",formatting:[{start:2,end:7,bold:true}]}));
+  assert.equal(response.status,200);
+  assert.equal(messages[0].body,"Hello");
+  assert.deepEqual(messages[0].text_formatting,[{start:0,end:5,bold:true}]);
+  assert.deepEqual((await response.json()).message.formatting,messages[0].text_formatting);
+  const edit=await h(request({action:"edit-message",conversationId,messageId:messages[0].id,message:"Updated",formatting:[{start:0,end:7,italic:true}]}));
+  assert.equal(edit.status,200);
+  assert.equal(messages[0].body,"Updated");
+  assert.deepEqual(messages[0].text_formatting,[{start:0,end:7,italic:true}]);
+  const bad=await h(request({...sendBody,message:"Hi",formatting:[{start:0,end:90,bold:true}]}));
+  assert.equal(bad.status,400);
+});
