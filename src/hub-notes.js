@@ -5,6 +5,8 @@ import {readInternalNotes} from "../internal-note-history.mjs";
 export const mountHubNotes = ({ form, input, history, saveButton, reloadButton, status, loadThreads, onSaved }) => {
   const drafts = new Map();
   let currentId = "";
+  const pageSize = 10;
+  const composer = input.closest?.("[data-hub-note-composer]");
   setRichField(input);
   const dirty = draft => draft.text !== draft.saved || Boolean(draft.editId) || Boolean(draft.formatting?.length);
   const resetEditor = draft => { input.value = draft.text; setRichField(input,draft.formatting || []); };
@@ -13,7 +15,21 @@ export const mountHubNotes = ({ form, input, history, saveButton, reloadButton, 
     history.replaceChildren();
     const entries = draft.entries || readInternalNotes(draft.history);
     if (!entries.length) {history.textContent = "No saved notes yet."; return;}
-    for (const note of entries) {
+    const pages=Math.max(1,Math.ceil(entries.length/pageSize));
+    draft.page=Math.min(draft.page || 0,pages-1);
+    const pager=()=>{
+      const nav=document.createElement("nav");nav.className="hub-notes-actions";nav.setAttribute("aria-label","Saved note pages");
+      const previous=document.createElement("button"), next=document.createElement("button"), label=document.createElement("span");
+      previous.type=next.type="button";previous.className=next.className="secondary-button";
+      previous.textContent="Previous";next.textContent="Next";
+      previous.disabled=draft.page===0;next.disabled=draft.page>=pages-1;
+      label.textContent=`Page ${draft.page+1} of ${pages} · ${entries.length} notes`;
+      previous.addEventListener("click",()=>{draft.page--;renderHistory(draft);});
+      next.addEventListener("click",()=>{draft.page++;renderHistory(draft);});
+      nav.append(previous,label,next);return nav;
+    };
+    if(pages>1)history.append(pager());
+    for (const note of entries.slice(draft.page*pageSize,(draft.page+1)*pageSize)) {
       const card = document.createElement("details"), title = document.createElement("summary"), content = document.createElement("div"), actions = document.createElement("div");
       card.className = "hub-note-card";
       title.textContent = `${note.createdAt ? new Date(note.createdAt).toLocaleString() : "Earlier note"}${note.author ? ` · ${note.author}` : ""} — ${note.text.slice(0,90)}${note.text.length>90?"…":""}`;
@@ -26,11 +42,13 @@ export const mountHubNotes = ({ form, input, history, saveButton, reloadButton, 
           if (label === "Delete") {if(window.confirm("Delete this internal note? This cannot be undone.")) void saveNote("delete-note",note.id);return;}
           if (dirty(draft) && !window.confirm("Replace your unsaved draft with this note for editing?")) return;
           draft.editId=note.id;draft.text=note.text;draft.formatting=note.formatting || [];draft.message="Editing saved note. Select Save changes when finished.";
+          if(composer)composer.open=true;
           resetEditor(draft);paint();input.focus();
         });actions.append(button);
       }
       card.append(title,content,actions);history.append(card);
     }
+    if(pages>1)history.append(pager());
   };
   const cancel = document.createElement("button");cancel.type="button";cancel.className="secondary-button";cancel.textContent="Cancel edit";cancel.hidden=true;
   saveButton.after?.(cancel);
@@ -80,7 +98,8 @@ export const mountHubNotes = ({ form, input, history, saveButton, reloadButton, 
       draft.history = data.inquiry.internalNotes;
       draft.entries = data.inquiry.internalNoteEntries;
       if(action !== "delete-note" || draft.editId === noteId) {draft.text = draft.saved = "";draft.editId=null;draft.formatting=[];}
-      if(currentId===id)resetEditor(draft);
+      if(action === "append-notes")draft.page=Math.max(0,Math.ceil((draft.entries || []).length/pageSize)-1);
+      if(currentId===id){resetEditor(draft);if(composer && action !== "delete-note")composer.open=false;}
       draft.version = data.inquiry.notesVersion;
       draft.message = "Notes saved privately for the HMP Admin team. Nothing was sent to the client.";
       onSaved(data.inquiry);
