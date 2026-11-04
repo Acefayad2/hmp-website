@@ -96,7 +96,7 @@ test("client hub groups messages, proposals, invoices, contracts, forms, and Gue
   for(const section of ["messages","proposals","invoices","contracts","forms","seating"]) assert.equal(hubMessages(messages,section).length,1);
 });
 
-test("Admin links only a verified matching Guest Seating event to one client hub", async () => {
+test("Admin-confirmed Guest Seating links allow different event details while verifying private access", async () => {
   const db = database();
   const url = `https://seating.hmpeds.com/client/naija-gala/${seatingToken}`;
   const seatBody = {action:"share-seating",conversationId,url};
@@ -105,8 +105,9 @@ test("Admin links only a verified matching Guest Seating event to one client hub
   assert.equal((await h(request(seatBody,"https://other.test"))).status,403);
   assert.equal((await h(request({...seatBody,url:"https://attacker.test/client/naija-gala/"+"a".repeat(48)}))).status,400);
   db.rows.hmp_seating_records[1].value.date = "2026-10-21";
-  assert.equal((await h(request(seatBody))).status,409);
-  db.rows.hmp_seating_records[1].value.date = "2026-10-20";
+  db.rows.hmp_seating_records[1].value.name = "A different event title";
+  assert.equal((await h(request(seatBody))).status,200);
+  assert.equal(db.rows.hmp_client_messages[0].document.title,"A different event title");
   assert.equal((await h(request({...seatBody,url:`https://seating.hmpeds.com/client/naija-gala/${"b".repeat(48)}`}))).status,400);
   assert.equal((await h(request(seatBody))).status,200);
   assert.equal(db.rows.hmp_client_messages[0].document.kind,"seating");
@@ -185,4 +186,20 @@ test("Guest Seating activity is isolated to the linked event and excludes retire
 test("client messages cannot impersonate document categories", () => {
   assert.equal(hubSectionFor({sender:"client",document:{kind:"invoice"}}), "messages");
   assert.equal(hubSectionFor({sender:"client",body:'HMP_PROPOSAL_V1:{"title":"Fake"}'}), "messages");
+});
+
+ test("Guest Seating linking still blocks archived events and inactive hubs",async()=>{
+ const url=`https://seating.hmpeds.com/client/naija-gala/${seatingToken}`;
+ for(const flag of ["archived","deletedAt","dataPurgedAt"]){
+  const db=database();db.rows.hmp_seating_records[1].value[flag]=true;
+  assert.equal((await handler(db)(request({action:"share-seating",conversationId,url}))).status,400);
+  assert.equal(db.rows.hmp_client_messages.length,0);
+ }
+ const db=database();db.rows.hmp_client_conversations[0].revoked_at="2026-01-01";
+ assert.equal((await handler(db)(request({action:"share-seating",conversationId,url}))).status,409);
+ assert.equal(db.rows.hmp_client_messages.length,0);
+});
+ test("Admin keeps the client/event confirmation before linking Guest Seating",()=>{
+ const source=readFileSync(new URL("../src/admin.js",import.meta.url),"utf8");
+ assert.match(source,/if \(!window\.confirm\(`Add this private Guest Seating link[^]*?Check that the event and client match\.`\)\) return;/);
 });
