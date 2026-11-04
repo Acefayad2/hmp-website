@@ -424,6 +424,34 @@ if (serviceSelect) {
 const form = document.querySelector("#inquiry-form");
 if (form) {
   const status = document.querySelector("#form-status");
+  const issues = document.createElement("div");
+  issues.className = "inquiry-issues";
+  issues.setAttribute("role", "alert");
+  issues.hidden = true;
+  form.querySelector('[type="submit"]').before(issues);
+  let validationShown = false;
+  const renderIssues = () => {
+    const invalid = [...form.elements].filter(field => field.willValidate && !field.validity.valid);
+    issues.replaceChildren();
+    issues.hidden = !invalid.length;
+    if (!invalid.length) return;
+    const heading = document.createElement("p");
+    heading.textContent = "Please complete or correct these fields:";
+    const list = document.createElement("ul");
+    for (const field of invalid) {
+      const label = field.closest("label");
+      const name = [...(label?.childNodes || [])].filter(node => node.nodeType === 3).map(node => node.textContent).join(" ").trim() || field.name || "Required field";
+      const item = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = `${name}${field.getAttribute("aria-label") ? ` — ${field.getAttribute("aria-label")}` : ""}: ${field.validationMessage}`;
+      button.addEventListener("click", () => { field.focus(); field.reportValidity(); });
+      item.append(button); list.append(item);
+    }
+    issues.append(heading, list);
+  };
+  form.addEventListener("invalid", () => { validationShown = true; renderIssues(); }, true);
+  for (const type of ["input", "change"]) form.addEventListener(type, () => { if (validationShown) renderIssues(); });
   let statusTimer;
   const clearInquiryStatus = () => {
     clearTimeout(statusTimer);
@@ -438,7 +466,7 @@ if (form) {
     status.textContent = message;
     status.classList.toggle("error", isError);
     status.classList.add("show");
-    statusTimer = setTimeout(clearInquiryStatus, 7000);
+    if (!isError) statusTimer = setTimeout(clearInquiryStatus, 7000);
   };
 
   window.addEventListener("pagehide", clearInquiryStatus);
@@ -452,6 +480,8 @@ if (form) {
     }
     submit.disabled = true;
     submit.textContent = "Sending…";
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
       const submissionId = form.querySelector('[name="submission-id"]');
       if (submissionId && !submissionId.value) {
@@ -468,12 +498,16 @@ if (form) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
       if (!inquiryResponse.ok)
         throw new Error(
           `Inquiry sync failed with status ${inquiryResponse.status}`,
         );
       form.reset();
+      validationShown = false;
+      issues.hidden = true;
+      issues.replaceChildren();
       if (submissionId) submissionId.value = "";
       Object.values(serviceNotices).forEach((notice) => { notice.acknowledged = false; });
       syncInquiryFields();
@@ -482,10 +516,13 @@ if (form) {
       );
     } catch (error) {
       showInquiryStatus(
-        "We could not send your inquiry. Your information is still here. Please try again or email info@hmpeds.com.",
+        controller.signal.aborted
+          ? "The request is taking too long to confirm. Your information is still here. Please try again; retrying will not create a duplicate inquiry."
+          : "We could not send your inquiry. Your information is still here. Please try again or email info@hmpeds.com.",
         true,
       );
     } finally {
+      clearTimeout(timeout);
       submit.disabled = false;
       submit.innerHTML = "Request my personalized quote <span>↗</span>";
     }

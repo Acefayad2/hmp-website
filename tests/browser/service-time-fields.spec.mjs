@@ -94,3 +94,34 @@ test("proposal Service Time Frame is optional and renders only when entered", as
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("proposal-service-time-frame.png"), fullPage: true });
 });
+
+test("inquiry can recover from missing fields and a stalled request without losing data", async ({page}) => {
+  await page.addInitScript(() => {
+    const original = window.setTimeout;
+    window.setTimeout = (callback, delay, ...args) => original(callback, delay === 30000 ? 100 : delay, ...args);
+  });
+  const submissions=[];
+  await page.route("**/api/hmp-inquiry", async route => {
+    submissions.push(route.request().postDataJSON());
+    if(submissions.length===1) return; // Simulate a request which never responds.
+    await route.fulfill({status:200,json:{ok:true}});
+  });
+  await page.goto('/inquiry.html');
+  await fillInquiry(page,'retry');
+  await page.getByRole('button',{name:/Request my personalized quote/}).click();
+  await expect(page.locator('.inquiry-issues')).toContainText(/First event service start time/i);
+  expect(submissions).toHaveLength(0);
+  await fillTime(page,'service-start-time','16:30');
+  await fillTime(page,'service-end-time','22:30');
+  await page.locator('[name="total-service-hours"]').fill('6');
+  await expect(page.locator('.inquiry-issues')).toBeHidden();
+  const submit=page.getByRole('button',{name:/Request my personalized quote/});
+  await submit.click();
+  await expect(page.locator('#form-status')).toContainText('taking too long');
+  await expect(submit).toBeEnabled();
+  await expect(page.locator('[name="name"]')).toHaveValue('Synthetic Client retry');
+  await submit.click();
+  await expect(page.locator('#form-status')).toContainText('inquiry has been received');
+  expect(submissions).toHaveLength(2);
+  expect(submissions[1]['submission-id']).toBe(submissions[0]['submission-id']);
+});
