@@ -1,3 +1,4 @@
+import {readInternalNotes, internalNotesText} from "../../internal-note-history.mjs";
 import type { Config } from "@netlify/functions";
 import { hmpSender, hmpReplyTo } from "./_email-contact.mts";
 import { timingSafeEqual } from "node:crypto";
@@ -231,7 +232,8 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
       return {
         id: row.id,
         inquiryId: row.inquiry_id,
-        internalNotes: inquiry.internal_notes || "",
+        internalNotes: internalNotesText(inquiry.internal_notes),
+        internalNoteEntries: readInternalNotes(inquiry.internal_notes),
         notesVersion: inquiry.updated_at || null,
         clientName: inquiry.client_name || "Client",
         clientEmail: inquiry.email || "",
