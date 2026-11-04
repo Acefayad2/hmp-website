@@ -1423,7 +1423,7 @@ const sendAdminMessage = async (event) => {
     setMessage($("#admin-message-status"), error.message);
     return;
   }
-  if (!message && !files.length) return;
+  if (!message.trim() && !files.length) return;
   const requestId = globalThis.crypto.randomUUID();
   const button = event.currentTarget.querySelector("button[type=submit]");
   button.disabled = true;
@@ -2450,7 +2450,7 @@ const fillLinkText = (target, name, url) => {
 const sendAdminText = async () => {
   if (!activeThreadId || $("#admin-message-attachments").disabled) return;
   const input = $("#admin-message-input");
-  const message = input.value;
+  const message = input.value.trim();
   const attachmentInput = $("#admin-message-attachments");
   if (pendingFiles(attachmentInput).length) {
     setMessage($("#admin-message-status"), "Remove attachments before sending a text. Files still go out with Send reply.");
