@@ -1,7 +1,9 @@
+import {mountDocumentReminders} from "./document-reminders.js";
 import {agreementRequest} from "../agreement-ui.mjs";
 
 // Shared admin-only controls. Creating/restoring a version never sends it.
 export function mountDocumentVersions(container,{kind,id,status,open,beforeSwitch=()=>true}) {
+  mountDocumentReminders(container,{kind,id,status});
   container.querySelector("[data-document-versions]")?.remove();
   if(!id)return;
   const panel=document.createElement("section");
@@ -30,7 +32,7 @@ export function mountDocumentVersions(container,{kind,id,status,open,beforeSwitc
   }
   const history=document.createElement("button");history.type="button";history.className="agreement-button secondary";history.textContent="Version history";
   actions.append(history);panel.append(note,actions,feedback);
-  const form=container.querySelector("form");
+  const form=[...container.querySelectorAll("form")].find(form=>!form.closest("[data-document-reminders]"));
   if(form)form.before(panel);else container.append(panel);
   let historyDialog;
   history.onclick=async()=>{
