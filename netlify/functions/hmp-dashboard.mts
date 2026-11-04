@@ -1,3 +1,4 @@
+import {readInternalNotes, internalNotesText, changeInternalNotes} from "../../internal-note-history.mjs";
 import type { Config } from "@netlify/functions";
 import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
@@ -75,7 +76,8 @@ export const normalizeInquiry = (record: Record<string, unknown>) => {
   additionalInformation: record.additional_information || "",
   followUpDate: record.follow_up_date || "",
   owner: record.owner || "",
-  internalNotes: record.internal_notes || "",
+  internalNotes: internalNotesText(record.internal_notes),
+  internalNoteEntries: readInternalNotes(record.internal_notes),
   notesVersion: record.updated_at || null,
   source: record.source || "Website",
   };
@@ -153,21 +155,23 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
 
     const id = cleanText(body.id, 36);
     if (!uuidPattern.test(id)) return json({ error: "Invalid inquiry" }, 400);
-    if (body.action === "save-notes" || body.action === "append-notes") {
-      if (typeof body.internalNotes !== "string" || body.internalNotes.length > 5000)
+    if (["save-notes", "append-notes", "edit-note", "delete-note"].includes(String(body.action))) {
+      if (body.action !== "delete-note" && (typeof body.internalNotes !== "string" || body.internalNotes.length > 5000))
         return json({ error: "Notes must be text, up to 5,000 characters." }, 400);
       if (body.expectedVersion !== null && (typeof body.expectedVersion !== "string" ||
           body.expectedVersion.length > 40 || !Number.isFinite(Date.parse(body.expectedVersion))))
         return json({ error: "Reload the client hub before saving notes." }, 400);
-      const note = body.internalNotes.trim();
-      if (!note) return json({ error: "Enter a note before saving." }, 400);
+      const note = body.internalNotes;
+      if (body.action !== "delete-note" && !String(note || "").trim()) return json({ error: "Enter a note before saving." }, 400);
       const {data:existing,error:readError} = await client.from("hmp_admin_inquiries")
         .select("internal_notes,updated_at").eq("submission_id",id).maybeSingle();
       if (readError) return json({error:"Saved notes could not be loaded. Please try again."},502);
       if (!existing || (existing.updated_at ?? null) !== body.expectedVersion)
         return json({error:"Another update was saved. Reload saved notes, then add your note. Your draft is still here."},409);
       const timestamp = new Date(Math.max(Date.now(),Date.parse(existing.updated_at || "") + 1 || 0)).toISOString();
-      const history = [existing.internal_notes,`[${timestamp} · ${email}]\n${note}`].filter(Boolean).join("\n\n");
+      let history;
+      try { history = changeInternalNotes(existing.internal_notes, {action:body.action, noteId:body.noteId, text:note, formatting:body.formatting, author:email, timestamp, id:crypto.randomUUID()}); }
+      catch (error) { return json({error:error instanceof Error ? error.message : "Invalid note."},400); }
       let query = client.from("hmp_admin_inquiries").update({
         internal_notes: history,
         updated_at: timestamp,

@@ -1,3 +1,4 @@
+import {internalNotesText} from "../internal-note-history.mjs";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -45,7 +46,7 @@ test("save appends dated private notes without replacing history; stale edits ca
   assert.equal(f.row.status, "Booked");
   assert.equal(f.row.owner, "HMP");
   assert.equal((await f.handler(request({ ...body, internalNotes: "stale" }))).status, 409);
-  assert.equal(f.row.internal_notes, saved);
+  assert.equal(internalNotesText(f.row.internal_notes), saved);
 });
 
 test("notes require verified Admin, same origin, valid text and a version", async () => {
@@ -122,4 +123,23 @@ test("editor preserves per-event drafts on refresh/switch; errors retain text an
   events.beforeunload({ preventDefault() { warned = true; } }); assert.equal(warned, false);
   await reloadButton.events.click();
   assert.equal(input.value, "");
+});
+
+
+test("edit/delete preserve other notes, formatting and original author; stale mutations fail", async () => {
+  const f=fixture();
+  let result=await (await f.handler(request(body))).json();
+  const added=result.inquiry.internalNoteEntries[1];
+  const change={id,action:"edit-note",noteId:added.id,internalNotes:"Bold",formatting:[{start:0,end:4,bold:true}],expectedVersion:result.inquiry.notesVersion};
+  let response=await f.handler(request(change));assert.equal(response.status,200);
+  result=await response.json();
+  assert.equal(result.inquiry.internalNoteEntries[0].text,"Meeting notes");
+  assert.equal(result.inquiry.internalNoteEntries[1].author,added.author);
+  assert.equal(result.inquiry.internalNoteEntries[1].formatting[0].bold,true);
+  assert.equal((await f.handler(request({...change,action:"delete-note"}))).status,409);
+  assert.equal((await f.handler(request({...change,noteId:"missing",expectedVersion:result.inquiry.notesVersion}))).status,400);
+  response=await f.handler(request({id,action:"delete-note",noteId:added.id,expectedVersion:result.inquiry.notesVersion}));
+  assert.equal(response.status,200);result=await response.json();
+  assert.equal(result.inquiry.internalNotes,"Meeting notes");
+  assert.equal(result.inquiry.internalNoteEntries.length,1);
 });

@@ -111,6 +111,7 @@ const hubNotes = mountHubNotes({
     inquiries = inquiries.map(item => item.id === inquiry.id ? inquiry : item);
     for (const thread of messageThreads.filter(item => item.inquiryId === inquiry.id)) {
       thread.internalNotes = inquiry.internalNotes;
+      thread.internalNoteEntries = inquiry.internalNoteEntries;
       thread.notesVersion = inquiry.notesVersion;
     }
   },
