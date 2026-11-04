@@ -337,9 +337,6 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     if (conversationError) return json({ error: "Client hub could not be checked" }, 502);
     if (!conversation || conversation.revoked_at || !(Date.parse(conversation.token_expires_at) > Date.now()))
       return json({ error: "Create an active client link before adding Guest Seating" }, 409);
-    const { data: inquiry, error: inquiryError } = await client.from("hmp_admin_inquiries")
-      .select("celebration_date").eq("submission_id", conversation.inquiry_id).maybeSingle();
-    if (inquiryError || !inquiry) return json({ error: "The inquiry could not be checked" }, 502);
     let seatingEvent: { name?: string; date?: string; archived?: boolean; deletedAt?: string; dataPurgedAt?: string };
     try {
       const linked = await linkedSeatingEvent(client, url);
@@ -349,10 +346,8 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     } catch {
       return json({ error: "Guest Seating could not verify that private link. Try again later." }, 502);
     }
-    const inquiryDate = String(inquiry.celebration_date || "").slice(0, 10);
-    const seatingDate = String(seatingEvent.date || "").slice(0, 10);
-    if (inquiryDate && seatingDate && inquiryDate !== seatingDate)
-      return json({ error: "The Guest Seating event date does not match this inquiry. Check the selected client and event." }, 409);
+    // Admin confirms the client/event match in the UI. Names and dates may differ
+    // from the inquiry; keep private-link authentication independent of that match.
     const id = stableId(`shared-seating/${conversationId}`);
     const document = { kind: "seating", title: cleanText(seatingEvent.name, 160) || "Guest Seating Experience", url };
     const { error: insertError } = await client.from("hmp_client_messages").insert({
