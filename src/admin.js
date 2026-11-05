@@ -702,6 +702,39 @@ function enableMessageChecklist(element,message,conversationId) {
   }
 }
 
+const eventChecklist=$("#hub-checklist");
+let checklistLoad=0;
+$("#open-event-checklist").addEventListener("click",()=>{const thread=messageThreads.find(t=>t.id===activeThreadId);if(!thread)return;activeHubSection="notes";renderAdminMessages(thread);eventChecklist.open=true;eventChecklist.querySelector("summary").focus();});
+eventChecklist.addEventListener("toggle",async()=>{
+ const id=activeThreadId,seq=++checklistLoad,out=eventChecklist.querySelector("div"),status=eventChecklist.querySelector("p");
+ out.replaceChildren(); status.textContent="";
+ if(!eventChecklist.open||!id)return;
+ const url="/api/hmp-event-checklist?id="+encodeURIComponent(id);
+ try{
+  const r=await fetch(url,{cache:"no-store"});let value=await r.json();
+  if(seq!==checklistLoad||id!==activeThreadId)return;
+  if(!r.ok)throw Error(value.error);
+  const draw=()=>{
+   out.replaceChildren();
+   const btn=(label,fn)=>{const b=document.createElement("button");b.type="button";b.textContent=label;b.onclick=fn;return b;};
+   value.items.forEach((item,i)=>{
+    const row=document.createElement("div"),cb=document.createElement("input"),name=document.createElement("input");
+    cb.type="checkbox";cb.style.width="auto";cb.checked=item.done;cb.setAttribute("aria-label","Completed: "+item.text);cb.onchange=()=>item.done=cb.checked;
+    name.value=item.text;name.maxLength=160;name.setAttribute("aria-label","Checklist item "+(i+1));name.oninput=()=>item.text=name.value;
+    row.append(cb,name,btn("Remove",()=>{value.items.splice(i,1);draw()}));out.append(row);
+   });
+   out.append(btn("Add item",()=>{value.items.push({text:"",done:false});draw()}));
+   const label=document.createElement("label"),notes=document.createElement("textarea");
+   label.textContent="Additional Notes";notes.value=value.notes;notes.maxLength=2000;notes.oninput=()=>value.notes=notes.value;label.append(notes);out.append(label);
+   out.append(btn("Save checklist",async()=>{
+    out.inert=true;try{const rr=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(value)}),data=await rr.json();
+    if(seq!==checklistLoad||id!==activeThreadId)return;
+    if(!rr.ok)throw Error(data.error);value=data;status.textContent="Checklist saved.";
+    }catch(e){if(seq===checklistLoad)status.textContent=e.message;}finally{out.inert=false;}
+   }));
+  };draw();
+ }catch(e){if(seq===checklistLoad)status.textContent=e.message;}
+});
 const linkedStaffNotes=$("#linked-staff-notes");
 let linkedRequest=0;
 async function loadLinkedNotes(){
@@ -1142,7 +1175,7 @@ const openMessageThread = (threadId) => {
   }
   activeThreadId = thread.id;
   hubNotes.open(thread);
-  if(linkedStaffNotes.dataset.hub!==thread.id){linkedStaffNotes.dataset.hub=thread.id;linkedStaffNotes.open=false;linkedStaffNotes.querySelector("div").replaceChildren();}
+  if(linkedStaffNotes.dataset.hub!==thread.id){linkedStaffNotes.dataset.hub=thread.id;eventChecklist.open=false;checklistLoad++;eventChecklist.querySelector("div").replaceChildren();linkedStaffNotes.open=false;linkedStaffNotes.querySelector("div").replaceChildren();}
   activeConversationUrl = thread.clientUrl;
   $("#admin-conversation-placeholder").hidden = true;
   $("#admin-conversation").hidden = false;
