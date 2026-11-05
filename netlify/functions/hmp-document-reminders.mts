@@ -11,7 +11,7 @@ export function createRemindersHandler({getUserFn=getUser,databaseFactory=create
  try {
  const body=request.method==='GET'?Object.fromEntries(new URL(request.url).searchParams):await request.json();
  const {kind,id}=body;
- if(!tables[kind]||!validId(id))return json({error:'Invalid document'},400);
+ if(!Object.hasOwn(tables,kind)||!validId(id))return json({error:'Invalid document'},400);
  const db=databaseFactory(Netlify.env.get('SUPABASE_URL')!,Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
  if(request.method==='POST') {
   if(body.action==='cancel') {
@@ -22,7 +22,7 @@ export function createRemindersHandler({getUserFn=getUser,databaseFactory=create
   } else if(body.action==='schedule') {
    const dates=scheduleDates(body.first,body.count,body.days);
    const ctx=await reminderContext(db,kind,id);
-   if(dates.some(date=>Date.parse(date)>=Date.parse(ctx.hub.token_expires_at)))throw new Ineligible('All reminder dates must be before the Client Hub link expires.');
+   if(dates.some(date=>Date.parse(date)>=ctx.deadline))throw new Ineligible('All reminder dates must be before the document or Client Hub expires.');
    const {error}=await db.from('hmp_document_reminders').upsert(dates.map(due_at=>({kind,document_id:id,conversation_id:ctx.hub.id,due_at,created_by:email})),{onConflict:'kind,document_id,due_at',ignoreDuplicates:true});
    if(error)throw error;
   } else return json({error:'Invalid action'},400);

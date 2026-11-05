@@ -1,7 +1,14 @@
 import {agreementRequest} from '../agreement-ui.mjs';
 export function mountDocumentReminders(container,{kind,id,status}) {
  container.querySelector('[data-document-reminders]')?.remove();
- if(!id)return;
+ if(!id || status==='Draft'){
+  if(kind==='form'){
+   const hint=document.createElement('p');hint.dataset.documentReminders='';
+   hint.textContent='To schedule reminders, share this form in the Client Hub, then open its saved record.';
+   container.querySelector('form')?.before(hint);
+  }
+  return;
+ }
  const panel=document.createElement('section');panel.className='agreement-panel';panel.dataset.documentReminders='';
  panel.innerHTML='<h3>Reminders</h3><p>Send an email and a Client Hub notice. Reminders stop when the document is completed, paid, replaced, or access expires. Share the document in the Client Hub first.</p>';
  const feedback=document.createElement('p');feedback.setAttribute('role','status');

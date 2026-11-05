@@ -46,3 +46,22 @@ test('Admin auth and same-origin validation run before touching database',async(
  const handler=createRemindersHandler({getUserFn:async()=>({email:'admin@example.test'}),databaseFactory:factory});
  assert.equal((await handler(new Request('https://hmpeds.com/api/hmp-document-reminders',{method:'POST',headers:{Origin:'https://evil.test'},body:'{}'}))).status,403);
 });
+
+test('proposal reminders use the shared proposal, stop at its deadline and skip deleted or replaced copies',async()=>{
+ const {reminderContext}=await import('../netlify/functions/_document-reminders.mts');
+ const date=new Date(Date.now()+4*86400000).toISOString().slice(0,10);
+ const proposal={title:'Event services',validUntil:date};
+ const msg={id,sender:'admin',conversation_id:id,revision_root_id:id,created_at:'2026-01-01',body:'HMP_PROPOSAL_V1:'+JSON.stringify(proposal)};
+ const hub={id,inquiry_id:id,token_nonce:'synthetic',token_expires_at:new Date(Date.now()+30*86400000).toISOString()};
+ let newer=[];
+ const db={from(table){return {select(){return this},eq(){return this},gt(){return this},limit(){return {data:newer}},maybeSingle(){return {data:table==='hmp_client_messages'?msg:table==='hmp_client_conversations'?hub:{email:'client@example.test'}}}}}};
+ const env=Netlify.env.get;Netlify.env.get=k=>k==='SUPABASE_SERVICE_ROLE_KEY'?'test':env(k);
+ try{
+  const ctx=await reminderContext(db,'proposal',id,id);
+  assert.equal(ctx.email,'client@example.test');assert.ok(ctx.body.includes(date));assert.ok(ctx.deadline<Date.parse(hub.token_expires_at));
+  await assert.rejects(()=>reminderContext(db,'proposal',id,'another-hub'),Ineligible);
+  newer=[{id:'replacement'}];await assert.rejects(()=>reminderContext(db,'proposal',id,id),/latest/);
+  newer=[];msg.deleted_at='today';await assert.rejects(()=>reminderContext(db,'proposal',id,id),Ineligible);
+  msg.deleted_at=null;msg.body='HMP_PROPOSAL_V1:'+JSON.stringify({...proposal,validUntil:'2000-01-01'});await assert.rejects(()=>reminderContext(db,'proposal',id,id),/expired/);
+ } finally {Netlify.env.get=env;}
+});
