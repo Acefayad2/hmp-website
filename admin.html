@@ -201,6 +201,7 @@
                   <header class="admin-conversation-heading">
                     <div><p class="kicker" id="admin-conversation-service"></p><h3 id="admin-conversation-name"></h3><p id="admin-conversation-email"></p></div>
                     <div class="conversation-heading-actions">
+                      <button class="secondary-button" id="open-event-checklist" type="button">Event Checklist</button>
                       <button class="secondary-button" id="open-proposal-editor" type="button">Send proposal</button>
                       <button class="secondary-button conversation-copy-link" id="copy-active-link" type="button">Copy client link</button>
                       <button class="secondary-button" id="set-active-link-expiration" type="button">Change link expiration</button>
@@ -216,6 +217,7 @@
                   <section class="hub-notes" id="hub-notes" aria-labelledby="hub-notes-title" hidden>
                     <h3 id="hub-notes-title">Internal notes</h3>
                     <p>Private to HMP Admin staff for this client’s event. These are the same notes shown on the inquiry. They are never sent to the client.</p>
+                    <details id="hub-checklist"><summary>Event Checklist</summary><div></div><p role="status"></p></details>
                     <form id="hub-notes-form">
                       <div id="hub-notes-history" aria-label="Saved note history"></div>
                       <details data-hub-note-composer open><summary>Add or edit a note</summary>
