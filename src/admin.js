@@ -627,6 +627,7 @@ const renderAdminMessages = (thread) => {
       const actions = document.createElement("div");
       actions.className = "admin-message-actions";
       if (message.body && !proposal && !message.document && !message.smsSentAt) {
+        enableMessageChecklist(copy,message,thread.id);
         const edit = document.createElement("button");
         edit.type = "button";
         edit.textContent = "Edit";
@@ -663,16 +664,71 @@ const renderAdminMessages = (thread) => {
     }
     list.append(article);
   });
-  $("#admin-message-empty").textContent = activeHubSection === "all" ? "No messages yet. Send a welcome note to begin the conversation." : `No ${activeHubSection} in this event hub yet.`;
+  $("#admin-message-empty").textContent = activeHubSection === "all" ? "No messages yet. Send a welcome note to begin the conversation." : `No ${activeHubSection==="contracts"?"agreements":activeHubSection} in this event hub yet.`;
   $("#admin-message-empty").hidden = visible.length > 0;
   list.hidden = visible.length === 0;
   if (!list.hidden) list.scrollTop = list.scrollHeight;
 };
 
-const changeAdminMessage = async (action, conversationId, messageId, message, formatting) => {
+function enableMessageChecklist(element,message,conversationId) {
+  const marks=[...message.body.matchAll(/[☐☑]/gu)];
+  if (!marks.length) return;
+  const walker=document.createTreeWalker(element,NodeFilter.SHOW_TEXT);
+  const nodes=[];
+  while(walker.nextNode())nodes.push(walker.currentNode);
+  let index=0;
+  for(const node of nodes){
+    const count=(node.textContent.match(/[☐☑]/gu)||[]).length;
+    if(!count)continue;
+    if(node.parentElement?.closest("a")){index+=count;continue;}
+    const fragment=document.createDocumentFragment();
+    for(const part of node.textContent.split(/([☐☑])/u)){
+      if(part!=="☐" && part!=="☑"){fragment.append(part);continue;}
+      const mark=marks[index++];
+      if(!mark || part!==mark[0]){fragment.append(part);continue;}
+      const input=document.createElement("input");
+      input.type="checkbox"; input.checked=part==="☑";
+      input.setAttribute("aria-label",message.body.slice(mark.index+1).split(/\n|☐|☑/)[0].trim() || "Checklist item "+index);
+      input.addEventListener("change",async()=>{
+        const inputs=[...element.querySelectorAll('input[type="checkbox"]')];
+        inputs.forEach(item=>item.disabled=true);
+        const body=message.body.slice(0,mark.index)+(input.checked?"☑":"☐")+message.body.slice(mark.index+1);
+        try { await changeAdminMessage("edit-message",conversationId,message.id,body,message.formatting,message.body); }
+        catch(error){input.checked=part==="☑";inputs.forEach(item=>item.disabled=false);setMessage($("#admin-message-status"),error.message);}
+      });
+      fragment.append(input);
+    }
+    node.replaceWith(fragment);
+  }
+}
+
+const linkedStaffNotes=$("#linked-staff-notes");
+let linkedRequest=0;
+async function loadLinkedNotes(){
+  const output=linkedStaffNotes.querySelector("div"),version=++linkedRequest,id=activeThreadId;
+  output.replaceChildren();
+  if(!linkedStaffNotes.open || !id)return;
+  output.textContent="Loading linked staff notes…";
+  try{
+    const response=await fetch("/api/hmp-linked-notes?id="+encodeURIComponent(id),{cache:"no-store"});
+    const data=await response.json();
+    if(version!==linkedRequest || id!==activeThreadId)return;
+    if(!response.ok)throw Error(data.error);
+    output.replaceChildren();
+    for(const note of data.notes){
+      const row=document.createElement("p"),label=document.createElement("strong");
+      label.textContent=note.source+(note.author?" · "+note.author:"");
+      row.append(label,document.createElement("br"),String(note.note_text||""));
+      row.style.whiteSpace="pre-wrap";output.append(row);
+    }
+    if(!data.notes.length)output.textContent="No internal event notes from linked portals.";
+  }catch{if(version===linkedRequest)output.textContent="Linked notes could not be loaded. Close and reopen to retry.";}
+}
+linkedStaffNotes.addEventListener("toggle",loadLinkedNotes);
+const changeAdminMessage = async (action, conversationId, messageId, message, formatting, expectedBody) => {
   const response = await fetch("/api/hmp-messages", {
     method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action, conversationId, messageId, message, formatting }),
+    body: JSON.stringify({ action, conversationId, messageId, message, formatting, expectedBody }),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(data.error || "Message could not be changed.");
@@ -1086,6 +1142,7 @@ const openMessageThread = (threadId) => {
   }
   activeThreadId = thread.id;
   hubNotes.open(thread);
+  if(linkedStaffNotes.dataset.hub!==thread.id){linkedStaffNotes.dataset.hub=thread.id;linkedStaffNotes.open=false;linkedStaffNotes.querySelector("div").replaceChildren();}
   activeConversationUrl = thread.clientUrl;
   $("#admin-conversation-placeholder").hidden = true;
   $("#admin-conversation").hidden = false;

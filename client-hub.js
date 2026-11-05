@@ -21,7 +21,7 @@ export const hubSections = [
   ["proposals", "Proposals"],
   ["invoices", "Invoices"],
   ["receipts", "Receipts"],
-  ["contracts", "Contracts"],
+  ["contracts", "Agreements"],
   ["forms", "Forms"],
   ["seating", "Guest Seating"],
 ];

@@ -445,9 +445,11 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     } else {
       changes = { deleted_at: new Date().toISOString() };
     }
-    const { data: updated, error: updateError } = await client.from("hmp_client_messages")
+    let update = client.from("hmp_client_messages")
       .update(changes).eq("id", messageId).eq("conversation_id", conversationId)
-      .eq("sender", "admin").is("deleted_at", null).select("id").maybeSingle();
+      .eq("sender", "admin").is("deleted_at", null);
+    if (action === "edit-message" && typeof body.expectedBody === "string") update=update.eq("body",body.expectedBody);
+    const {data:updated,error:updateError}=await update.select("id").maybeSingle();
     if (updateError) return json({ error: "Message could not be saved" }, 502);
     if (!updated) return json({ error: "Message changed. Refresh and try again" }, 409);
     return json({ ok: true });

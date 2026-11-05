@@ -149,7 +149,7 @@ const renderMessages = (messages) => {
   });
   list.hidden = visible.length === 0;
   $("#message-empty").hidden = visible.length > 0;
-  $("#message-empty h3").textContent = activeHubSection === "all" ? "Your private conversation starts here." : `No ${activeHubSection} in this event hub yet.`;
+  $("#message-empty h3").textContent = activeHubSection === "all" ? "Your private conversation starts here." : `No ${activeHubSection==="contracts"?"agreements":activeHubSection} in this event hub yet.`;
   if (visible.length) list.scrollTop = list.scrollHeight;
 };
 
