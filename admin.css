@@ -802,6 +802,12 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .hub-note-card { white-space: normal; }
 .hub-note-card summary { cursor: pointer; font-weight: 600; }
 .hub-note-card > div { margin-top: 14px; }
+.hub-checklist-editor { border-top: 1px solid var(--line); margin-top: 22px; padding-top: 18px; }
+.hub-checklist-editor label { display: block; margin: 12px 0; }
+.hub-checklist-editor label > input, .hub-checklist-editor label > textarea { display: block; width: 100%; margin-top: 6px; }
+.hub-checklist-item { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 8px; margin-bottom: 8px; }
+.hub-checklist-item input[type="checkbox"] { width: auto; }
+.hub-checklist-item input[data-checklist-item] { min-width: 0; }
 
 .hub-notes .rich-field-host .agreement-format-toolbar { display: flex; visibility: visible; }
 
