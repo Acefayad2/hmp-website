@@ -797,7 +797,9 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .hub-archive-filter { display: block; margin: 0 18px 18px; font-size: 13px; }
 .hub-archive-filter select { margin-top: 8px; width: 100%; }
 
-.hub-note-card { white-space: normal; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.hub-note-entry { white-space: normal; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.hub-note-entry .hub-notes-actions { margin-top: 12px; }
+.hub-note-card { white-space: normal; }
 .hub-note-card summary { cursor: pointer; font-weight: 600; }
 .hub-note-card > div { margin-top: 14px; }
 
