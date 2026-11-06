@@ -723,13 +723,16 @@ eventChecklist.addEventListener("toggle",async()=>{
     name.value=item.text;name.maxLength=160;name.setAttribute("aria-label","Checklist item "+(i+1));name.oninput=()=>item.text=name.value;
     row.append(cb,name,btn("Remove",()=>{value.items.splice(i,1);draw()}));out.append(row);
    });
-   out.append(btn("Add item",()=>{value.items.push({text:"",done:false});draw()}));
+   out.append(btn("Add item",()=>{value.items.push({text:"",done:false});draw();out.querySelectorAll('input[aria-label^="Checklist item"]')[value.items.length-1]?.focus()}));
    const label=document.createElement("label"),notes=document.createElement("textarea");
    label.textContent="Additional Notes";notes.value=value.notes;notes.maxLength=2000;notes.oninput=()=>value.notes=notes.value;label.append(notes);out.append(label);
    out.append(btn("Save checklist",async()=>{
+    const blank=value.items.findIndex(item=>!item.text.trim());
+    if(blank!==-1){status.textContent=`Checklist item ${blank+1} is blank. Enter its text or remove it before saving.`;out.querySelectorAll('input[aria-label^="Checklist item"]')[blank]?.focus();return;}
+    status.textContent="Saving checklist…";
     out.inert=true;try{const rr=await fetch(url,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(value)}),data=await rr.json();
     if(seq!==checklistLoad||id!==activeThreadId)return;
-    if(!rr.ok)throw Error(data.error);value=data;status.textContent="Checklist saved.";
+    if(!rr.ok)throw Error(data.error);value=data;status.textContent="Checklist saved. It will be here when you reopen this event.";
     }catch(e){if(seq===checklistLoad)status.textContent=e.message;}finally{out.inert=false;}
    }));
   };draw();
@@ -1175,7 +1178,7 @@ const openMessageThread = (threadId) => {
   }
   activeThreadId = thread.id;
   hubNotes.open(thread);
-  if(linkedStaffNotes.dataset.hub!==thread.id){linkedStaffNotes.dataset.hub=thread.id;eventChecklist.open=false;checklistLoad++;eventChecklist.querySelector("div").replaceChildren();linkedStaffNotes.open=false;linkedStaffNotes.querySelector("div").replaceChildren();}
+  if(linkedStaffNotes.dataset.hub!==thread.id){linkedStaffNotes.dataset.hub=thread.id;eventChecklist.open=false;checklistLoad++;eventChecklist.querySelector("div").replaceChildren();$("#hub-event-notes").open=false;linkedStaffNotes.open=false;linkedStaffNotes.querySelector("div").replaceChildren();}
   activeConversationUrl = thread.clientUrl;
   $("#admin-conversation-placeholder").hidden = true;
   $("#admin-conversation").hidden = false;
