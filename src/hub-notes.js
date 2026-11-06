@@ -30,13 +30,14 @@ export const mountHubNotes = ({ form, input, history, saveButton, reloadButton, 
     };
     if(pages>1)history.append(pager());
     for (const note of entries.slice(draft.page*pageSize,(draft.page+1)*pageSize)) {
-      const card = document.createElement("details"), title = document.createElement("summary"), content = document.createElement("div"), actions = document.createElement("div");
+      const wrapper = document.createElement("div"), card = document.createElement("details"), title = document.createElement("summary"), content = document.createElement("div"), actions = document.createElement("div");
+      wrapper.className = "hub-note-entry";
       card.className = "hub-note-card";
       title.textContent = `${note.createdAt ? new Date(note.createdAt).toLocaleString() : "Earlier note"}${note.author ? ` · ${note.author}` : ""} — ${note.text.slice(0,90)}${note.text.length>90?"…":""}`;
       content.innerHTML = richTextHTML(note.text,note.formatting);
       actions.className = "hub-notes-actions";
       for (const label of ["Edit","Delete"]) {
-        const button = document.createElement("button");button.type="button";button.className="secondary-button";button.textContent=label;button.disabled=draft.busy;
+        const button = document.createElement("button");button.type="button";button.className="secondary-button";button.textContent=`${label} note`;button.disabled=draft.busy;
         button.addEventListener("click",()=>{
           if (draft.busy) return;
           if (label === "Delete") {if(window.confirm("Delete this internal note? This cannot be undone.")) void saveNote("delete-note",note.id);return;}
@@ -46,7 +47,7 @@ export const mountHubNotes = ({ form, input, history, saveButton, reloadButton, 
           resetEditor(draft);paint();input.focus();
         });actions.append(button);
       }
-      card.append(title,content,actions);history.append(card);
+      card.append(title,content);wrapper.append(card,actions);history.append(wrapper);
     }
     if(pages>1)history.append(pager());
   };
