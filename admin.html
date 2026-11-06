@@ -17,7 +17,7 @@
       href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="admin.css?v=20261106-multiple-checklists" />
+    <link rel="stylesheet" href="admin.css?v=20261106-inventory" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20261016-document-cards" />
     <link rel="stylesheet" href="agreement.css?v=20261027-form-preview" />
@@ -89,6 +89,7 @@
             <a class="rail-link" href="/admin?view=forms" data-workspace-view="forms">Forms</a>
             <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices" data-workspace-group="documents">Invoices &amp; Agreements</a>
             <a class="rail-link" href="/admin?view=reviews" data-workspace-view="reviews">Reviews</a>
+            <a class="rail-link" href="/admin?view=inventory" data-workspace-view="inventory">Event Inventory</a>
             <a class="rail-link" href="/" target="_blank">View website</a>
           </div>
           <div class="rail-footer">
@@ -476,6 +477,13 @@
               <p id="review-delete-empty">No deleted reviews.</p>
               <div id="review-delete-list"></div>
             </section>
+          </section>
+
+          <section class="inventory-workspace" id="inventory-workspace" hidden>
+            <div class="workspace-section-header">
+              <div><p class="kicker">Event operations</p><h2>Event Inventory</h2><p>Track event items and print QR labels for staff check-in and check-out.</p></div>
+            </div>
+            <div id="inventory-app"></div>
           </section>
 
           <section class="workspace-empty" id="workspace-empty" hidden>
@@ -872,6 +880,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261106-multiple-checklists"></script>
+    <script type="module" src="assets/admin.js?v=20261106-inventory"></script>
   </body>
 </html>

@@ -16,6 +16,7 @@ test("admin sidebar follows the requested order and preserves tab destinations",
     { href: "/admin?view=forms", label: "Forms" },
     { href: "/admin?view=invoices", label: "Invoices & Agreements" },
     { href: "/admin?view=reviews", label: "Reviews" },
+    { href: "/admin?view=inventory", label: "Event Inventory" },
     { href: "/", label: "View website" },
   ]);
 });

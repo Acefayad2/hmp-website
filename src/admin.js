@@ -22,6 +22,7 @@ import { mountHubNotes } from "./hub-notes.js";
 import { mountEventChecklists } from "./event-checklists.js";
 import { clientActivityItems } from "../client-activity.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
+import { mountEventInventory } from "./inventory-admin.js";
 import { inquiryGroups, inquiryFilterTitles, inquiryStatusGroup } from "./inquiry-filters.mjs";
 import { inquiryDetailsHTML } from "./inquiry-details.js";
 import "./admin-search.js";
@@ -102,6 +103,7 @@ const adminNotifications = mountAdminNotifications({
   button: $("#notifications-button"), dialog: $("#notifications-dialog"),
   openDocument: row => row.kind === "form_completed" ? openInformationDraft(row.agreementId) : openAgreementDraft(row.agreementId),
 });
+const eventInventory = mountEventInventory({ root: $("#inventory-app"), onAuthRequired: () => requireAdminAuthentication() });
 
 let inquiries = [];
 const hubNotes = mountHubNotes({
@@ -190,6 +192,9 @@ const workspaceViews = {
   reviews: {
     title: "Reviews",
   },
+  inventory: {
+    title: "Event Inventory",
+  },
 };
 
 const escapeHTML = (value = "") =>
@@ -236,6 +241,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const isForms = view === "forms";
   const isDocuments = isInvoices || isContracts;
   const isReviews = view === "reviews";
+  const isInventory = view === "inventory";
   activeWorkspaceView = view;
 
   $(".dashboard-header h1").textContent = config.title;
@@ -254,8 +260,9 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $("#contract-workspace").hidden = !isContracts;
   $("#forms-workspace").hidden = !isForms;
   $("#reviews-workspace").hidden = !isReviews;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews;
-  if (!isInquiries && !isMessages && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews) {
+  $("#inventory-workspace").hidden = !isInventory;
+  $("#workspace-empty").hidden = isInquiries || isMessages || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews || isInventory;
+  if (!isInquiries && !isMessages && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews && !isInventory) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
@@ -299,6 +306,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
       $("#review-empty p").textContent = error.message;
     });
   }
+  if (isInventory) void eventInventory.load();
 
   document.querySelectorAll("[data-workspace-view]").forEach((link) => {
     const isActive = link.dataset.workspaceGroup === "documents" ? isDocuments : link.dataset.workspaceView === view;
