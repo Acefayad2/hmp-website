@@ -124,6 +124,28 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .workspace-section-header .kicker { margin: 0 0 9px; color: var(--gold); }
 .workspace-section-header h2 { margin: 0; font: 600 clamp(42px, 5vw, 66px)/.9 var(--serif); letter-spacing: -.035em; }
 .workspace-section-header > div > p:last-child { margin: 15px 0 0; color: var(--muted); }
+.inventory-panel { display: grid; gap: 24px; }
+.inventory-toolbar, .inventory-form { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; padding: 22px; border: 1px solid #dbcac5; border-radius: 18px; background: #fffaf5; }
+.inventory-toolbar label, .inventory-form label { display: grid; gap: 7px; min-width: min(100%, 230px); flex: 1; }
+.inventory-form h3 { width: 100%; margin: 0; font: 600 25px var(--serif); }
+.inventory-form p { width: 100%; margin: 0; }
+.inventory-form input, .inventory-form textarea, .inventory-toolbar select { box-sizing: border-box; width: 100%; min-height: 46px; padding: 10px 12px; border: 1px solid #cdb7b1; border-radius: 9px; background: white; color: #493234; font: inherit; }
+.inventory-form textarea { min-height: 118px; resize: vertical; }
+.inventory-form .primary-button { align-self: end; }
+.inventory-empty { padding: 24px; border: 1px dashed #cdb7b1; border-radius: 12px; }
+.inventory-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
+.inventory-card { display: flex; gap: 16px; padding: 18px; border: 1px solid #dbcac5; border-radius: 14px; background: white; scroll-margin: 100px; }
+.inventory-qr { flex: none; width: 128px; height: 128px; }
+.inventory-card-body { min-width: 0; }
+.inventory-card h4 { margin: 0 0 5px; font-size: 19px; }
+.inventory-card p { margin: 5px 0; }
+.inventory-state { font-weight: 700; color: #28704b; }
+.inventory-state.is-out { color: #a34536; }
+.inventory-last, .inventory-label { font-size: 13px; color: #675558; overflow-wrap: anywhere; }
+.inventory-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
+.inventory-actions button { padding: 8px 11px; border: 1px solid #684549; border-radius: 8px; background: #fffaf5; color: #54383b; cursor: pointer; }
+.inventory-actions button:hover { background: #eee3df; }
+@media (max-width: 650px) { .inventory-card { display: block; } .inventory-qr { display: block; margin-bottom: 10px; } }
 .workspace-create-button { width: auto; min-height: 48px; margin: 0; padding: 0 24px; white-space: nowrap; }
 .email-setup-notice { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; padding: 14px 18px; border: 1px solid rgba(182,124,66,.32); border-radius: 13px; color: var(--plum-deep); background: rgba(229,185,128,.16); font-size: 12px; }
 .email-setup-notice strong { white-space: nowrap; }

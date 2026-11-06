@@ -19,6 +19,7 @@
   },
   "dependencies": {
     "@netlify/identity": "^2.0.0",
-    "@supabase/supabase-js": "2.112.4"
+    "@supabase/supabase-js": "2.112.4",
+    "qrcode": "1.5.4"
   }
 }
