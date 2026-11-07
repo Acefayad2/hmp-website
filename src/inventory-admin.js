@@ -66,9 +66,15 @@ export function mountEventInventory({root, onAuthRequired = () => {}}) {
             <p class="inventory-label">Printed label: ${escapeHTML(item.label)}</p>
             <p class="inventory-state ${item.status === "out" ? "is-out" : ""}">${item.status === "out" ? "Checked out" : "In inventory"}</p>
             <p class="inventory-last">${item.history?.length ? `Last action: ${escapeHTML(item.history.at(-1).action === "check-in" ? "Checked in" : "Checked out")} · ${escapeHTML(new Date(item.history.at(-1).at).toLocaleString())}` : "No check-ins or check-outs yet"}</p>
+            ${item.photo?.url ? `<img class="inventory-photo" src="${escapeHTML(item.photo.url)}" alt="Photo of ${escapeHTML(item.name)}" loading="lazy" />` : ""}
+            <label class="inventory-detail-label">Item details <textarea class="inventory-details" maxlength="2000" rows="3" placeholder="Description, condition, location, or notes">${escapeHTML(item.details || "")}</textarea></label>
+            <label class="inventory-detail-label">${item.photo?.path ? "Replace photo" : "Add photo"} <input class="inventory-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>
             <div class="inventory-actions">
               <button type="button" data-action="${item.status === "out" ? "check-in" : "check-out"}">${item.status === "out" ? "Check in" : "Check out"}</button>
               <button type="button" data-action="rename">Edit name/label</button>
+              <button type="button" data-action="update-details">Save details</button>
+              <button type="button" data-action="attach-photo">Upload photo</button>
+              ${item.photo?.path ? `<button type="button" data-action="remove-photo">Remove photo</button>` : ""}
               <button type="button" data-action="print">Print QR</button>
             </div>
           </div>
@@ -141,11 +147,28 @@ export function mountEventInventory({root, onAuthRequired = () => {}}) {
       const label = prompt("Printed QR label", item.label); if (label === null) return;
       details = {name,label};
     }
+    if (action === "update-details") details = {details:button.closest(".inventory-card").querySelector(".inventory-details").value};
+    if (action === "attach-photo") {
+      const file = button.closest(".inventory-card").querySelector(".inventory-file").files?.[0];
+      if (!file) { status("Choose a photo for this item first."); return; }
+      if (file.size > 10 * 1024 * 1024) { status("Choose a photo smaller than 10 MB."); return; }
+      button.disabled = true; status("Uploading photo…");
+      try {
+        const upload = await api("POST", {action:"prepare-photo",eventId:item.eventId,itemId:item.id,type:file.type,size:file.size});
+        const form = new FormData(); form.append("cacheControl","3600"); form.append("",file,file.name);
+        const response = await fetch(upload.signedUrl,{method:"PUT",headers:{"x-upsert":"false"},body:form});
+        if (!response.ok) throw new Error("Photo upload failed. Please try again.");
+        const result = await api("PATCH",{action:"attach-photo",eventId:item.eventId,itemId:item.id,expectedVersion:item.version,path:upload.path});
+        items = items.map(row => row.id === item.id ? result.item : row);
+        renderItems(); status("Item photo saved.",true);
+      } catch (error) { status(error.message); button.disabled = false; }
+      return;
+    }
     button.disabled = true;
     try {
       const result = await api("PATCH", {action,eventId:item.eventId,itemId:item.id,expectedVersion:item.version,...details});
       items = items.map(row => row.id === item.id ? result.item : row);
-      renderItems(); status(action === "rename" ? "Item label updated." : `Item ${action === "check-in" ? "checked in" : "checked out"}.`, true);
+      renderItems(); status(({rename:"Item label updated.","update-details":"Item details saved.","remove-photo":"Item photo removed.","check-in":"Item checked in.","check-out":"Item checked out."})[action], true);
     } catch (error) { status(error.message); button.disabled = false; }
   });
   renderItems();
