@@ -89,6 +89,7 @@
             <a class="rail-link" href="/admin?view=forms" data-workspace-view="forms">Forms</a>
             <a class="rail-link" href="/admin?view=invoices" data-workspace-view="invoices" data-workspace-group="documents">Invoices &amp; Agreements</a>
             <a class="rail-link" href="/admin?view=reviews" data-workspace-view="reviews">Reviews</a>
+            <a class="rail-link" href="/admin?view=blog" data-workspace-view="blog">Blog Hub</a>
             <a class="rail-link" href="/admin?view=inventory" data-workspace-view="inventory">Event Inventory</a>
             <a class="rail-link" href="/" target="_blank">View website</a>
           </div>
@@ -486,6 +487,11 @@
             <div id="inventory-app"></div>
           </section>
 
+          <section class="blog-workspace" id="blog-workspace" hidden>
+            <div class="workspace-section-header"><div><p class="kicker">Website content</p><h2>Blog Hub</h2><p>Create and publish stories for <a href="/blog" target="_blank" rel="noopener">Our Moments</a>.</p></div></div>
+            <div id="blog-admin-app"></div>
+          </section>
+
           <section class="workspace-empty" id="workspace-empty" hidden>
             <p class="kicker" id="workspace-empty-label"></p>
             <h2 id="workspace-empty-title"></h2>
@@ -880,6 +886,6 @@
       </form>
     </dialog>
 
-    <script type="module" src="assets/admin.js?v=20261107-inventory-photos"></script>
+    <script type="module" src="assets/admin.js?v=20261107-blog-hub"></script>
   </body>
 </html>

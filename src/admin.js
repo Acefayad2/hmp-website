@@ -23,6 +23,7 @@ import { mountEventChecklists } from "./event-checklists.js";
 import { clientActivityItems } from "../client-activity.js";
 import { loadReviewRequests } from "./review-requests-admin.js";
 import { mountEventInventory } from "./inventory-admin.js";
+import { mountBlogHub } from "./blog-admin.js";
 import { inquiryGroups, inquiryFilterTitles, inquiryStatusGroup } from "./inquiry-filters.mjs";
 import { inquiryDetailsHTML } from "./inquiry-details.js";
 import "./admin-search.js";
@@ -104,6 +105,7 @@ const adminNotifications = mountAdminNotifications({
   openDocument: row => row.kind === "form_completed" ? openInformationDraft(row.agreementId) : openAgreementDraft(row.agreementId),
 });
 const eventInventory = mountEventInventory({ root: $("#inventory-app"), onAuthRequired: () => requireAdminAuthentication() });
+const blogHub = mountBlogHub({ root: $("#blog-admin-app"), onAuthRequired: () => requireAdminAuthentication() });
 
 let inquiries = [];
 const hubNotes = mountHubNotes({
@@ -195,6 +197,9 @@ const workspaceViews = {
   inventory: {
     title: "Event Inventory",
   },
+  blog: {
+    title: "Blog Hub",
+  },
 };
 
 const escapeHTML = (value = "") =>
@@ -242,6 +247,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   const isDocuments = isInvoices || isContracts;
   const isReviews = view === "reviews";
   const isInventory = view === "inventory";
+  const isBlog = view === "blog";
   activeWorkspaceView = view;
 
   $(".dashboard-header h1").textContent = config.title;
@@ -261,8 +267,9 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
   $("#forms-workspace").hidden = !isForms;
   $("#reviews-workspace").hidden = !isReviews;
   $("#inventory-workspace").hidden = !isInventory;
-  $("#workspace-empty").hidden = isInquiries || isMessages || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews || isInventory;
-  if (!isInquiries && !isMessages && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews && !isInventory) {
+  $("#blog-workspace").hidden = !isBlog;
+  $("#workspace-empty").hidden = isInquiries || isMessages || isDrafts || isProposals || isInvoices || isContracts || isForms || isReviews || isInventory || isBlog;
+  if (!isInquiries && !isMessages && !isDrafts && !isProposals && !isInvoices && !isContracts && !isForms && !isReviews && !isInventory && !isBlog) {
     $("#workspace-empty-label").textContent = config.label;
     $("#workspace-empty-title").textContent = config.emptyTitle;
     $("#workspace-empty-copy").textContent = config.emptyCopy;
@@ -307,6 +314,7 @@ const setWorkspaceView = (requestedView, updateUrl = false) => {
     });
   }
   if (isInventory) void eventInventory.load();
+  if (isBlog) void blogHub.load();
 
   document.querySelectorAll("[data-workspace-view]").forEach((link) => {
     const isActive = link.dataset.workspaceGroup === "documents" ? isDocuments : link.dataset.workspaceView === view;
