@@ -142,6 +142,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .inventory-state { font-weight: 700; color: #28704b; }
 .inventory-state.is-out { color: #a34536; }
 .inventory-last, .inventory-label { font-size: 13px; color: #675558; overflow-wrap: anywhere; }
+.inventory-photo { display: block; max-width: 100%; max-height: 220px; margin: 10px 0; border-radius: 9px; object-fit: contain; }
+.inventory-detail-label { display: grid; gap: 5px; margin-top: 10px; font-size: 13px; font-weight: 600; }
+.inventory-detail-label textarea, .inventory-detail-label input { box-sizing: border-box; width: 100%; padding: 8px; border: 1px solid #cdb7b1; border-radius: 7px; font: inherit; }
 .inventory-actions { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }
 .inventory-actions button { padding: 8px 11px; border: 1px solid #684549; border-radius: 8px; background: #fffaf5; color: #54383b; cursor: pointer; }
 .inventory-actions button:hover { background: #eee3df; }

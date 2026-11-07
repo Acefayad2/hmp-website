@@ -9,6 +9,7 @@ const request = (method = "GET", body = null, query = "", origin = "https://hmpe
 });
 function fixture(user = admin) {
   const rows = new Map();
+  const photos = new Set();
   const db = {from(table) {
     assert.equal(table,"hmp_seating_records");
     let filters = [];
@@ -31,15 +32,44 @@ function fixture(user = admin) {
       return {data:{key:next.key},error:null};
     };
     return chain;
-  }};
+  }, storage:{from(bucket) {
+    assert.equal(bucket,"hmp-conversation-attachments");
+    return {
+      async createSignedUploadUrl(path) { return {data:{signedUrl:`https://synthetic.storage/upload/${path}`},error:null}; },
+      async createSignedUrl(path) { return {data:{signedUrl:`https://synthetic.storage/read/${path}`},error:null}; },
+      async list(folder) { return {data:[...photos].filter(path=>path.startsWith(`${folder}/`)).map(path=>({name:path.slice(folder.length+1)})),error:null}; },
+      async remove(paths) { for(const path of paths) photos.delete(path); return {error:null}; },
+    };
+  }}};
   const handler = createInventoryHandler({getUserFn:async()=>user,databaseFactory:()=>db});
-  return {rows,handler};
+  return {rows,photos,handler};
 }
 
 test("inventory requires verified Admin and same-origin mutations", async () => {
   assert.equal((await fixture(null).handler(request())).status,401);
   assert.equal((await fixture({email:"guest@example.com"}).handler(request())).status,401);
   assert.equal((await fixture().handler(request("POST",{action:"create-event",name:"Gala"},"","https://other.example"))).status,403);
+});
+
+test("item details and photos stay private and require a completed upload", async () => {
+  const {handler,photos} = fixture();
+  const event=(await (await handler(request("POST",{action:"create-event",name:"Gala"}))).json()).event;
+  const item=(await (await handler(request("POST",{action:"add-items",eventId:event.id,items:[{name:"Gift box"}]}))).json()).items[0];
+  const prepared=await handler(request("POST",{action:"prepare-photo",eventId:event.id,itemId:item.id,type:"image/png",size:400}));
+  assert.equal(prepared.status,200);
+  const {path}=await prepared.json();
+  assert.equal((await handler(request("PATCH",{action:"attach-photo",eventId:event.id,itemId:item.id,expectedVersion:item.version,path}))).status,400);
+  photos.add(path);
+  const saved=await handler(request("PATCH",{action:"attach-photo",eventId:event.id,itemId:item.id,expectedVersion:item.version,path}));
+  assert.equal(saved.status,200);
+  const withPhoto=(await saved.json()).item;
+  assert.match(withPhoto.photo.url,/synthetic.storage\/read/);
+  const details=await handler(request("PATCH",{action:"update-details",eventId:event.id,itemId:item.id,expectedVersion:withPhoto.version,details:"Blue boxes, backstage"}));
+  assert.equal(details.status,200);
+  const list=(await (await handler(request("GET",null,`?event=${event.id}`))).json()).items;
+  assert.equal(list[0].details,"Blue boxes, backstage");
+  assert.match(list[0].photo.url,/synthetic.storage\/read/);
+  assert.equal((await fixture(null).handler(request("GET",null,`?event=${event.id}`))).status,401);
 });
 
 test("Admin can create items, print private QR, and track check-out and check-in", async () => {
