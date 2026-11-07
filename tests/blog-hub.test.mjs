@@ -9,7 +9,7 @@ function fixture(user={email:"admin@example.com"}){
     assert.equal(table,"hmp_seating_records");let predicate=()=>true;
     const chain={select(){return chain;},eq(_column,value){predicate=row=>row.key===value;return chain;},like(_column,pattern){predicate=row=>row.key.startsWith(pattern.slice(0,-1));return chain;},async maybeSingle(){return {data:[...rows.values()].find(predicate)||null,error:null};},async limit(){return {data:[...rows.values()].filter(predicate),error:null};},async upsert(row){rows.set(row.key,row);return {error:null};},delete(){return {eq:async(_column,value)=>{rows.delete(value);return {error:null};}}}};
     return chain;
-  },storage:{from(bucket){assert.equal(bucket,"hmp-conversation-attachments");return {async createSignedUploadUrl(path){return {data:{signedUrl:`https://storage.example/upload/${path}`},error:null};},async createSignedUrl(path){return {data:{signedUrl:`https://storage.example/read/${path}`},error:null};},async list(folder){return {data:[...files].filter(x=>x.startsWith(`${folder}/`)).map(x=>({name:x.slice(folder.length+1)})),error:null};}};}}};
+  },storage:{from(bucket){assert.equal(bucket,"hmp-conversation-attachments");return {async createSignedUploadUrl(path){return {data:{signedUrl:`https://storage.example/upload/${path}`},error:null};},async createSignedUrl(path){return {data:{signedUrl:`https://storage.example/read/${path}`},error:null};},async list(folder){return {data:[...files].filter(x=>x.startsWith(`${folder}/`)).map(x=>({name:x.slice(folder.length+1)})),error:null};},async remove(paths){paths.forEach(path=>files.delete(path));return {error:null};}};}}};
   const handler=createBlogHandler({getUserFn:async()=>user,databaseFactory:()=>db});
   const request=(method="GET",body=null,query="",origin="https://hmpeds.com")=>new Request(`https://hmpeds.com/api/hmp-blog${query}`,{method,headers:{origin,"Content-Type":"application/json"},...(body?{body:JSON.stringify(body)}:{})});
   return {rows,files,handler,request};
@@ -31,11 +31,12 @@ test("draft stories and private settings require Admin verification",async()=>{
 test("public media is issued only for published stories and completed uploads",async()=>{
   const {handler,request,files}=fixture();
   const prepared=await (await handler(request("POST",{action:"prepare-media",type:"image/jpeg",size:1000}))).json();
-  const data={action:"save-story",title:"Event day",summary:"A look inside",category:"behind-scenes",mediaPath:prepared.path,status:"published"};
+  const data={action:"save-story",title:"Event day",summary:"A look inside",category:"behind-scenes",mediaPaths:[prepared.path],status:"published"};
   assert.equal((await handler(request("POST",data))).status,400);
   files.add(prepared.path);
   assert.equal((await handler(request("POST",data))).status,200);
   const stories=(await (await handler(request())).json()).stories;
-  assert.match(stories[0].mediaUrl,/storage\.example\/read/);
-  assert.equal((await handler(request("POST",{...data,mediaPath:"inventory/private.jpg"}))).status,400);
+  assert.match(stories[0].media[0].url,/storage\.example\/read/);
+  assert.equal((await handler(request("POST",{...data,mediaPaths:["inventory/private.jpg"]}))).status,400);
+  assert.equal((await handler(request("POST",{...data,mediaPaths:Array(11).fill(prepared.path)}))).status,400);
 });
