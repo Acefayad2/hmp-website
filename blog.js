@@ -3,9 +3,9 @@ const defaults=["Real Celebrations","Guest Experiences","Behind the Scenes","Eve
 const escape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 let stories=[],categories=defaults,active="all";
 const grid=document.querySelector("#blog-grid");
-function media(story){
-  if(!story.mediaUrl)return `<div class="blog-card-placeholder" aria-hidden="true">HMP</div>`;
-  return ["mp4","mov","webm"].includes(story.mediaType)?`<video controls preload="metadata" playsinline src="${escape(story.mediaUrl)}" aria-label="Video for ${escape(story.title)}"></video>`:`<img src="${escape(story.mediaUrl)}" loading="lazy" alt="${escape(story.title)}">`;
+function media(story,item=story.media?.[0]){
+  if(!item?.url)return `<div class="blog-card-placeholder" aria-hidden="true">HMP</div>`;
+  return ["mp4","mov","webm"].includes(item.type)?`<video controls preload="metadata" playsinline src="${escape(item.url)}" aria-label="Video for ${escape(story.title)}"></video>`:`<img src="${escape(item.url)}" loading="lazy" alt="${escape(story.title)}">`;
 }
 function card(story){
   const category=categories[ids.indexOf(story.category)]||"HMP Journal";
@@ -18,7 +18,7 @@ function render(){
 }
 function openStory(story){
   const dialog=document.createElement("dialog");dialog.className="blog-story-dialog";
-  dialog.innerHTML=`<div class="blog-dialog-head"><p class="eyebrow">${escape(categories[ids.indexOf(story.category)]||"HMP Journal")}</p><button type="button" aria-label="Close story">Close ×</button></div><h2>${escape(story.title)}</h2>${story.mediaUrl?`<div class="blog-dialog-media">${media(story)}</div>`:""}<div class="blog-story-text">${escape(story.content).split(/\n\s*\n/).filter(Boolean).map(p=>`<p>${p.replace(/\n/g,"<br>")}</p>`).join("")}</div>`;
+  dialog.innerHTML=`<div class="blog-dialog-head"><p class="eyebrow">${escape(categories[ids.indexOf(story.category)]||"HMP Journal")}</p><button type="button" aria-label="Close story">Close ×</button></div><h2>${escape(story.title)}</h2>${story.media?.length?`<div class="blog-dialog-gallery">${story.media.map(item=>`<div class="blog-dialog-media">${media(story,item)}</div>`).join("")}</div>`:""}<div class="blog-story-text">${escape(story.content).split(/\n\s*\n/).filter(Boolean).map(p=>`<p>${p.replace(/\n/g,"<br>")}</p>`).join("")}</div>`;
   document.body.append(dialog);
   dialog.querySelector("button").addEventListener("click",()=>dialog.close());
   dialog.addEventListener("close",()=>dialog.remove());

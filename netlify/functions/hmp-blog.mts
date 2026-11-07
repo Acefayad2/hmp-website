@@ -33,9 +33,12 @@ export function createBlogHandler({getUserFn=getUser,databaseFactory=db}={}) {
         if (settingsResult.error || storiesResult.error) return respond({error:"The journal is temporarily unavailable."},503);
         const stories = (storiesResult.data || []).map((row:{value:any})=>row.value).filter((story:any)=>admin || story.status === "published");
         const withMedia = await Promise.all(stories.map(async (story:any)=> {
-          if (!story.mediaPath) return story;
-          const {data} = await client.storage.from(ATTACHMENT_BUCKET).createSignedUrl(story.mediaPath,3600);
-          return {...story,mediaUrl:data?.signedUrl || ""};
+          const paths=Array.isArray(story.mediaPaths)?story.mediaPaths:story.mediaPath?[story.mediaPath]:[];
+          const media=await Promise.all(paths.map(async (path:string)=>{
+            const {data}=await client.storage.from(ATTACHMENT_BUCKET).createSignedUrl(path,3600);
+            return {path,type:path.split(".").at(-1),url:data?.signedUrl||""};
+          }));
+          return {...story,media};
         }));
         return respond({settings:{...defaults,...settingsResult.data?.value},stories:withMedia.sort((a:any,b:any)=>String(b.publishedAt||b.updatedAt).localeCompare(String(a.publishedAt||a.updatedAt)))});
       }
@@ -59,22 +62,28 @@ export function createBlogHandler({getUserFn=getUser,databaseFactory=db}={}) {
       if (body.action === "save-story") {
         const id=body.id && uuid.test(body.id) ? body.id : crypto.randomUUID();
         const title=tidy(body.title,160),summary=tidy(body.summary,500),content=tidy(body.content,16000);
-        const category=tidy(body.category,30),mediaPath=tidy(body.mediaPath,150);
+        const category=tidy(body.category,30);
+        const mediaPaths=Array.isArray(body.mediaPaths)?body.mediaPaths.map((x:unknown)=>tidy(x,150)):body.mediaPath?[tidy(body.mediaPath,150)]:[];
         const status=body.status === "published" ? "published" : "draft";
         if (!title || title.length>160 || summary.length>500 || content.length>16000 || !categoryIds.includes(category)) return respond({error:"Add a story title and choose one of the four sections."},400);
         if (status === "published" && !summary && !content) return respond({error:"Add a summary or story text before publishing."},400);
-        if (mediaPath) {
-          if (!/^blog\/[\da-f-]+\.(jpg|png|webp|mp4|webm|mov)$/i.test(mediaPath)) return respond({error:"Upload the media from Blog Hub first."},400);
+        if (mediaPaths.length>10 || new Set(mediaPaths).size!==mediaPaths.length) return respond({error:"Use up to 10 different photos or videos per story."},400);
+        for (const mediaPath of mediaPaths) {
+          if (!/^blog\/[\da-f-]+\.(jpg|png|webp|mp4|webm|mov)$/i.test(mediaPath)) return respond({error:"Upload each photo or video from Blog Hub first."},400);
           const name=mediaPath.slice(5);
           const {data,error}=await client.storage.from(ATTACHMENT_BUCKET).list("blog",{limit:100,search:name});
-          if (error || !data?.some((file:{name:string})=>file.name===name)) return respond({error:"Media upload has not finished."},400);
+          if (error || !data?.some((file:{name:string})=>file.name===name)) return respond({error:"A photo or video upload has not finished."},400);
         }
         const {data:existing,error:readError}=await client.from("hmp_seating_records").select("value").eq("key",storyKey(id)).maybeSingle();
         if (readError) return respond({error:"Story could not be checked."},503);
         const now=new Date().toISOString();
-        const story={id,title,summary,content,category,mediaPath,mediaType:mediaPath?mediaPath.split(".").at(-1):"",status,featured:body.featured===true,createdAt:existing?.value?.createdAt||now,updatedAt:now,publishedAt:status==="published"?(existing?.value?.publishedAt||now):null};
+        const story={id,title,summary,content,category,mediaPaths,status,featured:body.featured===true,createdAt:existing?.value?.createdAt||now,updatedAt:now,publishedAt:status==="published"?(existing?.value?.publishedAt||now):null};
         const {error}=await client.from("hmp_seating_records").upsert({key:storyKey(id),value:story,updated_at:now},{onConflict:"key"});
-        return error?respond({error:"Story could not be saved."},503):respond({story});
+        if (error) return respond({error:"Story could not be saved."},503);
+        const oldPaths=Array.isArray(existing?.value?.mediaPaths)?existing.value.mediaPaths:existing?.value?.mediaPath?[existing.value.mediaPath]:[];
+        const removed=oldPaths.filter((path:string)=>!mediaPaths.includes(path));
+        if (removed.length) await client.storage.from(ATTACHMENT_BUCKET).remove(removed);
+        return respond({story});
       }
       if (body.action === "delete-story") {
         if (!uuid.test(body.id)) return respond({error:"Choose a story."},400);
