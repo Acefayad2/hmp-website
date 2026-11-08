@@ -28,7 +28,7 @@ import { inquiryGroups, inquiryFilterTitles, inquiryStatusGroup } from "./inquir
 import { inquiryDetailsHTML } from "./inquiry-details.js";
 import "./admin-search.js";
 import { matchesSearch, searchText } from "../page-search.js";
-import { insertMessageSignature } from "./message-signature.mjs";
+import { insertFormattedMessageSignature } from "./message-signature.mjs";
 import { appendLinkedText, normalizeCalendarUrl } from "../calendar-link.js";
 import { proposalEventType } from "./proposal-event-type.js";
 import { createProposalDirtyState } from "./proposal-dirty-state.js";
@@ -149,6 +149,7 @@ let activitySeatingRequest = 0;
 let availableHubForms = [];
 let activeConversationUrl = "";
 let messageSignature = "";
+let messageSignatureFormatting = [];
 let messageSignatureLoaded = false;
 let messageSignatureLoadPromise = null;
 let renderedAdminThreadId = "";
@@ -1350,8 +1351,10 @@ const loadMessageSignature = () => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Message signature could not be loaded.");
     messageSignature = data.signature || "";
+    messageSignatureFormatting = data.formatting || [];
     messageSignatureLoaded = true;
     $("#message-signature-input").value = messageSignature;
+    setRichField($("#message-signature-input"), messageSignatureFormatting);
     $("#message-signature-input").disabled = false;
     $("#message-signature-form button[type=submit]").disabled = false;
     $("#insert-message-signature").disabled = !messageSignature;
@@ -1363,8 +1366,8 @@ const loadMessageSignature = () => {
 const selectMessageTab = (tab) => {
   const signatureTab = tab === "signature";
   const input = $("#message-signature-input");
-  if (!signatureTab && input.value !== messageSignature && !window.confirm("Discard your unsaved signature changes?")) return;
-  if (!signatureTab) input.value = messageSignature;
+  if (!signatureTab && (input.value !== messageSignature || JSON.stringify(richFieldFormatting(input)) !== JSON.stringify(messageSignatureFormatting)) && !window.confirm("Discard your unsaved signature changes?")) return;
+  if (!signatureTab) { input.value = messageSignature; setRichField(input, messageSignatureFormatting); }
   $("#message-signature-tab").setAttribute("aria-selected", String(signatureTab));
   $("#message-conversations-tab").setAttribute("aria-selected", String(!signatureTab));
   $("#message-signature-panel").hidden = !signatureTab;
@@ -1381,12 +1384,14 @@ const saveMessageSignature = async (event) => {
   try {
     const response = await fetch("/api/hmp-message-signature", {
       method: "PUT", credentials: "same-origin", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ signature: input.value }),
+      body: JSON.stringify({ signature: input.value, formatting: richFieldFormatting(input) }),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Message signature could not be saved.");
     messageSignature = data.signature;
+    messageSignatureFormatting = data.formatting || [];
     input.value = messageSignature;
+    setRichField(input, messageSignatureFormatting);
     $("#insert-message-signature").disabled = !messageSignature;
     setMessage($("#message-signature-status"), messageSignature ? "Signature saved for the HMP team. Insert it into any reply when needed." : "Signature cleared.", true);
   } catch (error) {
@@ -2498,11 +2503,10 @@ $("#message-signature-tab").addEventListener("click", () => selectMessageTab("si
 $("#message-signature-form").addEventListener("submit", saveMessageSignature);
 $("#insert-message-signature").addEventListener("click", () => {
   const input = $("#admin-message-input");
-  const result = insertMessageSignature(input.value, messageSignature, input.maxLength);
+  const result = insertFormattedMessageSignature(input.value, messageSignature, input.maxLength, richFieldFormatting(input), messageSignatureFormatting);
   if (result.error) return setMessage($("#admin-message-status"), result.error);
-  const formatting = richFieldFormatting(input);
   input.value = result.message;
-  setRichField(input,formatting);
+  setRichField(input,result.formatting);
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
   setMessage($("#admin-message-status"), "Signature added to the draft. Review it before sending.", true);
@@ -2921,3 +2925,4 @@ onAuthChange((event, user) => {
 });
 
 setRichField($("#admin-message-input"));
+setRichField($("#message-signature-input"));

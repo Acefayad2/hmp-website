@@ -2,6 +2,7 @@ import type { Config } from "@netlify/functions";
 import { getUser } from "./_admin-verification.mts";
 import { createClient } from "@supabase/supabase-js";
 import { isSameOriginMutation } from "./_conversation-security.mts";
+import { normalizeTextFormatting } from "../../text-formatting.mjs";
 
 const json = (body: unknown, status = 200) => Response.json(body, {
   status,
@@ -23,9 +24,9 @@ export const createMessageSignatureHandler = ({ getUserFn = getUser, databaseFac
   const table = db.from("hmp_admin_message_signature");
 
   if (request.method === "GET") {
-    const { data, error } = await table.select("body,updated_at").eq("scope", "hmp").maybeSingle();
+    const { data, error } = await table.select("body,formatting,updated_at").eq("scope", "hmp").maybeSingle();
     if (error) return json({ error: "Message signature could not be loaded" }, 502);
-    return json({ signature: data?.body || "", updatedAt: data?.updated_at || null });
+    return json({ signature: data?.body || "", formatting: data?.formatting || [], updatedAt: data?.updated_at || null });
   }
 
   const raw = await request.text();
@@ -35,11 +36,16 @@ export const createMessageSignatureHandler = ({ getUserFn = getUser, databaseFac
   if (!body || typeof body !== "object" || Array.isArray(body) || typeof (body as Record<string, unknown>).signature !== "string") {
     return json({ error: "Invalid signature" }, 400);
   }
-  const signature = (body as { signature: string }).signature.trim();
+  const source = body as { signature: string; formatting?: unknown };
+  const signature = source.signature.trim();
   if (signature.length > 1000) return json({ error: "Signature must be 1,000 characters or fewer" }, 400);
-  const { data, error } = await table.upsert({ scope: "hmp", body: signature, updated_at: new Date().toISOString(), updated_by: email }, { onConflict: "scope" }).select("body,updated_at").single();
+  let formatting;
+  try {
+    formatting = normalizeTextFormatting({ signature: source.signature, textFormatting: { signature: source.formatting || [] } }, { signature }, ["signature"]).textFormatting?.signature || [];
+  } catch (error) { return json({ error: error instanceof Error ? error.message : "Invalid signature formatting" }, 400); }
+  const { data, error } = await table.upsert({ scope: "hmp", body: signature, formatting, updated_at: new Date().toISOString(), updated_by: email }, { onConflict: "scope" }).select("body,formatting,updated_at").single();
   if (error || !data) return json({ error: "Message signature could not be saved" }, 502);
-  return json({ signature: data.body, updatedAt: data.updated_at });
+  return json({ signature: data.body, formatting: data.formatting || [], updatedAt: data.updated_at });
 };
 
 export default createMessageSignatureHandler();
