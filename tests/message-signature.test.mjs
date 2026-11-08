@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createMessageSignatureHandler } from "../netlify/functions/hmp-message-signature.mts";
-import { insertMessageSignature } from "../src/message-signature.mjs";
+import { insertMessageSignature, insertFormattedMessageSignature } from "../src/message-signature.mjs";
 
 globalThis.Netlify = { env: { get: key => ({
   HMP_ADMIN_EMAILS: "admin@example.test",
@@ -54,6 +54,19 @@ test("signature saves across reloads, preserves line breaks, and can be cleared"
   assert.equal((await (await handler(request("GET"))).json()).signature, "Best,\nHMP team");
   assert.equal((await handler(request("PUT", { signature: "" }))).status, 200);
   assert.equal((await (await handler(request("GET"))).json()).signature, "");
+});
+
+test("signature formatting survives save and can be inserted into a formatted reply", async () => {
+  const db = database(), handler = makeHandler(db);
+  const saved = await handler(request("PUT", { signature: "  Best,\nHMP team  ", formatting: [{ start: 2, end: 7, bold: true }] }));
+  assert.equal(saved.status, 200);
+  assert.deepEqual((await saved.json()).formatting, [{ start: 0, end: 5, bold: true }]);
+  const loaded = await (await handler(request("GET"))).json();
+  assert.deepEqual(loaded.formatting, [{ start: 0, end: 5, bold: true }]);
+  assert.deepEqual(insertFormattedMessageSignature("Hello", loaded.signature, 4000, [], loaded.formatting), {
+    message: "Hello\n\nBest,\nHMP team", error: "", formatting: [{ start: 7, end: 12, bold: true }],
+  });
+  assert.equal((await handler(request("PUT", { signature: "Hello", formatting: [{ start: 0, end: 99, bold: true }] }))).status, 400);
 });
 
 test("invalid, overlong, or unavailable signatures fail without false success", async () => {
