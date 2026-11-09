@@ -49,3 +49,15 @@ test("a valid private form can receive a reference translation without changing 
   assert.deepEqual(await response.json(), { translations: ["Condiciones de pago"] });
   assert.equal(submitted.messages[1].content, '{"texts":["Payment terms"]}');
 });
+
+test("translation rejects a changed payment amount", async () => {
+  const handler = createClientTranslationHandler({
+    databaseFactory: () => ({ rpc: async () => ({ data: { status: "Sent", expires_at: "2099-01-01T00:00:00Z" }, error: null }) }),
+    fetchFn: async () => Response.json({ choices: [{ message: { content: JSON.stringify({ translations: ["Total: $900.00"] }) } }] }),
+  });
+  const response = await handler(new Request("https://hmpeds.com/api/hmp-client-translation", {
+    method: "POST", headers: { origin: "https://hmpeds.com", authorization: `Bearer ${"c".repeat(43)}`, "content-type": "application/json" },
+    body: JSON.stringify({ documentType: "agreement", language: "fr", texts: ["Total: $500.00"] }),
+  }));
+  assert.equal(response.status, 502);
+});

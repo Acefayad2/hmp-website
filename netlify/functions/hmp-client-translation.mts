@@ -15,6 +15,7 @@ const json = (value: unknown, status = 200) => Response.json(value, { status, he
   "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
 } });
 const recentRequests = new Map<string, number[]>();
+const protectedValues = (value: string) => value.match(/https?:\/\/\S+|\$[\d,.]+|\b\d+(?:[.,/]\d+)*(?:%|am|pm)?\b/gi) || [];
 
 export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactory = createClient } = {}) => async (request: Request) => {
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -76,7 +77,8 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
     if (!response.ok) return json({ error: "Translation could not be completed. Please try again." }, 502);
     const result = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
     const translated = JSON.parse(result.choices?.[0]?.message?.content || "null")?.translations;
-    if (!Array.isArray(translated) || translated.length !== texts.length || translated.some((item) => typeof item !== "string" || item.length > 5000))
+    if (!Array.isArray(translated) || translated.length !== texts.length || translated.some((item) => typeof item !== "string" || item.length > 20000) ||
+        translated.some((item, index) => JSON.stringify(protectedValues(item)) !== JSON.stringify(protectedValues(texts[index]))))
       return json({ error: "Translation could not be completed. Please try again." }, 502);
     return json({ translations: translated });
   } catch {
