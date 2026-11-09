@@ -1,5 +1,9 @@
 const escapeHTML = (value = "") => String(value).replace(/[&<>"']/g, character => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[character]);
 const inventoryURL = "/api/hmp-inventory";
+const localDateTime = value => {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "" : new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0,16);
+};
 
 export function mountEventInventory({root, onAuthRequired = () => {}}) {
   let events = [];
@@ -20,8 +24,13 @@ export function mountEventInventory({root, onAuthRequired = () => {}}) {
       <form id="inventory-create-event" class="inventory-form">
         <h3>Create inventory for an event</h3>
         <label>Event name <input name="name" required maxlength="120" placeholder="Event name" /></label>
-        <label>Event date (optional) <input name="date" type="date" /></label>
+        <label>Event ends (local date and time) <input name="end" type="datetime-local" required /></label>
         <button class="primary-button" type="submit">Create event inventory</button>
+      </form>
+      <form id="inventory-event-end" class="inventory-form" hidden>
+        <label>Event ends (local date and time) <input name="end" type="datetime-local" required /></label>
+        <button class="agreement-button secondary" type="submit">Save end time</button>
+        <p id="inventory-photo-deadline"></p>
       </form>
       <form id="inventory-add-items" class="inventory-form" hidden>
         <h3>Add items</h3>
@@ -53,6 +62,14 @@ export function mountEventInventory({root, onAuthRequired = () => {}}) {
   }
   function renderItems() {
     $("#inventory-add-items").hidden = !currentEvent;
+    const endForm = $("#inventory-event-end");
+    endForm.hidden = !currentEvent;
+    if (currentEvent) {
+      endForm.elements.end.value = currentEvent.endAt ? localDateTime(currentEvent.endAt) : "";
+      $("#inventory-photo-deadline").textContent = currentEvent.photoDeleteAt
+        ? `Photos are deleted 24 hours after the event ends: ${new Date(currentEvent.photoDeleteAt).toLocaleString()}. Uploads close two hours before that time. Inventory records remain.`
+        : "Set the event end date and time to schedule photo deletion. Inventory records remain.";
+    }
     $("#inventory-print-all").disabled = !items.length;
     const list = $("#inventory-list");
     if (!currentEvent) { list.innerHTML = `<p class="inventory-empty">Choose or create an event to manage its inventory.</p>`; return; }
@@ -68,12 +85,12 @@ export function mountEventInventory({root, onAuthRequired = () => {}}) {
             <p class="inventory-last">${item.history?.length ? `Last action: ${escapeHTML(item.history.at(-1).action === "check-in" ? "Checked in" : "Checked out")} · ${escapeHTML(new Date(item.history.at(-1).at).toLocaleString())}` : "No check-ins or check-outs yet"}</p>
             ${item.photo?.url ? `<img class="inventory-photo" src="${escapeHTML(item.photo.url)}" alt="Photo of ${escapeHTML(item.name)}" loading="lazy" />` : ""}
             <label class="inventory-detail-label">Item details <textarea class="inventory-details" maxlength="2000" rows="3" placeholder="Description, condition, location, or notes">${escapeHTML(item.details || "")}</textarea></label>
-            <label class="inventory-detail-label">${item.photo?.path ? "Replace photo" : "Add photo"} <input class="inventory-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>
+            ${currentEvent.photoDeleteAt && Date.now() < Date.parse(currentEvent.photoDeleteAt) - 2 * 60 * 60 * 1000 ? `<label class="inventory-detail-label">${item.photo?.path ? "Replace photo" : "Add photo"} <input class="inventory-file" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" /></label>` : ""}
             <div class="inventory-actions">
               <button type="button" data-action="${item.status === "out" ? "check-in" : "check-out"}">${item.status === "out" ? "Check in" : "Check out"}</button>
               <button type="button" data-action="rename">Edit name/label</button>
               <button type="button" data-action="update-details">Save details</button>
-              <button type="button" data-action="attach-photo">Upload photo</button>
+              ${currentEvent.photoDeleteAt && Date.now() < Date.parse(currentEvent.photoDeleteAt) - 2 * 60 * 60 * 1000 ? `<button type="button" data-action="attach-photo">Upload photo</button>` : ""}
               ${item.photo?.path ? `<button type="button" data-action="remove-photo">Remove photo</button>` : ""}
               <button type="button" data-action="print">Print QR</button>
             </div>
@@ -106,9 +123,18 @@ export function mountEventInventory({root, onAuthRequired = () => {}}) {
   $("#inventory-create-event").addEventListener("submit", async event => {
     event.preventDefault(); const form = event.currentTarget;
     try {
-      const result = await api("POST", {action:"create-event",name:form.elements.name.value,date:form.elements.date.value});
+      const end = form.elements.end.value;
+      const result = await api("POST", {action:"create-event",name:form.elements.name.value,date:end.slice(0,10),endAt:new Date(end).toISOString()});
       events.push(result.event); selectedId = result.event.id; form.reset(); renderEvents(); await loadEvent(); status("Event inventory created. Add items below.", true);
     } catch (error) { status(error.message); }
+  });
+  $("#inventory-event-end").addEventListener("submit", async event => {
+    event.preventDefault(); const end=event.currentTarget.elements.end.value;
+    try {
+      const result=await api("PATCH",{action:"set-event-end",eventId:selectedId,date:end.slice(0,10),endAt:new Date(end).toISOString()});
+      events=events.map(row=>row.id===selectedId?result.event:row);
+      currentEvent=result.event;renderEvents();renderItems();status("Event end time and photo deletion date saved.",true);
+    } catch(error){status(error.message);}
   });
   $("#inventory-add-items").addEventListener("submit", async event => {
     event.preventDefault(); const form = event.currentTarget;

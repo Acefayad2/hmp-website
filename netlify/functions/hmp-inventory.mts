@@ -2,6 +2,7 @@ import {createClient} from "@supabase/supabase-js";
 import QRCode from "qrcode";
 import {getUser} from "./_admin-verification.mts";
 import {ATTACHMENT_BUCKET} from "./_conversation-attachments.mts";
+import {photoDeadline,photosExpired} from "./_inventory-photo-retention.mts";
 
 const uuid=/^[\da-f]{8}-[\da-f]{4}-[1-8][\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i;
 const eventKey=(id:string)=>`inventory/event/${id}`;
@@ -9,6 +10,7 @@ const itemKey=(eventId:string,itemId:string)=>`inventory/${eventId}/item/${itemI
 const reply=(data:unknown,status=200)=>Response.json(data,{status,headers:{"Cache-Control":"private, no-store"}});
 const clean=(value:unknown,max:number)=>typeof value==="string"?value.trim().slice(0,max+1):"";
 const validDate=(value:unknown)=>value===""||typeof value==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(value)&&!Number.isNaN(Date.parse(`${value}T12:00:00Z`));
+const validEnd=(value:unknown)=>typeof value==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)&&Number.isFinite(Date.parse(value));
 const photoTypes:Record<string,string>={"image/jpeg":"jpg","image/png":"png","image/webp":"webp","image/heic":"heic","image/heif":"heif"};
 const maxPhotoBytes=10*1024*1024;
 const photoFolder=(eventId:string,itemId:string)=>`inventory/${eventId}/${itemId}`;
@@ -41,13 +43,14 @@ export function createInventoryHandler({getUserFn=getUser,databaseFactory=()=>cr
           if(!event)return reply({error:"Event not found."},404);
           const {data:items,error}=await db.from("hmp_seating_records").select("value").like("key",`inventory/${eventId}/item/%`).limit(1000);
           if(error)return reply({error:"Items could not be loaded."},503);
+          const expired=photosExpired(event.value);
           const signed=await Promise.all((items||[]).map(async row=>{
             const item=row.value;
-            if(!item.photo?.path)return item;
+            if(!item.photo?.path||expired)return {...item,photo:undefined};
             const {data}=await db.storage.from(ATTACHMENT_BUCKET).createSignedUrl(item.photo.path,3600);
             return {...item,photo:{...item.photo,url:data?.signedUrl||""}};
           }));
-          return reply({event:event.value,items:signed});
+          return reply({event:{...event.value,photoDeleteAt:photoDeadline(event.value)?new Date(photoDeadline(event.value)!).toISOString():null},items:signed});
         }
         const {data,error}=await db.from("hmp_seating_records").select("value").like("key","inventory/event/%").limit(500);
         return error?reply({error:"Events could not be loaded."},503):reply({events:(data||[]).map(row=>row.value)});
@@ -55,11 +58,23 @@ export function createInventoryHandler({getUserFn=getUser,databaseFactory=()=>cr
       const body=await request.json().catch(()=>null);
       if(!body||typeof body!=="object")return reply({error:"Check the inventory details."},400);
       if(request.method==="POST"&&body.action==="create-event"){
-        const name=clean(body.name,120),date=body.date??"";
-        if(!name||name.length>120||!validDate(date))return reply({error:"Enter an event name and a valid optional date."},400);
-        const event={id:crypto.randomUUID(),name,date,createdAt:new Date().toISOString()};
+        const name=clean(body.name,120),endAt=body.endAt,date=body.date;
+        if(!name||name.length>120||!validEnd(endAt)||!validDate(date)||!date)return reply({error:"Enter an event name and a valid event end date and time."},400);
+        const event={id:crypto.randomUUID(),name,date,endAt,createdAt:new Date().toISOString()};
         const {error}=await db.from("hmp_seating_records").insert({key:eventKey(event.id),value:event});
         return error?reply({error:"Event could not be saved."},503):reply({event},201);
+      }
+      if(request.method==="PATCH"&&body.action==="set-event-end"){
+        const eventId=body.eventId,endAt=body.endAt,date=body.date;
+        if(typeof eventId!=="string"||!uuid.test(eventId)||!validEnd(endAt)||!validDate(date)||!date)return reply({error:"Choose a valid event end date and time."},400);
+        const key=eventKey(eventId);
+        const {data,error}=await db.from("hmp_seating_records").select("value").eq("key",key).maybeSingle();
+        if(error)return reply({error:"Event could not be loaded."},503);
+        if(!data)return reply({error:"Event not found."},404);
+        const event={...data.value,date,endAt,updatedAt:new Date().toISOString()};
+        delete event.photosPurgedAt;
+        const result=await db.from("hmp_seating_records").update({value:event,updated_at:event.updatedAt}).eq("key",key);
+        return result.error?reply({error:"Event end time could not be saved."},503):reply({event:{...event,photoDeleteAt:new Date(photoDeadline(event)!).toISOString()}});
       }
       if(request.method==="POST"&&body.action==="add-items"){
         const eventId=body.eventId;
@@ -78,6 +93,12 @@ export function createInventoryHandler({getUserFn=getUser,databaseFactory=()=>cr
         const {eventId,itemId}=body;
         const type=clean(body.type,80).toLowerCase(),size=Number(body.size);
         if(typeof eventId!=="string"||!uuid.test(eventId)||typeof itemId!=="string"||!uuid.test(itemId)||!photoTypes[type]||!Number.isFinite(size)||size<1||size>maxPhotoBytes)return reply({error:"Choose a JPG, PNG, WebP, or HEIC image up to 10 MB."},400);
+        const {data:event,error:eventError}=await db.from("hmp_seating_records").select("value").eq("key",eventKey(eventId)).maybeSingle();
+        if(eventError)return reply({error:"Event could not be checked."},503);
+        if(!event)return reply({error:"Event not found."},404);
+        const deadline=photoDeadline(event.value);
+        if(!deadline)return reply({error:"Set the event end date and time before adding photos."},400);
+        if(Date.now()>=deadline-2*60*60*1000)return reply({error:"Photo uploads close two hours before automatic deletion. Inventory details remain available."},400);
         const {data:item,error}=await db.from("hmp_seating_records").select("key").eq("key",itemKey(eventId,itemId)).maybeSingle();
         if(error)return reply({error:"Item could not be checked."},503);
         if(!item)return reply({error:"Item not found."},404);
@@ -94,6 +115,11 @@ export function createInventoryHandler({getUserFn=getUser,databaseFactory=()=>cr
         if(!data)return reply({error:"Item not found."},404);
         const previous=data.value;
         if(previous.version!==expectedVersion)return reply({error:"This item changed on another device. Refresh it before saving."},409);
+        if(body.action==="attach-photo"){
+          const {data:event,error:eventError}=await db.from("hmp_seating_records").select("value").eq("key",eventKey(eventId)).maybeSingle();
+          if(eventError)return reply({error:"Event could not be checked."},503);
+          if(!event||!photoDeadline(event.value)||photosExpired(event.value))return reply({error:"The event photo period has ended. Refresh the inventory."},400);
+        }
         const next={...previous,photo:previous.photo?.path?{path:previous.photo.path}:undefined,version:crypto.randomUUID(),updatedAt:new Date().toISOString()};
         if(body.action==="rename"){
           const name=clean(body.name,120),label=clean(body.label,120);
