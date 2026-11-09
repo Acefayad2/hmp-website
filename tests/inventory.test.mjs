@@ -53,7 +53,7 @@ test("inventory requires verified Admin and same-origin mutations", async () => 
 
 test("item details and photos stay private and require a completed upload", async () => {
   const {handler,photos} = fixture();
-  const event=(await (await handler(request("POST",{action:"create-event",name:"Gala"}))).json()).event;
+  const event=(await (await handler(request("POST",{action:"create-event",name:"Gala",date:"2099-12-03",endAt:"2099-12-03T23:00:00.000Z"}))).json()).event;
   const item=(await (await handler(request("POST",{action:"add-items",eventId:event.id,items:[{name:"Gift box"}]}))).json()).items[0];
   const prepared=await handler(request("POST",{action:"prepare-photo",eventId:event.id,itemId:item.id,type:"image/png",size:400}));
   assert.equal(prepared.status,200);
@@ -74,7 +74,7 @@ test("item details and photos stay private and require a completed upload", asyn
 
 test("Admin can create items, print private QR, and track check-out and check-in", async () => {
   const {handler} = fixture();
-  const created = await handler(request("POST",{action:"create-event",name:"Gala",date:"2026-12-03"}));
+  const created = await handler(request("POST",{action:"create-event",name:"Gala",date:"2099-12-03",endAt:"2099-12-03T23:00:00.000Z"}));
   assert.equal(created.status,201);
   const event = (await created.json()).event;
   const added = await handler(request("POST",{action:"add-items",eventId:event.id,items:[{name:"Gift box",label:"Gifts"}]}));
