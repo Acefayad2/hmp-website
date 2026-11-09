@@ -33,13 +33,13 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
   const hash = tokenHash(token);
   if (body.documentType === "agreement") {
     const { data: agreement, error } = await db.rpc("hmp_resolve_agreement_revision", { p_token_hash: agreementHash(token) });
-    if (error || !agreement || !["Sent", "Completed"].includes(agreement.status) || !agreement.expires_at || Date.parse(agreement.expires_at) <= Date.now())
+    if (error || !agreement || !["Sent", "Completed"].includes(agreement.status) || !agreement.expires_at || !Number.isFinite(Date.parse(agreement.expires_at)) || Date.parse(agreement.expires_at) <= Date.now())
       return json({ error: "This form link is invalid or expired." }, 401);
   } else if (!body.documentType) {
     const { data: conversation } = await db.from("hmp_client_conversations")
       .select("id,token_expires_at,revoked_at")
       .eq("access_token_hash", hash).maybeSingle();
-    if (!conversation || conversation.revoked_at || Date.parse(conversation.token_expires_at) <= Date.now())
+    if (!conversation || conversation.revoked_at || !Number.isFinite(Date.parse(conversation.token_expires_at)) || Date.parse(conversation.token_expires_at) <= Date.now())
       return json({ error: "This client link is invalid or expired." }, 401);
     const pinResponse = await requireClientPin(request, db, portalPinId(`message:${conversation.id}`, token), serviceKey, "");
     if (pinResponse) return pinResponse;
