@@ -12,7 +12,7 @@
       href="https://fonts.googleapis.com/css2?family=Droid+Serif:wght@400;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="conversation.css?v=20261104-reply-formatting" />
+    <link rel="stylesheet" href="conversation.css?v=20261109-languages" />
     <link rel="stylesheet" href="attachment-preview.css?v=20260923-2" />
     <link rel="stylesheet" href="document-message.css?v=20261022-sharing" />
   </head>
@@ -57,7 +57,18 @@
           <button type="submit" id="client-pin-submit">Sign in</button>
           <p>Forgot your PIN? Only the HMP team can reset it. Contact <a href="mailto:info@hmpeds.com">info@hmpeds.com</a>.</p>
         </form>
-        <button class="client-sign-out" type="button" id="client-sign-out" hidden>Sign out of client portal</button>
+        <div class="client-hub-controls" id="client-hub-controls" hidden>
+          <button class="client-sign-out" type="button" id="client-sign-out">Sign out of client portal</button>
+          <details class="client-hub-language" id="client-hub-language">
+            <summary id="client-hub-language-label">Language: English</summary>
+            <div class="client-hub-language-menu">
+              <label for="client-hub-language-search">Search languages</label>
+              <input id="client-hub-language-search" type="search" autocomplete="off" placeholder="Search languages" />
+              <div id="client-hub-language-options" role="listbox" aria-label="Languages"></div>
+            </div>
+          </details>
+        </div>
+        <p class="client-hub-translation-status" id="client-hub-translation-status" role="status" hidden></p>
         <nav class="hub-tabs" id="client-hub-tabs" aria-label="Client hub sections" hidden></nav>
         <div class="message-list" id="message-list" hidden></div>
         <div class="message-empty" id="message-empty" hidden>
@@ -80,6 +91,6 @@
       </section>
     </main>
     <footer><span>HMP Luxury Event Services</span><a href="mailto:info@hmpeds.com">info@hmpeds.com</a></footer>
-    <script type="module" src="conversation.js?v=20261109-access-expiry"></script>
+    <script type="module" src="conversation.js?v=20261109-languages"></script>
   </body>
 </html>

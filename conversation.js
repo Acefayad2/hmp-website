@@ -11,10 +11,11 @@ import {
   uploadAttachments,
 } from "./attachment-ui.js?v=20260923-2";
 import { parseProposal, renderProposalMessage } from "./proposal-ui.js?v=20261022-sharing";
-import { renderDocumentCard } from "./document-message-ui.js?v=20261022-sharing";
+import { renderDocumentCard } from "./document-message-ui.js?v=20261109-languages";
 import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261022-sharing";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
+import { clientHubLanguages, clientHubLanguage, collectTranslatableText, translationBatches } from "./client-hub-languages.mjs";
 import { expiryLabel } from "./document-expiry.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -27,6 +28,11 @@ let loadVersion = 0;
 let pinMode = "login";
 let renderedMessageSignature = "";
 let activeHubSection = "messages";
+let activeLanguage = "en";
+let currentMessages = [];
+let translationVersion = 0;
+const sourceText = new WeakMap();
+const translationCache = new Map();
 const linkedSection = new URLSearchParams(location.hash.slice(1)).get("section");
 if (["proposals","invoices","contracts","forms","receipts"].includes(linkedSection)) activeHubSection = linkedSection;
 
@@ -58,7 +64,9 @@ const formatDate = (value, includeTime = false) => {
 
 const showError = (message = "This private link is invalid or expired. Please contact HMP for assistance.") => {
   $("#client-pin-form").hidden = true;
-  $("#client-sign-out").hidden = true;
+  $("#client-hub-controls").hidden = true;
+  translationVersion++;
+  setTranslationStatus();
   $("#conversation-summary").hidden = true;
   $("#message-list").replaceChildren();
   renderedMessageSignature = "";
@@ -83,7 +91,9 @@ const showPin = (code) => {
   $("#client-pin-confirm-group").hidden = pinMode !== "setup";
   $("#client-pin-confirm").required = pinMode === "setup";
   $("#client-pin-form").hidden = false;
-  $("#client-sign-out").hidden = true;
+  $("#client-hub-controls").hidden = true;
+  translationVersion++;
+  setTranslationStatus();
   $("#conversation-error").hidden = true;
   $("#conversation-summary").hidden = true;
   $("#message-form").hidden = true;
@@ -102,9 +112,88 @@ const showPin = (code) => {
 
 const pinRequired = (data) => ["CLIENT_PIN_SETUP", "CLIENT_PIN_REQUIRED"].includes(data.code);
 
+const setTranslationStatus = (message = "") => {
+  const status = $("#client-hub-translation-status");
+  status.textContent = message;
+  status.hidden = !message;
+};
+
+const translateHub = async () => {
+  const version = ++translationVersion;
+  const roots = [$(".conversation-header span"), $(".conversation-intro"), $(".conversation-panel-heading"),
+    $("#conversation-summary"), $("#client-hub-tabs"), $("#message-empty"), $("#message-form"),
+    ...$("#message-list").querySelectorAll(".sent-document")];
+  const nodes = collectTranslatableText(roots);
+  for (const node of nodes) {
+    if (!sourceText.has(node)) sourceText.set(node, node.textContent);
+    node.textContent = sourceText.get(node);
+  }
+  document.documentElement.lang = activeLanguage;
+  document.documentElement.dir = ["ar", "ar-EG", "ur"].includes(activeLanguage) ? "rtl" : "ltr";
+  if (activeLanguage === "en") { setTranslationStatus(); return; }
+  setTranslationStatus("Translating this hub and its document viewing copies…");
+  try {
+    for (const batch of translationBatches(nodes)) {
+      const originals = batch.map((node) => sourceText.get(node));
+      const pending = originals.filter((value) => !translationCache.has(`${activeLanguage}\0${value}`));
+      if (pending.length) {
+        const response = await fetch("/api/hmp-client-translation", {
+          method: "POST", credentials: "same-origin",
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ language: activeLanguage, texts: pending }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (pinRequired(data)) { showPin(data.code); return; }
+        if (!response.ok) throw new Error(data.error || "Translation is unavailable. Please try again.");
+        pending.forEach((value, index) => translationCache.set(`${activeLanguage}\0${value}`, data.translations[index]));
+        while (translationCache.size > 800) translationCache.delete(translationCache.keys().next().value);
+      }
+      if (version !== translationVersion) return;
+      batch.forEach((node, index) => { node.textContent = translationCache.get(`${activeLanguage}\0${originals[index]}`) || originals[index]; });
+    }
+    if (version === translationVersion) setTranslationStatus("Translated reference view. Signed and issued originals remain unchanged; use English to view the original.");
+  } catch (error) {
+    if (version === translationVersion) setTranslationStatus(error instanceof Error ? error.message : "Translation is unavailable. Please try again.");
+  }
+};
+
+const renderLanguageOptions = () => {
+  const query = $("#client-hub-language-search").value.trim().toLocaleLowerCase();
+  const list = $("#client-hub-language-options");
+  list.replaceChildren();
+  for (const [code, label, native] of clientHubLanguages) {
+    if (!`${label} ${native}`.toLocaleLowerCase().includes(query)) continue;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.setAttribute("role", "option");
+    button.setAttribute("aria-selected", String(activeLanguage === code));
+    const name = document.createElement("span"), description = document.createElement("small");
+    name.textContent = native; description.textContent = label;
+    button.append(name, description);
+    button.addEventListener("click", () => {
+      activeLanguage = code;
+      $("#client-hub-language-label").textContent = `Language: ${clientHubLanguage(code)[2]}`;
+      $("#client-hub-language").open = false;
+      $("#client-hub-language-search").value = "";
+      renderLanguageOptions();
+      renderedMessageSignature = "";
+      renderMessages(currentMessages);
+    });
+    list.append(button);
+  }
+  if (!list.childElementCount) list.textContent = "No languages found.";
+};
+
+$("#client-hub-language-search").addEventListener("input", renderLanguageOptions);
+$("#client-hub-language-search").addEventListener("keydown", (event) => {
+  if (event.key === "Escape") $("#client-hub-language").open = false;
+});
+renderLanguageOptions();
+
 const renderMessages = (messages) => {
+  currentMessages = messages;
   const visible = hubMessages(messages, activeHubSection);
-  const signature = `${activeHubSection}:${getMessageSignature(messages)}`;
+  const signature = `${activeLanguage}:${activeHubSection}:${getMessageSignature(messages)}`;
   if (signature === renderedMessageSignature) return;
   renderedMessageSignature = signature;
   const focusedTab = document.activeElement?.classList?.contains("hub-tab")
@@ -131,7 +220,7 @@ const renderMessages = (messages) => {
     time.textContent = formatDate(message.createdAt, true);
     if (message.editedAt) time.textContent += " · Edited";
     article.append(name);
-    const documentCard=message.sender === "admin" ? renderDocumentCard(message.document) : null;
+    const documentCard=message.sender === "admin" ? renderDocumentCard(message.document, { language: activeLanguage }) : null;
     if (documentCard) { article.classList.add("document-message"); article.append(documentCard); }
     else if (proposal) {
       article.classList.add("proposal-message");
@@ -152,6 +241,19 @@ const renderMessages = (messages) => {
   $("#message-empty").hidden = visible.length > 0;
   $("#message-empty h3").textContent = activeHubSection === "all" ? "Your private conversation starts here." : `No ${activeHubSection==="contracts"?"agreements":activeHubSection} in this event hub yet.`;
   if (visible.length) list.scrollTop = list.scrollHeight;
+  if (activeLanguage !== "en") {
+    for (const card of list.querySelectorAll(".sent-document")) {
+      const note = document.createElement("p");
+      note.className = "document-translation-note";
+      note.textContent = "Translated reference copy. The original signed or issued English document remains unchanged. Print / Save PDF opens the original.";
+      card.prepend(note);
+      for (const button of card.querySelectorAll("button")) if (/Print \/ Save PDF/.test(button.textContent || "")) {
+        button.textContent = "Print original / Save PDF";
+        button.classList.add("document-print-original");
+      }
+    }
+  }
+  void translateHub();
 };
 
 const loadConversation = async ({ quiet = false } = {}) => {
@@ -170,7 +272,7 @@ const loadConversation = async ({ quiet = false } = {}) => {
     if (pinRequired(data)) { showPin(data.code); return; }
     if (!response.ok) throw new Error(data.error || "Conversation unavailable");
     $("#client-pin-form").hidden = true;
-    $("#client-sign-out").hidden = false;
+  $("#client-hub-controls").hidden = false;
     $("#conversation-title").textContent = `${data.conversation.clientName}’s Event Hub`;
     $("#summary-service").textContent = eventServiceLabel(data.conversation.service);
     $("#summary-date").textContent = formatDate(data.conversation.celebrationDate);
