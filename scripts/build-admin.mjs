@@ -20,6 +20,7 @@ const productionFiles = [
   "conversation.html",
   "conversation.css",
   "conversation.js",
+  "client-hub-languages.mjs",
   "client-hub.js",
   "document-versions.mjs",
   "document-expiry.mjs",
