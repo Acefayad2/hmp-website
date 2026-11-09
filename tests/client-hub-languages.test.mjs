@@ -61,3 +61,31 @@ test("translation rejects a changed payment amount", async () => {
   }));
   assert.equal(response.status, 502);
 });
+
+test("website relays translations to seating with a signed server request when its own provider key is absent", async () => {
+  const previous = globalThis.Netlify;
+  globalThis.Netlify = { env: { get: (name) => ({
+    SUPABASE_URL: "https://example.supabase.co",
+    SUPABASE_SERVICE_ROLE_KEY: "test-service-key",
+  })[name] } };
+  try {
+    let relay;
+    const handler = createClientTranslationHandler({
+      databaseFactory: () => ({ rpc: async () => ({ data: { status: "Sent", expires_at: "2099-01-01T00:00:00Z" }, error: null }) }),
+      fetchFn: async (url, options) => {
+        relay = { url, options };
+        return Response.json({ translations: ["Condiciones de pago"] });
+      },
+    });
+    const response = await handler(new Request("https://hmpeds.com/api/hmp-client-translation", {
+      method: "POST", headers: { origin: "https://hmpeds.com", authorization: `Bearer ${"d".repeat(43)}`, "content-type": "application/json" },
+      body: JSON.stringify({ documentType: "agreement", language: "es", texts: ["Payment terms"] }),
+    }));
+    assert.equal(response.status, 200);
+    assert.equal(relay.url, "https://seating.hmpeds.com/api/hmp-internal-translate");
+    assert.deepEqual(JSON.parse(relay.options.body), { language: "es", texts: ["Payment terms"] });
+    assert.match(relay.options.headers["X-HMP-Signature"], /^[0-9a-f]{64}$/);
+  } finally {
+    globalThis.Netlify = previous;
+  }
+});

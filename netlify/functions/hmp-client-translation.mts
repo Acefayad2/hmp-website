@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { portalPinId, requireClientPin } from "./_client-pin.mts";
 import { isSameOriginMutation, tokenHash, validBearerToken } from "./_conversation-security.mts";
 import { hash as agreementHash } from "./_agreement-forms.mts";
+import { createHmac } from "node:crypto";
 
 const languages: Record<string, string> = {
   en: "English", "zh-Hans": "Mandarin Chinese (Simplified)", hi: "Hindi", es: "Spanish",
@@ -60,9 +61,20 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
     if (timestamps.every((at) => now - at >= 60_000)) recentRequests.delete(key);
   }
   const apiKey = Netlify.env.get("GROQ_API_KEY");
-  if (!apiKey) return json({ error: "Translation is temporarily unavailable." }, 503);
   try {
-    const response = await fetchFn("https://api.groq.com/openai/v1/chat/completions", {
+    let translated: unknown;
+    if (!apiKey) {
+      const timestamp = Date.now().toString();
+      const raw = JSON.stringify({ language, texts });
+      const signature = createHmac("sha256", serviceKey).update(`hmp-translation:v1:${timestamp}:${raw}`).digest("hex");
+      const response = await fetchFn("https://seating.hmpeds.com/api/hmp-internal-translate", {
+        method: "POST", headers: { "Content-Type": "application/json", "X-HMP-Timestamp": timestamp, "X-HMP-Signature": signature },
+        body: raw, signal: AbortSignal.timeout(35_000),
+      });
+      if (!response.ok) return json({ error: "Translation could not be completed. Please try again." }, 502);
+      translated = (await response.json() as { translations?: unknown }).translations;
+    } else {
+      const response = await fetchFn("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -73,10 +85,11 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
         ],
       }),
       signal: AbortSignal.timeout(30_000),
-    });
-    if (!response.ok) return json({ error: "Translation could not be completed. Please try again." }, 502);
-    const result = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const translated = JSON.parse(result.choices?.[0]?.message?.content || "null")?.translations;
+      });
+      if (!response.ok) return json({ error: "Translation could not be completed. Please try again." }, 502);
+      const result = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
+      translated = JSON.parse(result.choices?.[0]?.message?.content || "null")?.translations;
+    }
     if (!Array.isArray(translated) || translated.length !== texts.length || translated.some((item) => typeof item !== "string" || item.length > 20000) ||
         translated.some((item, index) => JSON.stringify(protectedValues(item)) !== JSON.stringify(protectedValues(texts[index]))))
       return json({ error: "Translation could not be completed. Please try again." }, 502);
