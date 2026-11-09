@@ -15,6 +15,7 @@ import { renderDocumentCard } from "./document-message-ui.js?v=20261022-sharing"
 import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261022-sharing";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
+import { expiryLabel } from "./document-expiry.mjs";
 
 const $ = (selector) => document.querySelector(selector);
 const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration Accessories\b/g, "Event Accessories").replace(/\bEvent Kit\b/g, "Celebration Kit");
@@ -173,6 +174,7 @@ const loadConversation = async ({ quiet = false } = {}) => {
     $("#conversation-title").textContent = `${data.conversation.clientName}’s Event Hub`;
     $("#summary-service").textContent = eventServiceLabel(data.conversation.service);
     $("#summary-date").textContent = formatDate(data.conversation.celebrationDate);
+    $("#summary-expires").textContent = data.conversation.expiresAt ? expiryLabel(data.conversation.expiresAt) : "Contact HMP for access details";
     $("#conversation-summary").hidden = false;
     $("#conversation-error").hidden = true;
     $("#message-form").hidden = false;
