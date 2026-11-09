@@ -85,6 +85,16 @@ export function createBlogHandler({getUserFn=getUser,databaseFactory=db}={}) {
         if (removed.length) await client.storage.from(ATTACHMENT_BUCKET).remove(removed);
         return respond({story});
       }
+      if (body.action === "unpublish-story") {
+        if (!uuid.test(body.id)) return respond({error:"Choose a story."},400);
+        const storyRecord=await client.from("hmp_seating_records").select("value").eq("key",storyKey(body.id)).maybeSingle();
+        if (storyRecord.error) return respond({error:"Story could not be loaded."},503);
+        if (!storyRecord.data) return respond({error:"Story not found."},404);
+        const now=new Date().toISOString();
+        const story={...storyRecord.data.value,status:"draft",updatedAt:now,publishedAt:null};
+        const {error}=await client.from("hmp_seating_records").upsert({key:storyKey(body.id),value:story,updated_at:now},{onConflict:"key"});
+        return error?respond({error:"Story could not be unpublished."},503):respond({story});
+      }
       if (body.action === "delete-story") {
         if (!uuid.test(body.id)) return respond({error:"Choose a story."},400);
         const {error}=await client.from("hmp_seating_records").delete().eq("key",storyKey(body.id));

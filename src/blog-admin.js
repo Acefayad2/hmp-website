@@ -54,7 +54,10 @@ export function mountBlogHub({root,onAuthRequired=()=>{}}){
     form.elements.media.value="";
     mediaPaths=Array.isArray(story?.mediaPaths)?[...story.mediaPaths]:story?.mediaPath?[story.mediaPath]:[];
     renderMedia();
-    form.querySelector('[data-save="unpublish"]').hidden=story?.status!=="published";
+    const published=story?.status==="published";
+    form.querySelector('[data-save="draft"]').textContent=published?"Save changes":"Save draft";
+    form.querySelector('[data-save="published"]').hidden=published;
+    form.querySelector('[data-save="unpublish"]').hidden=!published;
   }
   function renderMedia(){
     const story=stories.find(x=>x.id===selected);
@@ -82,6 +85,15 @@ export function mountBlogHub({root,onAuthRequired=()=>{}}){
   $("#blog-story-form").addEventListener("click",async event=>{
     const button=event.target.closest("[data-save]");if(!button)return;
     const form=$("#blog-story-form"),intent=button.dataset.save;
+    if(intent==="unpublish"){
+      if(!selected)return;
+      button.disabled=true;
+      try{
+        await api({action:"unpublish-story",id:selected});
+        await load();status("Story unpublished. It remains in Blog Hub for editing later.",true);
+      }catch(error){status(error.message);}finally{button.disabled=false;}
+      return;
+    }
     if(!form.reportValidity())return;
     const files=[...(form.elements.media.files||[])];
     if(mediaPaths.length+files.length>10){status("A story can have up to 10 photos and videos.");return;}
@@ -97,8 +109,9 @@ export function mountBlogHub({root,onAuthRequired=()=>{}}){
       }
       form.elements.media.value="";
       renderMedia();
-      const data=await api({action:"save-story",id:selected,title:form.elements.title.value,category:form.elements.category.value,summary:form.elements.summary.value,content:form.elements.content.value,featured:form.elements.featured.checked,mediaPaths,status:intent==="published"?"published":"draft"});
-      selected=data.story.id;await load();status(intent==="published"?"Story published on the website.":intent==="unpublish"?"Story unpublished and saved privately.":"Draft saved privately.",true);
+      const wasPublished=stories.find(story=>story.id===selected)?.status==="published";
+      const data=await api({action:"save-story",id:selected,title:form.elements.title.value,category:form.elements.category.value,summary:form.elements.summary.value,content:form.elements.content.value,featured:form.elements.featured.checked,mediaPaths,status:intent==="published"||wasPublished?"published":"draft"});
+      selected=data.story.id;await load();status(wasPublished?"Story changes are live on the website.":intent==="published"?"Story published on the website.":"Draft saved privately.",true);
     }catch(error){form.elements.media.value="";renderMedia();status(error.message);}finally{button.disabled=false;}
   });
   return{load};

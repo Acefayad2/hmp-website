@@ -40,3 +40,17 @@ test("public media is issued only for published stories and completed uploads",a
   assert.equal((await handler(request("POST",{...data,mediaPaths:["inventory/private.jpg"]}))).status,400);
   assert.equal((await handler(request("POST",{...data,mediaPaths:Array(11).fill(prepared.path)}))).status,400);
 });
+
+test("published stories can be edited in place and unpublished without deleting the draft",async()=>{
+  const {handler,request}=fixture();
+  const first=(await (await handler(request("POST",{action:"save-story",title:"First title",summary:"Opening",category:"celebrations",status:"published"}))).json()).story;
+  const edited=(await (await handler(request("POST",{action:"save-story",id:first.id,title:"Updated title",summary:"Revised",category:"celebrations",status:"published"}))).json()).story;
+  assert.equal(edited.id,first.id);
+  assert.equal(edited.publishedAt,first.publishedAt);
+  assert.equal((await (await handler(request())).json()).stories[0].title,"Updated title");
+  assert.equal((await handler(request("POST",{action:"unpublish-story",id:first.id}))).status,200);
+  assert.equal((await (await handler(request())).json()).stories.length,0);
+  const adminStories=(await (await handler(request("GET",null,"?admin=1"))).json()).stories;
+  assert.equal(adminStories[0].title,"Updated title");
+  assert.equal(adminStories[0].status,"draft");
+});
