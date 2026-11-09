@@ -5,11 +5,83 @@ import { mountSignaturePad } from "./signature-pad.mjs";
 import {draftContext, readDraft, clearDraft} from "./agreement-draft.mjs";
 import {progressFields, cleanBankProgress} from "./agreement-progress.mjs";
 import {expiryLabel} from "./document-expiry.mjs";
+import {clientHubLanguages, clientHubLanguage, collectTranslatableText, translationBatches} from "./client-hub-languages.mjs";
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
+let activeLanguage = clientHubLanguage(new URLSearchParams(location.hash.slice(1)).get("lang"))[0];
+let translationVersion = 0;
+const sourceText = new WeakMap();
+const translationCache = new Map();
 const message = document.querySelector("#agreement-message"), content = document.querySelector("#agreement-content");
 let agreement, consentText, draft, draftNotice = "", dirty = false, busy = false;
 const headers = {Authorization:`Bearer ${token}`, "Content-Type":"application/json"};
 window.addEventListener("beforeunload", event => { if (dirty) { event.preventDefault(); event.returnValue = ""; } });
+const translationStatus = document.querySelector("#agreement-translation-status");
+const setTranslationStatus = (value = "") => { translationStatus.textContent = value; translationStatus.hidden = !value; };
+const translateAgreement = async () => {
+  if (!agreement) return;
+  const version = ++translationVersion;
+  const existingNote = content.querySelector(".agreement-translation-note");
+  existingNote?.remove();
+  const nodes = collectTranslatableText([document.querySelector("#agreement-title"), content]);
+  for (const node of nodes) {
+    if (!sourceText.has(node)) sourceText.set(node, node.textContent);
+    node.textContent = sourceText.get(node);
+  }
+  document.documentElement.lang = activeLanguage;
+  document.documentElement.dir = ["ar", "ar-EG", "ur"].includes(activeLanguage) ? "rtl" : "ltr";
+  if (activeLanguage === "en") { setTranslationStatus(); return; }
+  const note = document.createElement("p");
+  note.className = "agreement-translation-note";
+  note.textContent = "Translated reference view. The original English form and signed record remain unchanged. Printing uses the original. Switch to English to review the original before signing.";
+  content.prepend(note);
+  setTranslationStatus("Translating this form for reference…");
+  try {
+    for (const batch of translationBatches(nodes)) {
+      const originals = batch.map(node => sourceText.get(node));
+      const pending = originals.filter(value => !translationCache.has(`${activeLanguage}\0${value}`));
+      if (pending.length) {
+        const response = await fetch("/api/hmp-client-translation", {
+          method: "POST", credentials: "same-origin", headers,
+          body: JSON.stringify({documentType:"agreement",language:activeLanguage,texts:pending}),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Translation is unavailable. Please try again.");
+        pending.forEach((value,index) => translationCache.set(`${activeLanguage}\0${value}`,data.translations[index]));
+        while (translationCache.size > 800) translationCache.delete(translationCache.keys().next().value);
+      }
+      if (version !== translationVersion) return;
+      batch.forEach((node,index) => { node.textContent = translationCache.get(`${activeLanguage}\0${originals[index]}`) || originals[index]; });
+    }
+    if (version === translationVersion) setTranslationStatus("Translated reference view. The original English document remains available using English above.");
+  } catch (error) {
+    if (version === translationVersion) setTranslationStatus(error.message || "Translation is unavailable. Please try again.");
+  }
+};
+const renderLanguageOptions = () => {
+  const query = document.querySelector("#agreement-language-search").value.trim().toLocaleLowerCase();
+  const list = document.querySelector("#agreement-language-options");
+  list.replaceChildren();
+  for (const [code,label,native] of clientHubLanguages) {
+    if (!`${label} ${native}`.toLocaleLowerCase().includes(query)) continue;
+    const button = document.createElement("button"), name = document.createElement("span"), detail = document.createElement("small");
+    button.type = "button"; button.setAttribute("role","option"); button.setAttribute("aria-selected",String(activeLanguage === code));
+    name.textContent = native; detail.textContent = label; button.append(name,detail);
+    button.addEventListener("click", () => {
+      activeLanguage = code;
+      document.querySelector("#agreement-language-label").textContent = `Language: ${native}`;
+      document.querySelector("#agreement-language").open = false;
+      document.querySelector("#agreement-language-search").value = "";
+      renderLanguageOptions();
+      void translateAgreement();
+    });
+    list.append(button);
+  }
+  if (!list.childElementCount) list.textContent = "No languages found.";
+};
+document.querySelector("#agreement-language-label").textContent = `Language: ${clientHubLanguage(activeLanguage)[2]}`;
+document.querySelector("#agreement-language-search").addEventListener("input",renderLanguageOptions);
+document.querySelector("#agreement-language-search").addEventListener("keydown",event=>{if(event.key === "Escape")document.querySelector("#agreement-language").open=false;});
+renderLanguageOptions();
 function render() {
   document.querySelector("#agreement-title").textContent = agreement.snapshot.title;
   const completed = agreement.status === "Completed";
@@ -26,6 +98,7 @@ function render() {
     ${completed ? completionHTML(agreement) : `<form id="client-agreement-form" class="agreement-panel"><h2>${onSite ? "On-site verification" : "Your information"}</h2><p>* Required fields. Nothing is submitted until all signers are ready.</p><div class="agreement-grid">${fieldsHTML(agreement.snapshot.clientFields, prefill)}</div>${onSite ? `<div class="agreement-actions"><button class="agreement-button secondary" type="button" id="save-agreement-draft">Save draft</button></div><p>Save unfinished details and initials securely with HMP, then reopen this same private link on any device before it expires. Anyone authorized to use this private link can view and continue the draft—do not forward it. Signatures, signing dates and consent are not saved. Saving a draft does not submit the signed form or send a completion notification.</p><p id="draft-status" class="agreement-status" role="status"></p>` : ""}${onSite ? `<details class="agreement-panel"><summary>Review original form terms before signing</summary>${termsHTML(agreement.snapshot)}</details>` : ""}<h2>Review & sign</h2>${onSite ? `<label class="agreement-checkbox"><input name="representativeOneConsent" type="checkbox" required><span>The first designated representative personally typed their matching name as an electronic signature.</span></label><label class="agreement-checkbox"><input name="representativeTwoConsent" type="checkbox" required><span>The second designated representative personally typed their matching name as an electronic signature.</span></label>` : ""}<label class="agreement-field" for="signature-name">${onSite ? "HMP money attendant: type your full name to sign" : "Type your full name"}<input id="signature-name" name="signatureName" autocomplete="name" required minlength="2" maxlength="200"></label><label class="agreement-checkbox"><input name="consent" type="checkbox" required><span>${escape(consentText)}</span></label><p>Your typed signatures, answers, document version, submission time, and browser information will be recorded. Once submitted, the signed record cannot be edited.</p><button class="agreement-button" type="submit">Sign & submit form</button><p id="signature-status" class="agreement-status" role="status"></p></form>`}
     <div class="agreement-actions"><button type="button" class="agreement-button secondary" id="print-agreement">${completed ? "Print / save completed form" : "Print agreement terms"}</button></div>`;
   document.querySelector("#print-agreement").onclick = () => printAgreement(agreement);
+  document.querySelector("#print-agreement").classList.add("document-print-original");
   const form = document.querySelector("#client-agreement-form");
   if (form && onSite) {
     const grid = form.querySelector(".agreement-grid");
@@ -120,13 +193,14 @@ function render() {
     } catch (error) { status.textContent = error.message; showFormIssues(form, error.issues || error.data?.issues || [{message:error.message}]); }
     finally { busy = false; form.querySelectorAll("input,select,textarea,button").forEach(item => item.disabled = false); }
   });
+  void translateAgreement();
 }
 async function load() {
   try {
     if (!/^[A-Za-z0-9_-]{43}$/.test(token)) throw new Error("Please open the private form link sent by HMP.");
     const data = await agreementRequest("/api/hmp-agreement", {headers});
     agreement = data.agreement; consentText = data.signingConsent;
-    if (agreement.snapshot.kind === "information") {renderInformationForm(agreement, headers); return;}
+    if (agreement.snapshot.kind === "information") {renderInformationForm(agreement, headers); void translateAgreement(); return;}
     try {
       // A completed form must never reopen an editable draft.
       const source = {...agreement, status:"Sent"};

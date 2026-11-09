@@ -25,7 +25,7 @@ export function printDocumentCopy(copy) {
   return true;
 }
 
-export function renderDocumentCard(copy, { showActions = true, expanded = false, enforceExpiry = true } = {}) {
+export function renderDocumentCard(copy, { showActions = true, expanded = false, enforceExpiry = true, language = "en" } = {}) {
   if (!copy || !["invoice","contract","form","seating","receipt","proposal"].includes(copy.kind)) return null;
   if (copy.expired || (enforceExpiry && expired(copy.expiresAt))) {
     const card = document.createElement("section"); card.className = "sent-document";
@@ -67,7 +67,7 @@ export function renderDocumentCard(copy, { showActions = true, expanded = false,
     const status=document.createElement("p");status.textContent=`Status when shared: ${copy.status || "Sent"}`;
     card.append(heading,status);
     if (typeof copy.url === "string" && /^https:\/\/hmpeds\.com\/agreement#token=[A-Za-z0-9_-]+$/.test(copy.url)) {
-      const link=document.createElement("a");link.href=copy.url;link.textContent="Open form";
+      const link=document.createElement("a");link.href=language === "en" ? copy.url : `${copy.url}&lang=${encodeURIComponent(language)}`;link.textContent="Open form";
       link.target="_blank";link.rel="noopener noreferrer";card.append(link);
     }
     return addExpiry(card);

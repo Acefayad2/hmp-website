@@ -145,6 +145,22 @@ footer a { color:var(--ink); }
 .client-pin-form a { color: #604545; text-decoration: underline; }
 #client-pin-status { color: #9a2424; }
 .client-sign-out { margin: 16px 24px 0; align-self: flex-end; }
+.client-hub-controls { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 24px; }
+.client-hub-controls[hidden] { display: none; }
+.client-hub-controls .client-sign-out { margin: 0; }
+.client-hub-language { position: relative; z-index: 5; }
+.client-hub-language summary { min-height: 44px; display: flex; align-items: center; padding: 9px 16px; border: 1px solid #d8c8c2; border-radius: 999px; cursor: pointer; list-style: none; }
+.client-hub-language summary::-webkit-details-marker { display: none; }
+.client-hub-language summary::after { content: "⌄"; margin-left: 10px; }
+.client-hub-language-menu { position: absolute; right: 0; top: calc(100% + 8px); width: min(300px, 82vw); max-height: 360px; overflow: auto; padding: 12px; border: 1px solid #d8c8c2; border-radius: 16px; background: #fffaf6; box-shadow: 0 12px 32px #321b1b28; }
+.client-hub-language-menu label { display: block; margin-bottom: 6px; font-size: .8rem; font-weight: 700; }
+.client-hub-language-menu input { box-sizing: border-box; width: 100%; min-height: 42px; padding: 8px 12px; border: 1px solid #cbb8b2; border-radius: 9px; font: inherit; }
+.client-hub-language-menu button { display: flex; justify-content: space-between; gap: 12px; width: 100%; min-height: 42px; padding: 8px 10px; border: 0; border-radius: 8px; background: transparent; color: #4d3232; font: inherit; text-align: left; cursor: pointer; }
+.client-hub-language-menu button:hover, .client-hub-language-menu button:focus-visible, .client-hub-language-menu button[aria-selected="true"] { background: #eee2da; }
+.client-hub-language-menu button small { color: #775c57; }
+.client-hub-translation-status { margin: 0 24px 14px; font-size: .85rem; }
+.client-hub-translation-status[hidden] { display: none; }
+.document-translation-note { padding: 10px 12px; border: 1px solid #e0cdbb; border-radius: 9px; background: #fff8e9; font-size: .82rem; }
 
 .message-copy, .admin-message > .message-copy { display: block; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.5; }
 .message-copy strong { font-size: inherit; letter-spacing: normal; text-transform: none; }
