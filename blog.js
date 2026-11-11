@@ -1,5 +1,11 @@
 const ids=["celebrations","guests","behind-scenes","inspiration"];
 const defaults=["Real Celebrations","Guest Experiences","Behind the Scenes","Event Inspiration"];
+const categoryMedia=[
+  {image:"/assets/gallery-details-v2.webp",description:"Weddings, galas, birthdays, and more."},
+  {image:"/assets/guest-check-in-kiosks.webp",description:"Thoughtful ways to welcome every guest."},
+  {image:"/assets/modern-money-table.webp",description:"Planning, preparation, and purposeful details."},
+  {image:"/assets/gallery-reception-v2.webp",description:"Ideas and elevated touches for your event."}
+];
 const escape=value=>String(value??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]);
 let stories=[],categories=defaults,active="all";
 const grid=document.querySelector("#blog-grid");
@@ -32,8 +38,8 @@ try{
   const data=await response.json();stories=data.stories||[];categories=data.settings?.categories||defaults;
   document.querySelector("#blog-title").textContent=data.settings?.title||"Our Moments";
   document.querySelector("#blog-subtitle").textContent=data.settings?.subtitle||"A visual journal of events and the details that make them unforgettable.";
-  document.querySelector("#blog-filters").innerHTML=`<button type="button" data-filter="all" aria-pressed="true">All stories</button>`+ids.map((id,i)=>`<button type="button" data-filter="${id}" aria-pressed="false">${escape(categories[i])}</button>`).join("");
-  const featured=stories.find(story=>story.featured);
+  document.querySelector("#blog-filters").innerHTML=`<button type="button" class="blog-filter-all" data-filter="all" aria-pressed="true">All stories <span aria-hidden="true">→</span></button>`+ids.map((id,i)=>`<button type="button" class="blog-category" data-filter="${id}" aria-pressed="false"><img src="${categoryMedia[i].image}" alt="" loading="lazy"><span class="blog-category-copy"><strong>${escape(categories[i])}</strong><span>${categoryMedia[i].description}</span><em>View stories <span aria-hidden="true">→</span></em></span></button>`).join("");
+  const featured=stories.find(story=>story.featured)||stories[0];
   if(featured){const section=document.querySelector("#blog-featured");section.hidden=false;section.innerHTML=`<div class="blog-featured-media">${media(featured)}</div><div class="blog-featured-copy"><p class="eyebrow">Featured story</p><h2>${escape(featured.title)}</h2><p>${escape(featured.summary||featured.content.slice(0,240))}</p>${featured.content?`<button type="button" class="blog-read" data-featured="${escape(featured.id)}">Read the story ↗</button>`:""}</div>`;section.querySelector("[data-featured]")?.addEventListener("click",()=>openStory(featured));}
   render();
 }catch(error){grid.innerHTML=`<div class="blog-empty"><h3>Stories are temporarily unavailable.</h3><p>Please check back soon.</p></div>`;}
