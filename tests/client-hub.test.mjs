@@ -72,7 +72,7 @@ test("hub access notice uses saved portal expiry in Eastern time, including expi
 test("hub expiry notice stays outside tabs and refreshes whenever the selected thread is rendered",()=>{
   const html=readFileSync(new URL("../admin.html",import.meta.url),"utf8");
   const source=readFileSync(new URL("../src/admin.js",import.meta.url),"utf8");
-  assert.match(html,/<p class="client-access-expiry" id="admin-client-access-expiry"><\/p>\s*<\/header>\s*<nav/);
+  assert.match(html,/<p class="client-access-expiry" id="admin-client-access-expiry"><\/p>\s*<\/header>\s*<details id="hub-expiration-reminders"[^>]*>.*?<\/details>\s*<nav/s);
   assert.ok(source.includes('$("#admin-client-access-expiry").textContent = thread.deletedAt ?'));
   assert.ok(source.includes(': clientAccessNotice(thread);'));
 });

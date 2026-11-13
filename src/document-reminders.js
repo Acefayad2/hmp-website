@@ -10,7 +10,9 @@ export function mountDocumentReminders(container,{kind,id,status}) {
   return;
  }
  const panel=document.createElement('section');panel.className='agreement-panel';panel.dataset.documentReminders='';
- panel.innerHTML='<h3>Reminders</h3><p>Send an email and a Client Hub notice. Reminders stop when the document is completed, paid, replaced, or access expires. Share the document in the Client Hub first.</p>';
+ panel.innerHTML=kind==='hub'
+  ? '<h3>Client Hub expiration reminders</h3><p>Each reminder sends an email and a notice in this Client Hub. Reminders stop if the link is archived, revoked, deleted, or expired. Scheduling reminders does not change the link expiration.</p>'
+  : '<h3>Reminders</h3><p>Send an email and a Client Hub notice. Reminders stop when the document is completed, paid, replaced, or access expires. Share the document in the Client Hub first.</p>';
  const feedback=document.createElement('p');feedback.setAttribute('role','status');
  const list=document.createElement('div');
  const request=async(body)=>agreementRequest(`/api/hmp-document-reminders?kind=${kind}&id=${id}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,id,...body})}:{});
@@ -26,7 +28,7 @@ export function mountDocumentReminders(container,{kind,id,status}) {
  if(['Sent','Partially paid'].includes(status)){
   const form=document.createElement('form');form.className='agreement-grid';
   form.innerHTML='<label class="agreement-field">First reminder date and time <input name="first" type="datetime-local" required></label><label class="agreement-field">Number of reminders <input name="count" type="number" min="1" max="12" value="1" required></label><label class="agreement-field">Repeat every (days, for multiple reminders) <input name="days" type="number" min="1" max="90" value="7" required></label><button class="agreement-button" type="submit">Schedule reminders</button>';
-  const zone=document.createElement('p');zone.textContent=`Dates use your device timezone (${Intl.DateTimeFormat().resolvedOptions().timeZone}). Reminders run shortly after the chosen time.`;
+  const zone=document.createElement('p');zone.textContent=`Dates use your device timezone (${Intl.DateTimeFormat().resolvedOptions().timeZone}). Schedule 1–12 reminders within the next year and before the link expires. Reminders run shortly after the chosen time.`;
   form.onsubmit=async e=>{e.preventDefault();e.stopPropagation();const button=form.querySelector('button');button.disabled=true;feedback.textContent='Saving reminder schedule…';try{const values=new FormData(form);const data=await request({action:'schedule',first:new Date(values.get('first')).toISOString(),count:Number(values.get('count')),days:Number(values.get('days'))});render(data.reminders);feedback.textContent='Reminders scheduled. Nothing was sent now.';}catch(error){feedback.textContent=error.message;}finally{button.disabled=false;}};
   panel.append(zone,form);
  }
