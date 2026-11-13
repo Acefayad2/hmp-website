@@ -72,14 +72,14 @@ export function renderDocumentCard(copy, { showActions = true, expanded = false,
     }
     return addExpiry(card);
   }
-  const kind=copy.kind === "invoice" ? "Invoice" : "Contract";
+  const kind=copy.kind === "invoice" ? "Invoice" : "Agreement";
   const card=document.createElement("section");card.className="sent-document";
   const heading=document.createElement("h3");heading.textContent=`${kind} ${copy.number || ""}`;
   const amount=document.createElement("p");amount.className="sent-document-total";
   amount.textContent=`${copy.kind === "invoice" ? "Total" : "Agreement value"}: ${money(copy.kind === "invoice" ? copy.total : copy.total_amount)}`;
   const details=document.createElement("details"), summary=document.createElement("summary");
   details.open = expanded;
-  summary.textContent=`View ${copy.kind}`;details.append(summary);
+  summary.textContent=`View ${copy.kind === "contract" ? "agreement" : copy.kind}`;details.append(summary);
   const content=document.createElement("div");content.className="sent-document-content";
   const note=document.createElement("p");note.textContent="Copy as sent. Later edits or payment/signature updates are not reflected in this copy.";content.append(note);
   const fields=document.createElement("dl");
