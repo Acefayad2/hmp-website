@@ -398,6 +398,14 @@ test("flexible agreement requires original wording and allows bounded titled sec
   assert.throws(()=>editableSnapshot(template,{pages:[]}),/original pages/);
   assert.throws(()=>editableSnapshot(template,{pages:Array(10).fill("Extra section")}),/eight added sections/);
 });
+test("new agreement revisions can leave signer name for the client to enter", () => {
+  const original = snapshotFor("guest-seating");
+  const revised = editableSnapshot(original,{clientEntersSignerName:true});
+  assert.equal(revised.clientEntersSignerName,true);
+  assert.equal(original.clientEntersSignerName,undefined);
+  assert.equal(editableSnapshot(revised,{clientEntersSignerName:false}).clientEntersSignerName,false);
+  assert.throws(()=>editableSnapshot(revised,{clientEntersSignerName:"yes"}),/signer name/);
+});
 
 test("separate Money Changing terms preserve bank verification without optional commission", () => {
   const snapshot=snapshotFor("money-changing"), original=structuredClone(snapshot);
