@@ -40,6 +40,21 @@ test('retry freezes payload and stops when recipient changes',async()=>{
 test('a completion between portal notice and email cancels the email',async()=>{
  let checks=0;const db=database();await deliverDocumentReminders(db,async()=>{throw Error('must not send');},async()=>{if(++checks===2)throw new Ineligible('Already paid');return context();});assert.equal(db.updates.at(-1).status,'cancelled');
 });
+test('Client Hub reminders use its current expiration and stop when access is disabled',async()=>{
+ const {reminderContext}=await import('../netlify/functions/_document-reminders.mts');
+ const deadline=new Date(Date.now()+10*86400000).toISOString();
+ const hub={id,inquiry_id:id,token_nonce:'synthetic',token_expires_at:deadline,revoked_at:null,archived_at:null,deleted_at:null};
+ const db={from(table){return {select(){return this},eq(){return this},maybeSingle(){return {data:table==='hmp_client_conversations'?hub:{email:'client@example.test'}}}}}};
+ const env=Netlify.env.get;Netlify.env.get=k=>k==='SUPABASE_SERVICE_ROLE_KEY'?'test':env(k);
+ try {
+  const ctx=await reminderContext(db,'hub',id,id);
+  assert.equal(ctx.email,'client@example.test');assert.equal(ctx.deadline,Date.parse(deadline));
+  assert.match(ctx.body,/Client Hub access expires/);assert.match(ctx.url,/hmpeds\.com/);
+  await assert.rejects(()=>reminderContext(db,'hub',id,'22222222-2222-4222-8222-222222222222'),/matching/);
+  hub.archived_at=new Date().toISOString();await assert.rejects(()=>reminderContext(db,'hub',id,id),/inactive/);
+  hub.archived_at=null;hub.token_expires_at='2000-01-01T00:00:00Z';await assert.rejects(()=>reminderContext(db,'hub',id,id),/inactive/);
+ } finally {Netlify.env.get=env;}
+});
 test('Admin auth and same-origin validation run before touching database',async()=>{
  const factory=()=>{throw Error('must not query');};
  assert.equal((await createRemindersHandler({getUserFn:async()=>null,databaseFactory:factory})(new Request('https://hmpeds.com/api/hmp-document-reminders'))).status,401);

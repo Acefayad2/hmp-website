@@ -11,7 +11,7 @@ export function createRemindersHandler({getUserFn=getUser,databaseFactory=create
  try {
  const body=request.method==='GET'?Object.fromEntries(new URL(request.url).searchParams):await request.json();
  const {kind,id}=body;
- if(!Object.hasOwn(tables,kind)||!validId(id))return json({error:'Invalid document'},400);
+ if(!Object.hasOwn(tables,kind)||!validId(id))return json({error:'Invalid reminder target'},400);
  const db=databaseFactory(Netlify.env.get('SUPABASE_URL')!,Netlify.env.get('SUPABASE_SERVICE_ROLE_KEY')!,{auth:{persistSession:false,autoRefreshToken:false}});
  if(request.method==='POST') {
   if(body.action==='cancel') {

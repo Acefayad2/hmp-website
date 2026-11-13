@@ -6,6 +6,7 @@ import { chooseDocumentSharing, copySharedLink } from "./document-sharing.js";
 import {linkExpiration} from "../document-expiry.mjs";
 import { mountAdminNotifications } from "./admin-notifications.js";
 import {mountDocumentVersions} from "./document-versions.js";
+import {mountDocumentReminders} from "./document-reminders.js";
 import {latestDocumentRows} from "../document-versions.mjs";
 import {updateAgreementList} from "./agreement-list.js";
 import { ADMIN_AUTH_REQUIRED_EVENT, createAdminFormDialogSuspension, installValidationSummaries } from "../agreement-ui.mjs";
@@ -1170,6 +1171,7 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = [thread.clientEmail, thread.clientPhone].filter(Boolean).join(" · ");
   $("#admin-client-access-expiry").textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt, true)}. Client access is disabled. Signed documents and financial records are preserved.` : clientAccessNotice(thread);
+  mountDocumentReminders($("#hub-reminder-content"),{kind:"hub",id:thread.id,status:thread.active?"Sent":"Expired"});
   $("#delete-active-conversation").hidden = Boolean(thread.deletedAt);
   $("#archive-active-conversation").textContent = thread.deletedAt ? "Restore from Deleted" : thread.archivedAt ? "Restore hub" : "Archive hub";
   for (const id of ["send-new-active-link", "reset-client-pin", "set-active-link-expiration", "open-proposal-editor"]) $("#" + id).disabled = Boolean(thread.archivedAt || thread.deletedAt);

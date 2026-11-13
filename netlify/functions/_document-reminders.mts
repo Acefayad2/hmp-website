@@ -1,7 +1,7 @@
 import {clientConversationUrl} from './_conversation-security.mts';
 import {parseProposal} from '../../proposal-ui.js';
 import {linkExpiration} from '../../document-expiry.mjs';
-export const tables:Record<string,string>={invoice:'hmp_admin_invoices',contract:'hmp_admin_contracts',form:'hmp_client_agreements',proposal:'hmp_client_messages'};
+export const tables:Record<string,string>={invoice:'hmp_admin_invoices',contract:'hmp_admin_contracts',form:'hmp_client_agreements',proposal:'hmp_client_messages',hub:'hmp_client_conversations'};
 export const validId=(id:unknown)=>typeof id==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id);
 export class Ineligible extends Error {}
 export function scheduleDates(first:unknown,count:unknown,days:unknown,now=Date.now()) {
@@ -47,6 +47,16 @@ async function proposalReminderContext(db:any,id:string,conversationId?:string) 
 
 export async function reminderContext(db:any,kind:string,id:string,conversationId?:string) {
  if(!tables[kind]||!validId(id))throw new Ineligible('Invalid document.');
+ if(kind==='hub') {
+  if(conversationId && conversationId!==id)throw new Ineligible('Choose the matching Client Hub.');
+  const hub=await activeHub(db,id);
+  const inquiry=await result(db.from('hmp_admin_inquiries').select('email').eq('submission_id',hub.inquiry_id).maybeSingle());
+  const email=String(inquiry?.email||'').trim().toLowerCase();
+  if(!email)throw new Ineligible('This Client Hub needs a client email for reminders.');
+  const deadline=Date.parse(hub.token_expires_at);
+  const expires=new Intl.DateTimeFormat('en-US',{year:'numeric',month:'long',day:'numeric',hour:'numeric',minute:'2-digit',timeZone:'America/New_York',timeZoneName:'short'}).format(deadline);
+  return {hub,email,title:'Client Hub access',deadline,url:clientConversationUrl(hub.id,hub.token_nonce),body:`Reminder: Your HMP Client Hub access expires ${expires}. Please review any messages and documents before then. Contact HMP if you need more time.`};
+ }
  if(kind==='proposal')return proposalReminderContext(db,id,conversationId);
  const doc=await result(db.from(tables[kind]).select('*').eq('id',id).maybeSingle());
  if(!documentEligible(kind,doc))throw new Ineligible('Reminders require a sent, unfinished agreement or unpaid invoice with active access.');

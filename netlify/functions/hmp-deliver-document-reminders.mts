@@ -11,7 +11,7 @@ export async function deliverDocumentReminders(db:any,fetchFn=fetch,contextFn=re
   const save=async(values:any)=>{const {error}=await db.from('hmp_document_reminders').update(values).eq('id',row.id).eq('attempts',row.attempts).eq('status','pending');if(error)throw new Error('Unable to save reminder delivery');};
   try {
    const ctx=await contextFn(db,row.kind,row.document_id,row.conversation_id);
-   const payload=row.email_payload||{from,to:[ctx.email],reply_to:hmpReplyTo(),subject:'HMP document reminder',html:`<p>${escape(ctx.body)}</p><p><a href="${escape(ctx.url)}">Open Client Hub</a></p>`};
+   const payload=row.email_payload||{from,to:[ctx.email],reply_to:hmpReplyTo(),subject:row.kind==='hub'?'HMP Client Hub access reminder':'HMP document reminder',html:`<p>${escape(ctx.body)}</p><p><a href="${escape(ctx.url)}">Open Client Hub</a></p>`};
    if(payload.to?.[0]!==ctx.email)throw new Ineligible('Client email changed; schedule a new reminder.');
    if(!row.email_payload)await save({email_payload:payload});
    const {error:noticeError}=await db.from('hmp_client_messages').upsert({id:row.id,conversation_id:ctx.hub.id,sender:'admin',sender_name:'HMP Event Concierge',body:ctx.body},{onConflict:'id',ignoreDuplicates:true});
