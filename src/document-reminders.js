@@ -20,7 +20,8 @@ export function mountDocumentReminders(container,{kind,id,status}) {
   list.replaceChildren();
   if(!rows.length)list.textContent='No reminders scheduled.';
   for(const row of rows){
-   const item=document.createElement('p');item.textContent=`${new Date(row.due_at).toLocaleString()} · ${row.status}${row.claimed_at&&row.status==='pending'?' (processing / retrying)':''}${row.detail?` — ${row.detail}`:''}`;
+   const state=row.status==='pending'?(row.claimed_at?'Processing or retrying':'Scheduled — waiting for this time'):row.status;
+   const item=document.createElement('p');item.textContent=`${new Date(row.due_at).toLocaleString()} · ${state}${row.detail?` — ${row.detail}`:''}`;
    if(row.status==='pending'&&!row.claimed_at){const cancel=document.createElement('button');cancel.type='button';cancel.className='agreement-button secondary';cancel.textContent='Cancel reminder';cancel.onclick=async()=>{cancel.disabled=true;try{render((await request({action:'cancel',reminderId:row.id})).reminders);feedback.textContent='Reminder cancelled.';}catch(e){feedback.textContent=e.message;cancel.disabled=false;}};item.append(' ',cancel);}
    list.append(item);
   }
