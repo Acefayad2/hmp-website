@@ -1829,7 +1829,7 @@ const openContractEditor = (contract = null) => {
   Object.entries(contractFormFields).forEach(([key, selector]) => {
     $(selector).value = values[key] ?? "";
   });
-  $("#editor-contract-number").textContent = contract?.contractNumber || "New contract";
+  $("#editor-contract-number").textContent = contract?.contractNumber || "New agreement";
   $("#contract-number-display").textContent = contract?.contractNumber || "Draft";
   $("#send-contract").textContent = "Send to Client Portal";
   setMessage($("#contract-editor-message"), "");
