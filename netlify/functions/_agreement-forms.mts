@@ -70,7 +70,9 @@ export function editableSnapshot(snapshot: any, body: any) {
     return {...snapshot, title, description, textFormatting:formatted.textFormatting || {}};
   }
   const pages = body.pages === undefined ? snapshot.pages : body.pages;
-  if (!Array.isArray(pages) || pages.length !== snapshot.pages.length) throw new Error(`This agreement needs ${snapshot.pages.length} pages. Reopen the draft to restore any missing pages.`);
+  const minimumPages = (terms as Record<string, any>)[snapshot.id]?.pages.length ?? snapshot.pages.length;
+  if (!Array.isArray(pages) || pages.length < minimumPages || pages.length > minimumPages + 8)
+    throw new Error(`This agreement needs its ${minimumPages} original pages and allows up to eight added sections.`);
   const issues = pages.flatMap((page: unknown, pageIndex: number) => typeof page !== "string" || !page.trim() || page.length > 15000
     ? [{pageIndex, message:`Agreement page ${pageIndex + 1}: ${typeof page !== "string" || !page.trim() ? "enter the agreement wording" : "shorten the wording to 15,000 characters or fewer"}.`}] : []);
   if (issues.length) throw validationError(issues);

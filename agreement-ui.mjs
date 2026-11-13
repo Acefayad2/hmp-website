@@ -87,7 +87,7 @@ export function fieldsHTML(fields, values = {}, prefix = "answer", required = tr
   }).join("");
 }
 export function answersHTML(fields, values = {}, formatting = {}) {
-  return `<dl class="agreement-answers">${fields.map(field => {
+  return `<dl class="agreement-answers">${fields.filter(field => !field.hideEmpty || (values[field.id] !== undefined && values[field.id] !== "")).map(field => {
     const value = values[field.id];
     const formatted = value !== undefined && value !== "" && field.type === "money" ? new Intl.NumberFormat("en-US", {style:"currency", currency:"USD"}).format(Number(value)) : value || "Not specified";
     return `<div><dt>${escape(field.label)}</dt><dd>${field.type === "textarea" && formatting[field.id] ? richTextHTML(formatted,formatting[field.id]) : escape(formatted)}</dd></div>`;
