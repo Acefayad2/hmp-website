@@ -391,10 +391,12 @@ test("ten templates retain sourced terms and approved four-revision limit", () =
 test("flexible agreement requires original wording and allows bounded titled sections", () => {
   const template = snapshotFor("custom-agreement");
   assert.equal(agreementTextIssues(template).length, 1);
+  assert.throws(()=>issuedSnapshot(template,{}),/Replace the sample agreement text/);
   const pages = ["Service and partnership terms\n\nThe parties agree to the services described below.", "Additional information\n\nSite access will be arranged in advance."];
   const edited = editableSnapshot(template,{pages, title:"Event partnership agreement", pageFormatting:[[],[]]});
   assert.deepEqual(edited.pages,pages);
   assert.deepEqual(agreementTextIssues(edited),[]);
+  assert.equal(issuedSnapshot(edited,{}).pages.length,2);
   assert.throws(()=>editableSnapshot(template,{pages:[]}),/original pages/);
   assert.throws(()=>editableSnapshot(template,{pages:Array(10).fill("Extra section")}),/eight added sections/);
 });
