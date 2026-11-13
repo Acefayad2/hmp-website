@@ -90,7 +90,7 @@ function render() {
   if (draft && !completed && !agreement.bankProgress) {
     try { savedDraft = readDraft(localStorage, draft); } catch { draftNotice = "Draft storage is unavailable or unreadable. Keep this page open; entries have not been restored."; }
   }
-  const prefill = {clientName:agreement.clientName, email:agreement.clientEmail, ...savedDraft?.values, ...agreement.bankProgress?.values};
+  const prefill = {clientName:agreement.snapshot.clientEntersSignerName ? "" : agreement.clientName, email:agreement.clientEmail, ...savedDraft?.values, ...agreement.bankProgress?.values};
   content.hidden = false;
   content.innerHTML = `<p>Prepared for ${escape(agreement.clientName)} · Form version ${escape(agreement.snapshot.version)}</p><p>${onSite ? "Complete this verification together on the same device. Each designated representative should personally type their name to sign, then the HMP attendant signs and submits." : "Review the terms and HMP service details, then complete your information below. Your answers supply the corresponding blanks in this agreement; event-date placeholders refer to your event date."}</p>
     ${onSite ? "" : `<details class="agreement-panel" open><summary>Agreement terms — please read before signing</summary>${termsHTML(agreement.snapshot)}</details>`}

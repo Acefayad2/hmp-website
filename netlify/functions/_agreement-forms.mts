@@ -45,6 +45,10 @@ export function withCurrentDraftFields(row: any) {
   return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee,row.admin_answers?.retainerPercent)}};
 }
 export function editableSnapshot(snapshot: any, body: any) {
+  if (body.clientEntersSignerName !== undefined) {
+    if (typeof body.clientEntersSignerName !== "boolean") throw new Error("Choose whether the client enters their own signer name.");
+    snapshot = {...snapshot,clientEntersSignerName:body.clientEntersSignerName};
+  }
   if (body.answers !== undefined) {
     const keys=snapshot.adminFields.filter((field:any)=>field.type==="textarea").map((field:any)=>field.id);
     const normalized=validateAnswers(snapshot.adminFields,body.answers,false);
