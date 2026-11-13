@@ -15,7 +15,7 @@ import { renderDocumentCard } from "./document-message-ui.js?v=20261109-language
 import { hubMessages, renderHubTabs } from "./client-hub.js?v=20261022-sharing";
 import { appendLinkedText } from "./calendar-link.js?v=20261012-calendar";
 import { parseCalendarDate } from "./calendar-date.mjs?v=20261012-inquiry-date";
-import { clientHubLanguages, clientHubLanguage, collectTranslatableText, translationBatches } from "./client-hub-languages.mjs";
+import { clientHubLanguages, clientHubLanguage, collectTranslatableText, splitTranslationText, translationBatches } from "./client-hub-languages.mjs";
 import { expiryLabel } from "./document-expiry.mjs";
 
 const $ = (selector) => document.querySelector(selector);
@@ -133,8 +133,9 @@ const translateHub = async () => {
   if (activeLanguage === "en") { setTranslationStatus(); return; }
   setTranslationStatus("Translating this hub and its document viewing copies…");
   try {
-    for (const batch of translationBatches(nodes)) {
-      const originals = batch.map((node) => sourceText.get(node));
+    const segments = nodes.flatMap((node) => splitTranslationText(sourceText.get(node)).map((text) => ({ node, textContent: text })));
+    for (const batch of translationBatches(segments)) {
+      const originals = batch.map((segment) => segment.textContent);
       const pending = originals.filter((value) => !translationCache.has(`${activeLanguage}\0${value}`));
       if (pending.length) {
         const response = await fetch("/api/hmp-client-translation", {
@@ -149,9 +150,13 @@ const translateHub = async () => {
         while (translationCache.size > 800) translationCache.delete(translationCache.keys().next().value);
       }
       if (version !== translationVersion) return;
-      batch.forEach((node, index) => { node.textContent = translationCache.get(`${activeLanguage}\0${originals[index]}`) || originals[index]; });
     }
-    if (version === translationVersion) setTranslationStatus("Translated reference view. Signed and issued originals remain unchanged; use English to view the original.");
+    if (version === translationVersion) {
+      const translated = new Map();
+      for (const { node, textContent } of segments) translated.set(node, (translated.get(node) || "") + (translationCache.get(`${activeLanguage}\0${textContent}`) || textContent));
+      for (const [node, value] of translated) node.textContent = value;
+      setTranslationStatus("Translated reference view. Signed and issued originals remain unchanged; use English to view the original.");
+    }
   } catch (error) {
     if (version === translationVersion) setTranslationStatus(error instanceof Error ? error.message : "Translation is unavailable. Please try again.");
   }

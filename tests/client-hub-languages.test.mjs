@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clientHubLanguages, clientHubLanguage, translationBatches } from "../client-hub-languages.mjs";
+import { clientHubLanguages, clientHubLanguage, splitTranslationText, translationBatches } from "../client-hub-languages.mjs";
 import { createClientTranslationHandler } from "../netlify/functions/hmp-client-translation.mts";
 
 globalThis.Netlify = { env: { get: (name) => ({
@@ -17,9 +17,27 @@ test("the hub and form selectors offer all fourteen language codes", () => {
 });
 
 test("long documents split into bounded translation requests", () => {
+  assert.equal(clientHubLanguages[0][0], "en");
+  assert.deepEqual(clientHubLanguages.slice(1).map(([, name]) => name), clientHubLanguages.slice(1).map(([, name]) => name).sort((a, b) => a.localeCompare(b, "en")));
+  assert.equal(splitTranslationText("word ".repeat(700)).join(""), "word ".repeat(700));
+  assert.ok(splitTranslationText("word ".repeat(700)).every((part) => part.length <= 2400));
   const batches = translationBatches(Array.from({ length: 100 }, () => ({ textContent: "x".repeat(200) })));
   assert.ok(batches.length > 1);
-  assert.ok(batches.every((batch) => batch.length <= 70 && batch.reduce((n, node) => n + node.textContent.length, 0) <= 14000));
+  assert.ok(batches.every((batch) => batch.length <= 35 && batch.reduce((n, node) => n + node.textContent.length, 0) <= 7000));
+});
+
+test("translation retries one temporary provider failure", async () => {
+  let calls = 0;
+  const handler = createClientTranslationHandler({
+    databaseFactory: () => ({ rpc: async () => ({ data: { status: "Sent", expires_at: "2099-01-01T00:00:00Z" }, error: null }) }),
+    fetchFn: async () => ++calls === 1 ? Response.json({}, { status: 503 }) : Response.json({ choices: [{ message: { content: JSON.stringify({ translations: ["Condiciones de pago"] }) } }] }),
+  });
+  const response = await handler(new Request("https://hmpeds.com/api/hmp-client-translation", {
+    method: "POST", headers: { origin: "https://hmpeds.com", authorization: `Bearer ${"e".repeat(43)}`, "content-type": "application/json" },
+    body: JSON.stringify({ documentType: "agreement", language: "es", texts: ["Payment terms"] }),
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(calls, 2);
 });
 
 test("agreement translation requires a current private link before sending any content to the provider", async () => {
