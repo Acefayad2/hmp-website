@@ -6,9 +6,22 @@ export const clientHubLanguages = [
   ["ru", "Russian", "Русский"], ["ur", "Urdu", "اردو"],
   ["id", "Indonesian", "Bahasa Indonesia"], ["de", "German", "Deutsch"],
   ["ja", "Japanese", "日本語"], ["ar-EG", "Egyptian Arabic", "العربية المصرية"],
-];
+].sort((a, b) => a[0] === "en" ? -1 : b[0] === "en" ? 1 : a[1].localeCompare(b[1], "en"));
 
 export const clientHubLanguage = (code) => clientHubLanguages.find(([value]) => value === code) || clientHubLanguages[0];
+
+export function splitTranslationText(value, limit = 2400) {
+  const parts = [];
+  let remaining = value;
+  while (remaining.length > limit) {
+    const space = remaining.lastIndexOf(" ", limit);
+    const cut = space > limit / 2 ? space + 1 : limit;
+    parts.push(remaining.slice(0, cut));
+    remaining = remaining.slice(cut);
+  }
+  if (remaining) parts.push(remaining);
+  return parts;
+}
 
 export function collectTranslatableText(roots) {
   const nodes = [];
@@ -25,7 +38,7 @@ export function collectTranslatableText(roots) {
   return nodes;
 }
 
-export function translationBatches(nodes, maxItems = 70, maxCharacters = 14000) {
+export function translationBatches(nodes, maxItems = 35, maxCharacters = 7000) {
   const batches = [];
   let batch = [], size = 0;
   for (const node of nodes) {

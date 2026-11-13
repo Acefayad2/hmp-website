@@ -54,7 +54,7 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
     return json({ error: "Translation request is too large." }, 400);
   const now = Date.now();
   const calls = (recentRequests.get(hash) || []).filter((at) => now - at < 60_000);
-  if (calls.length >= 12) return json({ error: "Please wait a minute before translating again." }, 429);
+  if (calls.length >= 24) return json({ error: "Please wait a minute before translating again." }, 429);
   calls.push(now);
   recentRequests.set(hash, calls);
   if (recentRequests.size > 500) for (const [key, timestamps] of recentRequests) {
@@ -62,8 +62,9 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
   }
   const apiKey = Netlify.env.get("GROQ_API_KEY");
   try {
-    let translated: unknown;
-    if (!apiKey) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let translated: unknown;
+      if (!apiKey) {
       const timestamp = Date.now().toString();
       const raw = JSON.stringify({ language, texts });
       const signature = createHmac("sha256", serviceKey).update(`hmp-translation:v1:${timestamp}:${raw}`).digest("hex");
@@ -71,9 +72,12 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
         method: "POST", headers: { "Content-Type": "application/json", "X-HMP-Timestamp": timestamp, "X-HMP-Signature": signature },
         body: raw, signal: AbortSignal.timeout(35_000),
       });
-      if (!response.ok) return json({ error: "Translation could not be completed. Please try again." }, 502);
+      if (!response.ok) {
+        if (attempt === 0 && [429, 500, 502, 503].includes(response.status)) continue;
+        return json({ error: "Translation could not be completed. Please try again." }, 502);
+      }
       translated = (await response.json() as { translations?: unknown }).translations;
-    } else {
+      } else {
       const response = await fetchFn("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
@@ -86,14 +90,19 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
       }),
       signal: AbortSignal.timeout(30_000),
       });
-      if (!response.ok) return json({ error: "Translation could not be completed. Please try again." }, 502);
+      if (!response.ok) {
+        if (attempt === 0 && [429, 500, 502, 503].includes(response.status)) continue;
+        return json({ error: "Translation could not be completed. Please try again." }, 502);
+      }
       const result = await response.json() as { choices?: Array<{ message?: { content?: string } }> };
       translated = JSON.parse(result.choices?.[0]?.message?.content || "null")?.translations;
+      }
+      if (Array.isArray(translated) && translated.length === texts.length &&
+          !translated.some((item) => typeof item !== "string" || item.length > 20000) &&
+          !translated.some((item, index) => JSON.stringify(protectedValues(item)) !== JSON.stringify(protectedValues(texts[index]))))
+        return json({ translations: translated });
     }
-    if (!Array.isArray(translated) || translated.length !== texts.length || translated.some((item) => typeof item !== "string" || item.length > 20000) ||
-        translated.some((item, index) => JSON.stringify(protectedValues(item)) !== JSON.stringify(protectedValues(texts[index]))))
-      return json({ error: "Translation could not be completed. Please try again." }, 502);
-    return json({ translations: translated });
+    return json({ error: "Translation could not be completed. Please try again." }, 502);
   } catch {
     return json({ error: "Translation could not be completed. Please try again." }, 502);
   }

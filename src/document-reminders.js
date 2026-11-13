@@ -9,10 +9,10 @@ export function mountDocumentReminders(container,{kind,id,status}) {
   }
   return;
  }
- const panel=document.createElement('section');panel.className='agreement-panel';panel.dataset.documentReminders='';
+ const panel=document.createElement(kind==='hub'?'section':'details');panel.className='agreement-panel';panel.dataset.documentReminders='';
  panel.innerHTML=kind==='hub'
   ? '<h3>Client Hub expiration reminders</h3><p>Each reminder sends an email and a notice in this Client Hub. Reminders stop if the link is archived, revoked, deleted, or expired. Scheduling reminders does not change the link expiration.</p>'
-  : '<h3>Reminders</h3><p>Send an email and a Client Hub notice. Reminders stop when the document is completed, paid, replaced, or access expires. Share the document in the Client Hub first.</p>';
+  : '<summary>Reminders</summary><p>Send an email and a Client Hub notice. Reminders stop when the document is completed, paid, replaced, or access expires. Share the document in the Client Hub first.</p>';
  const feedback=document.createElement('p');feedback.setAttribute('role','status');
  const list=document.createElement('div');
  const request=async(body)=>agreementRequest(`/api/hmp-document-reminders?kind=${kind}&id=${id}`,body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind,id,...body})}:{});
