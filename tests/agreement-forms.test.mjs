@@ -375,8 +375,8 @@ test("old bank drafts gain optional second signer without rewriting custom terms
   }
 });
 
-test("nine templates retain sourced terms and approved four-revision limit", () => {
-  assert.equal(agreementTemplates.length,9);
+test("ten templates retain sourced terms and approved four-revision limit", () => {
+  assert.equal(agreementTemplates.length,10);
   for(const t of agreementTemplates) {
     const s=snapshotFor(t.id);
     assert.ok(s.pages.length >= 1);
@@ -387,6 +387,16 @@ test("nine templates retain sourced terms and approved four-revision limit", () 
   const led=snapshotFor("led-customization").pages.join("\n");
   assert.match(led,/Included Revisions: 4 Revisions/);
   assert.doesNotMatch(led,/six\s*\(6\)/);
+});
+test("flexible agreement requires original wording and allows bounded titled sections", () => {
+  const template = snapshotFor("custom-agreement");
+  assert.equal(agreementTextIssues(template).length, 1);
+  const pages = ["Service and partnership terms\n\nThe parties agree to the services described below.", "Additional information\n\nSite access will be arranged in advance."];
+  const edited = editableSnapshot(template,{pages, title:"Event partnership agreement", pageFormatting:[[],[]]});
+  assert.deepEqual(edited.pages,pages);
+  assert.deepEqual(agreementTextIssues(edited),[]);
+  assert.throws(()=>editableSnapshot(template,{pages:[]}),/original pages/);
+  assert.throws(()=>editableSnapshot(template,{pages:Array(10).fill("Extra section")}),/eight added sections/);
 });
 
 test("separate Money Changing terms preserve bank verification without optional commission", () => {

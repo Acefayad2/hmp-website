@@ -1,4 +1,12 @@
 {
+  "custom-agreement": {
+    "version": "2026-11-13.1",
+    "sourceFile": "HMP Admin flexible agreement template",
+    "pages": [
+      "Flexible Service & Partnership Agreement\n\n[Replace this text with the agreement terms before sharing.]\n\nDescribe the services, responsibilities, payment terms, and any additional conditions for this engagement."
+    ],
+    "sourceSha256": "c0e2e1707695c38c00ce813206837c42d5facf632046501b9f9db14b4ccd518b"
+  },
   "guest-seating": {
     "version": "2026-10-12.1",
     "sourceFile": "gse-agreement.pdf",
