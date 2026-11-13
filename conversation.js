@@ -122,7 +122,7 @@ const translateHub = async () => {
   const version = ++translationVersion;
   const roots = [$(".conversation-header span"), $(".conversation-intro"), $(".conversation-panel-heading"),
     $("#conversation-summary"), $("#client-hub-tabs"), $("#message-empty"), $("#message-form"),
-    ...$("#message-list").querySelectorAll(".sent-document")];
+    $("#message-list")];
   const nodes = collectTranslatableText(roots);
   for (const node of nodes) {
     if (!sourceText.has(node)) sourceText.set(node, node.textContent);
