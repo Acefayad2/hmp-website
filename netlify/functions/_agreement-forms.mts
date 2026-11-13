@@ -87,9 +87,9 @@ export function editableSnapshot(snapshot: any, body: any) {
   return {...rest, title, pages, ...(formatting ? {pageFormatting:formatting.map((runs: unknown, i: number) => validatePageFormatting(pages[i],runs))} : {})};
 }
 export function issuedSnapshot(snapshot: any, adminAnswers: Record<string, string>) {
-  if (!["money-changing", "money-collecting", "money-collecting-changing"].includes(snapshot.id)) return snapshot;
   const issues = agreementTextIssues(snapshot);
   if (issues.length) throw validationError(issues);
+  if (!["money-changing", "money-collecting", "money-collecting-changing"].includes(snapshot.id)) return snapshot;
   const {optionalClauses = {}, ...issued} = snapshot;
   const replacements: Record<string, string> = {
     agreementDate:adminAnswers.agreementDate,
