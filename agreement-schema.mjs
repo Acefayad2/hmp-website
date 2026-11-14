@@ -40,12 +40,17 @@ const moneyTableDetails = [
 const moneyTableClient = [...eventFields, field("guestCount", "Estimated number of guests", "number"), field("vendorAccess", "Venue vendor access time"), field("moneyBank", "Recommended money bank", "money", false), marketing];
 export const agreementTemplates = [
   {
-    id: "custom-agreement", title: "Flexible Service & Partnership Agreement",
+    id: "custom-agreement", title: "Event Services Agreement",
     adminFields: [
       {...field("serviceDescription", "Scope of services or partnership", "textarea", false), hideEmpty:true},
       {...field("serviceFee", "Service fee (USD)", "money", false), hideEmpty:true},
       {...field("paymentTerms", "Payment terms", "textarea", false), hideEmpty:true},
     ],
+    clientFields: [field("clientName", "Signer full name"), field("email", "Email address", "email")],
+  },
+  {
+    id: "general-agreement", title: "General Agreement",
+    adminFields: [],
     clientFields: [field("clientName", "Signer full name"), field("email", "Email address", "email")],
   },
   {
@@ -198,7 +203,7 @@ export function validationError(issues) {
 // Keep the same allowlist on the editor and server; never silently strip draft wording.
 const moneyPlaceholders = new Set(["agreementDate", "serviceFee", "serviceHours", "retainerDue", "retainerClause", "retainerPayment", "finalPaymentDue", "serviceStartTime", "serviceEndTime", "cancellationDeadline", "cancellationRefundAmount", "commissionClause", "travelClause", "grandTotalClause"]);
 export function agreementTextIssues(snapshot) {
-  if (snapshot.id === "custom-agreement" && snapshot.pages.some(page => page.includes("[Replace this text with the agreement terms before sharing.]")))
+  if (["custom-agreement", "general-agreement"].includes(snapshot.id) && snapshot.pages.some(page => page.includes("[Replace this text with the agreement terms before sharing.]")))
     return [{pageIndex:0, message:"Replace the sample agreement text with the terms you want the client to review and sign."}];
   if (!["money-changing", "money-collecting", "money-collecting-changing"].includes(snapshot.id)) return [];
   return snapshot.pages.flatMap((page, pageIndex) => {

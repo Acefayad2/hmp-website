@@ -375,12 +375,12 @@ test("old bank drafts gain optional second signer without rewriting custom terms
   }
 });
 
-test("ten templates retain sourced terms and approved four-revision limit", () => {
-  assert.equal(agreementTemplates.length,10);
+test("agreement templates retain sourced terms and approved four-revision limit", () => {
+  assert.equal(agreementTemplates.length,11);
   for(const t of agreementTemplates) {
     const s=snapshotFor(t.id);
     assert.ok(s.pages.length >= 1);
-    assert.ok(s.pages.join("\n").length > 100);
+    assert.ok(s.pages.join("\n").length > (t.id === "general-agreement" ? 50 : 100));
     assert.equal(new Set([...s.adminFields,...s.clientFields].map(f=>f.id)).size, s.adminFields.length+s.clientFields.length);
     assert.match(s.sourceSha256,/^[a-f0-9]{64}$/);
   }
@@ -399,6 +399,15 @@ test("flexible agreement requires original wording and allows bounded titled sec
   assert.equal(issuedSnapshot(edited,{}).pages.length,2);
   assert.throws(()=>editableSnapshot(template,{pages:[]}),/original pages/);
   assert.throws(()=>editableSnapshot(template,{pages:Array(10).fill("Extra section")}),/eight added sections/);
+});
+test("general agreement starts without preset service or payment fields and requires entered terms", () => {
+  const template = snapshotFor("general-agreement");
+  assert.deepEqual(template.adminFields, []);
+  assert.equal(agreementTextIssues(template).length, 1);
+  const edited = editableSnapshot(template, {title:"Partnership Agreement", pages:["Partnership Agreement\n\nThe parties agree to work together on the project."], extraFields:[{id:"extra1",label:"Responsibilities"}]});
+  assert.deepEqual(agreementTextIssues(edited), []);
+  assert.equal(edited.adminFields[0].label, "Responsibilities");
+  assert.equal(issuedSnapshot(edited, {}).title, "Partnership Agreement");
 });
 test("HMP can add titled detail boxes to an agreement draft and omit empty boxes from the client copy", () => {
   const template = snapshotFor("custom-agreement");
