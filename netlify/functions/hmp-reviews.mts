@@ -146,7 +146,7 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
     } catch {
       return json({ error: "Invalid request" }, 400);
     }
-    if (request.method === "DELETE" || ["archive", "restore", "delete", "restore-deleted"].includes(String(body.action))) {
+    if (request.method === "DELETE" || ["archive", "restore", "delete", "restore-deleted", "approve"].includes(String(body.action))) {
       const id = text(body.id, 36);
       if (!uuidPattern.test(id)) return json({ error: "Invalid review" }, 400);
       const action = request.method === "DELETE" ? "archive" : String(body.action);
@@ -155,10 +155,11 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
         .update({
           archived_at: action === "archive" ? now : null,
           deleted_at: action === "delete" ? now : null,
-          published: false,
+          published: action === "approve",
           updated_at: now,
         })
         .eq("id", id);
+      if (action === "approve") query = query.is("archived_at", null).is("deleted_at", null).not("source_request_id", "is", null);
       if (action === "restore") query = query.not("archived_at", "is", null).is("deleted_at", null);
       if (action === "restore-deleted") query = query.gt("deleted_at", new Date(Date.now() - 30 * 86400000).toISOString());
       if (action === "archive") query = query.is("archived_at", null).is("deleted_at", null);
@@ -211,17 +212,19 @@ export const createReviewHandler = ({getUserFn = getUser, databaseFactory = getD
       .from("hmp_admin_reviews")
       .update(payload)
       .eq("id", id)
+      .is("source_request_id", null)
       .is("archived_at", null)
       .is("deleted_at", null)
       .select("*")
       .single();
+    if (!data && !error) return json({ error: "This client-submitted review cannot be edited. You may approve, archive, or delete it." }, 409);
     if (error) {
       console.error("Supabase review update failed", error.code);
       return json(
         {
           error:
             error.code === "PGRST116"
-              ? "Review not found or archived. Refresh the list and restore it before editing."
+              ? "This client-submitted review cannot be edited. You may approve, archive, or delete it."
               : "Review could not be saved",
         },
         error.code === "PGRST116" ? 404 : 502,

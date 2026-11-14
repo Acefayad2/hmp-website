@@ -12,13 +12,13 @@ export async function deliverCompletionAlerts(db: any, fetchFn=fetch) {
   for(const row of rows || []) {
     let emailError="", sent=false;
     try {
-      const action=row.kind==="agreement_signed"?"signed an agreement":"completed a form";
+      const action=row.kind==="agreement_signed"?"signed an agreement":row.kind==="review_submitted"?"submitted a review":"completed a form";
       const response=await fetchFn("https://api.resend.com/emails",{
         method:"POST",signal:AbortSignal.timeout(4000),
         headers:{Authorization:`Bearer ${key}`,"Content-Type":"application/json","Idempotency-Key":`hmp-completion/${row.id}`},
         body:JSON.stringify({from:row.email_from,to:[row.email_to],reply_to:row.email_to,
           subject:`HMP client ${action}`,
-          html:`<div style="font-family:Georgia,serif;color:#5f3f41"><h2>Client ${action}</h2><p>${escape(row.client_name)} ${action}: <strong>${escape(row.title)}</strong>.</p><p><a href="https://hmpeds.com/admin?notifications=1">Open HMP Admin notifications</a></p><p>Sign in to review the completed document. No signatures or form answers are included in this email.</p></div>`})
+          html:`<div style="font-family:Georgia,serif;color:#5f3f41"><h2>Client ${action}</h2><p>${escape(row.client_name)} ${action}: <strong>${escape(row.title)}</strong>.</p><p><a href="https://hmpeds.com/admin?notifications=1">Open HMP Admin notifications</a></p><p>Sign in to review the submission. No review text, signatures, or form answers are included in this email.</p></div>`})
       });
       sent=response.ok;
       if(!sent) emailError=`Email provider did not accept the alert (HTTP ${response.status}).`;

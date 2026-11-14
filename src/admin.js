@@ -103,7 +103,16 @@ const emptyState = $("#empty-state");
 const dialog = $("#inquiry-dialog");
 const adminNotifications = mountAdminNotifications({
   button: $("#notifications-button"), dialog: $("#notifications-dialog"),
-  openDocument: row => row.kind === "form_completed" ? openInformationDraft(row.agreementId) : openAgreementDraft(row.agreementId),
+  openDocument: async row => {
+    if (row.kind === "review_submitted") {
+      await loadReviews();
+      const review = reviews.find(item => item.id === row.reviewId);
+      if (!review) return false;
+      openReviewEditor(review);
+      return true;
+    }
+    return row.kind === "form_completed" ? openInformationDraft(row.agreementId) : openAgreementDraft(row.agreementId);
+  },
 });
 const eventInventory = mountEventInventory({ root: $("#inventory-app"), onAuthRequired: () => requireAdminAuthentication() });
 const blogHub = mountBlogHub({ root: $("#blog-admin-app"), onAuthRequired: () => requireAdminAuthentication() });
@@ -2109,7 +2118,8 @@ const loadReviews = async () => {
 
 const openReviewEditor = (review = null) => {
   activeReviewId = review?.id || "";
-  $("#review-editor-title").textContent = review ? "Edit review" : "Add review";
+  const locked = Boolean(review?.clientSubmitted);
+  $("#review-editor-title").textContent = locked ? "Client-submitted review" : review ? "Edit review" : "Add review";
   $("#review-name").value = review?.reviewerName || "";
   $("#review-role").value = review?.reviewerRole || "";
   const selectedServices = new Set(
@@ -2122,6 +2132,9 @@ const openReviewEditor = (review = null) => {
   $("#review-order").value = review?.displayOrder ?? (Math.max(0, ...reviews.map((item) => Number(item.displayOrder) || 0)) + 10);
   $("#review-text").value = review?.reviewText || "";
   $("#review-published").checked = Boolean(review?.published);
+  for (const control of document.querySelectorAll('#review-name, #review-role, #review-services input, #review-rating, #review-order, #review-text, #review-published')) control.disabled = locked;
+  $("#save-another-review").hidden = locked;
+  $("#save-review").hidden = locked;
   $("#approve-review").hidden = !review || review.published;
   $("#archive-review").hidden = !review;
   $("#delete-review").hidden = !review;
@@ -2148,8 +2161,11 @@ const reviewPayload = () => ({
 const saveReview = async (event) => {
   event.preventDefault();
   const form = event.currentTarget;
-  if (!form.reportValidity()) return;
-  if (!selectedReviewServices().length) {
+  const clientSubmitted = reviews.find(review => review.id === activeReviewId)?.clientSubmitted;
+  if (clientSubmitted && event.submitter?.id !== "approve-review") return;
+  if (event.submitter?.id === "approve-review") $("#review-published").checked = true;
+  if (!clientSubmitted && !form.reportValidity()) return;
+  if (!clientSubmitted && !selectedReviewServices().length) {
     setMessage($("#review-editor-message"), "Select at least one service.");
     document.querySelector('[name="reviewServices"]')?.focus();
     return;
@@ -2165,7 +2181,7 @@ const saveReview = async (event) => {
       method: activeReviewId ? "PATCH" : "POST",
       credentials: "same-origin",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(reviewPayload()),
+      body: JSON.stringify(clientSubmitted ? { id: activeReviewId, action: "approve" } : reviewPayload()),
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || "Review could not be saved.");
@@ -2901,10 +2917,6 @@ $("#create-review-button").addEventListener("click", () => openReviewEditor());
 $("#empty-create-review").addEventListener("click", () => openReviewEditor());
 $("#close-review-editor").addEventListener("click", () => $("#review-editor-dialog").close());
 $("#review-form").addEventListener("submit", saveReview);
-$("#approve-review").addEventListener("click", () => {
-  $("#review-published").checked = true;
-  $("#review-form").requestSubmit();
-});
 $("#review-services").addEventListener("change", (event) => {
   const changed = event.target.closest('[name="reviewServices"]');
   if (!changed || !changed.checked) return;

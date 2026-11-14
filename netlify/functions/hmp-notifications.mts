@@ -26,11 +26,11 @@ export function createNotificationsHandler({getUserFn=getUser,databaseFactory=cr
       return error?json({error:"Notification could not be marked read"},502):json({ok:true});
     }
     const {data,error}=await db.from("hmp_admin_notifications")
-      .select("id,agreement_id,client_name,title,kind,created_at,read_by,email_accepted_at,email_error,attempts,first_attempt_at")
+      .select("id,agreement_id,review_id,client_name,title,kind,created_at,read_by,email_accepted_at,email_error,attempts,first_attempt_at")
       .not("cleared_by","cs",`{${JSON.stringify(email)}}`)
       .order("created_at",{ascending:false}).limit(100);
     if(error) return json({error:"Notifications could not be loaded"},502);
-    return json({notifications:(data||[]).map(row=>({id:row.id,agreementId:row.agreement_id,clientName:row.client_name,title:row.title,kind:row.kind,createdAt:row.created_at,
+    return json({notifications:(data||[]).map(row=>({id:row.id,agreementId:row.agreement_id,reviewId:row.review_id,clientName:row.client_name,title:row.title,kind:row.kind,createdAt:row.created_at,
       read:(row.read_by||[]).includes(email),emailStatus:row.email_accepted_at?"Email accepted by provider":row.attempts>=5 || (row.first_attempt_at && Date.parse(row.first_attempt_at)<Date.now()-23*3600000)?"Email needs attention — automatic retries stopped":row.email_error?"Email pending retry":"Email queued"}))});
   };
 }
