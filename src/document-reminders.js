@@ -1,5 +1,7 @@
 import {agreementRequest} from '../agreement-ui.mjs';
 export function mountDocumentReminders(container,{kind,id,status}) {
+ const existing=container.querySelector('[data-document-reminders]');
+ if(existing?.dataset.kind===kind && existing.dataset.id===id && existing.dataset.status===status)return;
  container.querySelector('[data-document-reminders]')?.remove();
  if(!id || status==='Draft'){
   if(kind==='form'){
@@ -10,6 +12,7 @@ export function mountDocumentReminders(container,{kind,id,status}) {
   return;
  }
  const panel=document.createElement(kind==='hub'?'section':'details');panel.className='agreement-panel';panel.dataset.documentReminders='';
+ panel.dataset.kind=kind;panel.dataset.id=id;panel.dataset.status=status;
  panel.innerHTML=kind==='hub'
   ? '<h3>Client Hub expiration reminders</h3><p>Each reminder sends an email and a notice in this Client Hub. Reminders stop if the link is archived, revoked, deleted, or expired. Scheduling reminders does not change the link expiration.</p>'
   : '<summary>Reminders</summary><p>Send an email and a Client Hub notice. Reminders stop when the document is completed, paid, replaced, or access expires. Share the document in the Client Hub first.</p>';
