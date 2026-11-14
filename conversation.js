@@ -32,7 +32,9 @@ let activeLanguage = "en";
 let currentMessages = [];
 let translationVersion = 0;
 const sourceText = new WeakMap();
+const sourcePlaceholders = new WeakMap();
 const translationCache = new Map();
+const referenceStatus = "Translated reference view. Signed and issued originals remain unchanged; use English to view the original.";
 const linkedSection = new URLSearchParams(location.hash.slice(1)).get("section");
 if (["proposals","invoices","contracts","forms","receipts"].includes(linkedSection)) activeHubSection = linkedSection;
 
@@ -121,12 +123,17 @@ const setTranslationStatus = (message = "") => {
 const translateHub = async () => {
   const version = ++translationVersion;
   const roots = [$(".conversation-header span"), $(".conversation-intro"), $(".conversation-panel-heading"),
-    $("#conversation-summary"), $("#client-hub-tabs"), $("#message-empty"), $("#message-form"),
-    $("#message-list")];
+    $("#conversation-summary"), $("#client-hub-controls"), $("#client-hub-tabs"), $("#message-empty"), $("#message-form"),
+    $("#message-list"), $("footer")];
   const nodes = collectTranslatableText(roots);
   for (const node of nodes) {
     if (!sourceText.has(node)) sourceText.set(node, node.textContent);
     node.textContent = sourceText.get(node);
+  }
+  const placeholders = [$("#client-hub-language-search"), $("#message-input")];
+  for (const input of placeholders) {
+    if (!sourcePlaceholders.has(input)) sourcePlaceholders.set(input, input.placeholder);
+    input.placeholder = sourcePlaceholders.get(input);
   }
   document.documentElement.lang = activeLanguage;
   document.documentElement.dir = ["ar", "ar-EG", "ur"].includes(activeLanguage) ? "rtl" : "ltr";
@@ -134,6 +141,8 @@ const translateHub = async () => {
   setTranslationStatus("Translating this hub and its document viewing copies…");
   try {
     const segments = nodes.flatMap((node) => splitTranslationText(sourceText.get(node)).map((text) => ({ node, textContent: text })));
+    for (const input of placeholders) segments.push({ node: input, textContent: sourcePlaceholders.get(input) });
+    segments.push({ node: null, textContent: referenceStatus });
     for (const batch of translationBatches(segments)) {
       const originals = batch.map((segment) => segment.textContent);
       const pending = originals.filter((value) => !translationCache.has(`${activeLanguage}\0${value}`));
@@ -154,8 +163,11 @@ const translateHub = async () => {
     if (version === translationVersion) {
       const translated = new Map();
       for (const { node, textContent } of segments) translated.set(node, (translated.get(node) || "") + (translationCache.get(`${activeLanguage}\0${textContent}`) || textContent));
-      for (const [node, value] of translated) node.textContent = value;
-      setTranslationStatus("Translated reference view. Signed and issued originals remain unchanged; use English to view the original.");
+      for (const [node, value] of translated) {
+        if (node === null) setTranslationStatus(value);
+        else if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) node.placeholder = value;
+        else node.textContent = value;
+      }
     }
   } catch (error) {
     if (version === translationVersion) setTranslationStatus(error instanceof Error ? error.message : "Translation is unavailable. Please try again.");
@@ -199,7 +211,7 @@ const renderMessages = (messages) => {
   currentMessages = messages;
   const visible = hubMessages(messages, activeHubSection);
   const signature = `${activeLanguage}:${activeHubSection}:${getMessageSignature(messages)}`;
-  if (signature === renderedMessageSignature) return;
+  if (signature === renderedMessageSignature) { void translateHub(); return; }
   renderedMessageSignature = signature;
   const focusedTab = document.activeElement?.classList?.contains("hub-tab")
     ? [...$("#client-hub-tabs").children].indexOf(document.activeElement) : -1;
