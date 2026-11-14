@@ -2056,6 +2056,10 @@ const sendContract = async () => {
   }
 };
 
+const reviewSubmissionDate = (review) => review?.createdAt && !Number.isNaN(Date.parse(review.createdAt))
+  ? `${review.clientSubmitted ? "Submitted" : "Added"} ${new Date(review.createdAt).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}`
+  : "";
+
 const renderReviews = () => {
   const list = $("#review-list");
   const empty = $("#review-empty");
@@ -2095,7 +2099,7 @@ const renderReviews = () => {
       (review) => `
         <button class="review-list-row" type="button" data-review-id="${escapeHTML(review.id)}">
           <span class="review-list-copy"><strong>“${escapeHTML(review.reviewText)}”</strong><small class="review-list-stars" aria-label="${escapeHTML(review.rating || 5)} out of 5">${moons(review.rating)}</small></span>
-          <span><strong>${escapeHTML(review.reviewerName)}</strong><small>${escapeHTML(review.reviewerRole || "Client")}</small></span>
+          <span><strong>${escapeHTML(review.reviewerName)}</strong><small>${escapeHTML(review.reviewerRole || "Client")}</small><small>${escapeHTML(reviewSubmissionDate(review))}</small></span>
           <span>${escapeHTML(eventServiceLabel(review.service) || "General HMP experience")}</span>
           <span>${escapeHTML(review.displayOrder)}</span>
           <span class="review-status"><span class="status-pill">${review.published ? "Published" : review.clientSubmitted ? "Awaiting approval" : "Draft"}</span></span>
@@ -2120,6 +2124,9 @@ const openReviewEditor = (review = null) => {
   activeReviewId = review?.id || "";
   const locked = Boolean(review?.clientSubmitted);
   $("#review-editor-title").textContent = locked ? "Client-submitted review" : review ? "Edit review" : "Add review";
+  const submittedAt = $("#review-submitted-at");
+  submittedAt.textContent = reviewSubmissionDate(review);
+  submittedAt.hidden = !submittedAt.textContent;
   $("#review-name").value = review?.reviewerName || "";
   $("#review-role").value = review?.reviewerRole || "";
   const selectedServices = new Set(
