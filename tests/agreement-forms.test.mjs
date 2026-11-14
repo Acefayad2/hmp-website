@@ -400,6 +400,20 @@ test("flexible agreement requires original wording and allows bounded titled sec
   assert.throws(()=>editableSnapshot(template,{pages:[]}),/original pages/);
   assert.throws(()=>editableSnapshot(template,{pages:Array(10).fill("Extra section")}),/eight added sections/);
 });
+test("HMP can add titled detail boxes to an agreement draft and omit empty boxes from the client copy", () => {
+  const template = snapshotFor("custom-agreement");
+  const extraFields = [{id:"extra1",label:"Partner responsibilities"},{id:"extra3",label:"Venue requirements"}];
+  const saved = editableSnapshot(template,{extraFields,answers:{extra1:"Supply staff",extra3:""}});
+  assert.deepEqual(saved.adminFields.slice(-2).map(field => field.label),extraFields.map(field => field.label));
+  const answers = validateAnswers(saved.adminFields,{extra1:"Supply staff",extra3:""},false);
+  const clientCopy = answersHTML(saved.adminFields,answers);
+  assert.match(clientCopy,/Partner responsibilities/);
+  assert.doesNotMatch(clientCopy,/Venue requirements/);
+  const revised = editableSnapshot(saved,{extraFields:[extraFields[1]]});
+  assert.deepEqual(revised.adminFields.filter(field => /^extra/.test(field.id)).map(field => field.id),["extra3"]);
+  assert.throws(() => editableSnapshot(template,{extraFields:[{id:"extra1",label:""}]}),/enter a unique title/);
+  assert.throws(() => editableSnapshot(template,{extraFields:Array(9).fill({id:"extra1",label:"More"})}),/up to eight/);
+});
 test("new agreement revisions can leave signer name for the client to enter", () => {
   const original = snapshotFor("guest-seating");
   const revised = editableSnapshot(original,{clientEntersSignerName:true});

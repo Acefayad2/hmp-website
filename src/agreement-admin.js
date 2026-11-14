@@ -10,6 +10,13 @@ const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
 let active = null, busy = false, dirty = false, link = "";
 const sharingInteraction = createInteractionGuard();
+const extraField = field => /^extra[1-8]$/.test(field.id);
+function extraFieldsHTML(fields, answers) {
+  return fields.map(field => `<div class="agreement-panel" data-extra-field><label class="agreement-field">Box title<input name="extraLabel${field.id}" maxlength="120" required value="${escape(field.label)}"></label><label class="agreement-field">Details<textarea name="${field.id}" rows="3" maxlength="5000">${escape(answers[field.id] || "")}</textarea></label><button class="agreement-button secondary" type="button" data-remove-extra>Remove box</button></div>`).join("");
+}
+function currentExtraFields() {
+  return [...document.querySelectorAll("#agreement-extra-fields [data-extra-field]")].map(row => ({id:row.querySelector('textarea').name, label:row.querySelector('[name^="extraLabel"]').value.trim(), type:"textarea", required:false, hideEmpty:true}));
+}
 const dialog = document.createElement("dialog");
 dialog.className = "agreement-dialog"; dialog.id = "agreement-editor";
 dialog.setAttribute("aria-labelledby", "agreement-editor-title");
@@ -72,7 +79,7 @@ function renderEditor() {
   const draft = active.status === "Draft";
   dialog.innerHTML = `<header><div><p>CLIENT FORM · ${escape(active.status)}</p><h2 id="agreement-editor-title">${escape(active.snapshot.title)}</h2></div><button class="agreement-button secondary" type="button" id="agreement-close">Close</button></header>
     <form id="agreement-admin-form"><p>Prepare the service details, then send a private form for the client to complete and sign. Sent forms are locked; use Create revision to change terms while preserving the original.</p>
-    ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label></div><label class="agreement-checkbox"><input name="clientEntersSignerName" type="checkbox" ${active.snapshot.clientEntersSignerName ? "checked" : ""}><span>Let the client enter their own signer name. The name field in their form will start blank; their signature is always entered by them.</span></label><h3>HMP service details</h3><p>All starred fields must be completed before sending. You can save an incomplete draft.</p><div id="agreement-admin-fields" class="agreement-grid">${fieldsHTML(agreementDraftFields(active.snapshot, active.adminAnswers), active.adminAnswers, "admin-answer", false)}</div>` : `<p>Prepared for ${escape(active.clientName)} · ${escape(active.clientEmail)}</p>${answersHTML(active.snapshot.adminFields, active.adminAnswers,active.snapshot.answerFormatting)}`}
+    ${draft ? `<div class="agreement-grid"><label class="agreement-field">Document title<input name="documentTitle" required maxlength="200" value="${escape(active.snapshot.title)}"></label><label class="agreement-field">Client name<input name="clientName" required maxlength="200" value="${escape(active.clientName)}"></label><label class="agreement-field">Client email<input name="clientEmail" type="email" required maxlength="320" value="${escape(active.clientEmail)}"></label></div><label class="agreement-checkbox"><input name="clientEntersSignerName" type="checkbox" ${active.snapshot.clientEntersSignerName ? "checked" : ""}><span>Let the client enter their own signer name. The name field in their form will start blank; their signature is always entered by them.</span></label><h3>HMP service details</h3><p>All starred fields must be completed before sending. You can save an incomplete draft.</p><div id="agreement-admin-fields" class="agreement-grid">${fieldsHTML(agreementDraftFields(active.snapshot, active.adminAnswers).filter(field => !extraField(field)), active.adminAnswers, "admin-answer", false)}</div><section class="agreement-panel"><h3>Additional detail boxes</h3><p>HMP fills these out before sharing. Give each box a title; empty details stay off the client copy.</p><div id="agreement-extra-fields">${extraFieldsHTML(active.snapshot.adminFields.filter(extraField), active.adminAnswers)}</div><button class="agreement-button secondary" type="button" id="agreement-add-extra">Add box</button></section>` : `<p>Prepared for ${escape(active.clientName)} · ${escape(active.clientEmail)}</p>${answersHTML(active.snapshot.adminFields, active.adminAnswers,active.snapshot.answerFormatting)}`}
     ${draft && active.snapshot.id !== "money-bank-verification" ? `<details class="agreement-panel"><summary>Edit agreement wording</summary><p>Changes here affect this draft only. Select text to format it; the toolbar appears while editing. Keep field placeholders such as {{serviceHours}} intact. Sent and signed copies remain unchanged.</p><div id="agreement-editor-pages">${active.snapshot.pages.map((page, i) => agreementEditorHTML(i)).join("")}</div><button class="agreement-button secondary" type="button" id="agreement-add-section">Add titled section</button><button class="agreement-button secondary" type="button" id="agreement-remove-section">Remove last added section</button></details>` : ""}
     ${active.snapshot.id !== "money-bank-verification" ? `<details class="agreement-panel"><summary>Review full agreement text</summary><p>Client answers and HMP service details supply the matching blanks in this agreement. The event date supplied by the client fills event-date placeholders.</p><div id="agreement-live-preview">${termsHTML(active.snapshot)}</div></details>` : ""}
     ${active.status === "Completed" ? completionHTML(active) : ""}
@@ -126,12 +133,29 @@ function renderEditor() {
     if (preview) preview.innerHTML = termsHTML({pages:pages.map(page=>page.text),pageFormatting:pages.map(page=>page.formatting)});
   };
   if (draft) {
+    const extra = form.querySelector("#agreement-extra-fields");
+    const addExtra = form.querySelector("#agreement-add-extra");
+    const updateExtraButton = () => { addExtra.disabled = extra.children.length >= 8; };
+    addExtra.addEventListener("click", () => {
+      const used = new Set(currentExtraFields().map(field => field.id));
+      const id = Array.from({length:8}, (_, i) => `extra${i + 1}`).find(value => !used.has(value));
+      if (!id) return;
+      extra.insertAdjacentHTML("beforeend", extraFieldsHTML([{id,label:""}], {}));
+      mountRichFields({[id]:`[name="${id}"]`},{},form);
+      updateExtraButton(); dirty = true;
+      extra.lastElementChild.querySelector("input").focus();
+    });
+    extra.addEventListener("click", event => {
+      if (!event.target.closest("[data-remove-extra]")) return;
+      event.target.closest("[data-extra-field]").remove(); updateExtraButton(); dirty = true;
+    });
+    updateExtraButton();
     mountAgreementEditors(form,active.snapshot,refreshAgreementPreview);
     const pages = form.querySelector("#agreement-editor-pages");
     const baseCount = terms[active.snapshot.id]?.pages.length ?? active.snapshot.pages.length;
     const updateSectionButtons = () => {
-      form.querySelector("#agreement-add-section").disabled = pages.children.length >= baseCount + 8;
-      form.querySelector("#agreement-remove-section").disabled = pages.children.length <= baseCount;
+      if (form.querySelector("#agreement-add-section")) form.querySelector("#agreement-add-section").disabled = pages.children.length >= baseCount + 8;
+      if (form.querySelector("#agreement-remove-section")) form.querySelector("#agreement-remove-section").disabled = pages.children.length <= baseCount;
     };
     form.querySelector("#agreement-add-section")?.addEventListener("click", () => {
       const index = pages.children.length;
@@ -199,13 +223,15 @@ async function shareAgreement(copy) {
 }
 function formValues() {
   const values = Object.fromEntries(new FormData($("#agreement-admin-form")));
+  const extraFields = currentExtraFields();
+  const fields = [...active.snapshot.adminFields.filter(field => !extraField(field)), ...extraFields];
   const pages = active.snapshot.id === "money-bank-verification"
     ? active.snapshot.pages.map((text, i) => ({text, formatting:active.snapshot.pageFormatting?.[i] || []}))
     : [...document.querySelectorAll("#agreement-admin-form [data-agreement-editor]")].map(readAgreementEditor);
   pages.forEach((page,i) => {if (!page.text.trim() || page.text.length > 15000) throw new Error(`Agreement page ${i+1} must contain text and be no longer than 15,000 characters.`);});
-  return {title:values.documentTitle, clientEntersSignerName:values.clientEntersSignerName === "on", answerFormatting:collectRichFields(answerFields(),$("#agreement-admin-form")).textFormatting, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, ...(values["approval-label"] !== undefined ? {approvalWording:{label:values["approval-label"],approve:values["approval-approve"],decline:values["approval-decline"]}} : {}), adminAnswers:validateAnswers(active.snapshot.adminFields, values, false)};
+  return {title:values.documentTitle, clientEntersSignerName:values.clientEntersSignerName === "on", extraFields, fields, answerFormatting:collectRichFields(answerFields(fields),$("#agreement-admin-form")).textFormatting, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, ...(values["approval-label"] !== undefined ? {approvalWording:{label:values["approval-label"],approve:values["approval-approve"],decline:values["approval-decline"]}} : {}), adminAnswers:validateAnswers(fields, values, false)};
 }
-const answerFields=()=>Object.fromEntries(active.snapshot.adminFields.filter(field=>field.type==="textarea").map(field=>[field.id,`[name="${field.id}"]`]));
+const answerFields=(fields=active.snapshot.adminFields)=>Object.fromEntries(fields.filter(field=>field.type==="textarea").map(field=>[field.id,`[name="${field.id}"]`]));
 async function perform(action, sharing = {}) {
   if (busy) return;
   const status = $("#agreement-editor-status");
@@ -218,7 +244,7 @@ async function perform(action, sharing = {}) {
       values = formValues();
       const issuing = action === "send" || action === "share";
       const issues = nativeFormIssues($("#agreement-admin-form"));
-      try { values.adminAnswers = validateAnswers(active.snapshot.adminFields, values.adminAnswers, issuing); }
+      try { values.adminAnswers = validateAnswers(values.fields, values.adminAnswers, issuing); }
       catch (error) { issues.push(...error.issues); }
       if (issuing) {
         issues.push(...agreementTextIssues({...active.snapshot, pages:values.pages}));
@@ -235,7 +261,7 @@ async function perform(action, sharing = {}) {
     dialog.querySelectorAll("[data-agreement-editor]").forEach(item => item.setAttribute("contenteditable","false"));
     status.textContent = action === "send" ? "Preparing and sending client form…" : "Saving…";
     if (values) {
-      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientName:values.clientName, clientEmail:values.clientEmail, clientEntersSignerName:values.clientEntersSignerName, answers:values.adminAnswers, answerFormatting:values.answerFormatting, approvalWording:values.approvalWording})});
+      const data = await agreementRequest(endpoint, {method:active.id ? "PATCH" : "POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({id:active.id, action:"save", updatedAt:active.updatedAt, templateId:active.snapshot.id, title:values.title, pages:values.pages, pageFormatting:values.pageFormatting, clientName:values.clientName, clientEmail:values.clientEmail, clientEntersSignerName:values.clientEntersSignerName, extraFields:values.extraFields, answers:values.adminAnswers, answerFormatting:values.answerFormatting, approvalWording:values.approvalWording})});
       active = data.agreement; dirty = false;
     }
     let warning = "";
