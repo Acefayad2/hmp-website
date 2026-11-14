@@ -79,6 +79,7 @@ export const normalizeInquiry = (record: Record<string, unknown>) => {
   internalNotes: internalNotesText(record.internal_notes),
   internalNoteEntries: readInternalNotes(record.internal_notes),
   notesVersion: record.updated_at || null,
+  updatedAt: record.updated_at || null,
   source: record.source || "Website",
   };
 };
@@ -90,6 +91,28 @@ const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 const cleanText = (value: unknown, maxLength: number) =>
   typeof value === "string" ? value.trim().slice(0, maxLength) : "";
+
+export const editableInquiryDetails = (body: Record<string, unknown>) => {
+  const name = cleanText(body.name, 200);
+  const email = cleanText(body.email, 254).toLowerCase();
+  const eventDate = cleanText(body.eventDate, 10);
+  const guestCount = body.guestCount === "" || body.guestCount == null ? null : Number(body.guestCount);
+  if (!name) throw new Error("Client name is required.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid client email.");
+  if (eventDate && (!datePattern.test(eventDate) || !Number.isFinite(Date.parse(eventDate)) ||
+    new Date(eventDate).toISOString().slice(0, 10) !== eventDate)) throw new Error("Enter a valid event date.");
+  if (guestCount !== null && (!Number.isInteger(guestCount) || guestCount < 0 || guestCount > 100000))
+    throw new Error("Guest count must be a whole number between 0 and 100,000.");
+  return {
+    client_name: name, email, phone: cleanText(body.phone, 50) || null,
+    service: cleanText(body.service, 200) || "To be confirmed",
+    celebration_type: cleanText(body.eventType, 200) || "To be confirmed",
+    celebration_date: eventDate || null,
+    guest_count: guestCount,
+    location: cleanText(body.location, 500) || "To be confirmed",
+    additional_information: cleanText(body.details, 5000) || null,
+  };
+};
 
 // Booking never renews a link, resets a PIN, or sends an unsolicited email.
 // Ignore conflicts so simultaneous saves cannot replace an existing hub.
@@ -155,6 +178,23 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
 
     const id = cleanText(body.id, 36);
     if (!uuidPattern.test(id)) return json({ error: "Invalid inquiry" }, 400);
+    if (body.action === "edit-details") {
+      const expectedVersion = body.expectedVersion;
+      if (expectedVersion !== null && (typeof expectedVersion !== "string" ||
+        expectedVersion.length > 40 || !Number.isFinite(Date.parse(expectedVersion))))
+        return json({error:"Reload this inquiry before editing it."},400);
+      let details;
+      try { details = editableInquiryDetails(body); }
+      catch (cause) { return json({error:cause instanceof Error ? cause.message : "Invalid client information."},400); }
+      const timestamp = new Date(Math.max(Date.now(), Date.parse(String(expectedVersion || "")) + 1 || 0)).toISOString();
+      let query = client.from("hmp_admin_inquiries").update({...details,updated_at:timestamp})
+        .eq("submission_id",id).neq("status","Deleted");
+      query = expectedVersion === null ? query.is("updated_at",null) : query.eq("updated_at",expectedVersion);
+      const {data,error} = await query.select("*").maybeSingle();
+      if (error) return json({error:"Client information could not be saved. Please try again."},502);
+      if (!data) return json({error:"This inquiry changed since you opened it. Refresh before saving so no one’s changes are lost."},409);
+      return json({ok:true,inquiry:normalizeInquiry(data)});
+    }
     if (["save-notes", "append-notes", "edit-note", "delete-note"].includes(String(body.action))) {
       if (body.action !== "delete-note" && (typeof body.internalNotes !== "string" || body.internalNotes.length > 5000))
         return json({ error: "Notes must be text, up to 5,000 characters." }, 400);

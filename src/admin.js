@@ -451,6 +451,7 @@ const openInquiry = (id) => {
   $("#detail-name").textContent = item.name || "Unnamed inquiry";
   $("#detail-service").textContent = eventServiceLabel(item.service) || "Service not specified";
   $("#detail-actions").innerHTML = [
+    '<button type="button" id="edit-inquiry-client">Edit client info</button>',
     item.email ? `<a href="mailto:${encodeURIComponent(item.email)}">Email client</a>` : "",
     item.phone ? `<button type="button" id="text-inquiry-client">Text client</button>` : "",
     item.phone ? `<a href="tel:${escapeHTML(item.phone.replace(/[^+\d]/g, ""))}">Call ${escapeHTML(item.phone)}</a>` : "",
@@ -466,6 +467,7 @@ const openInquiry = (id) => {
     textForm.hidden = false;
     $("#inquiry-text-body").focus();
   });
+  $("#edit-inquiry-client")?.addEventListener("click", () => openEditInquiry(item.id, "inquiries"));
   renderDetailGrid(item);
   const note = $("#detail-note");
   note.hidden = !item.additionalInformation;
@@ -932,12 +934,78 @@ const createProposalFromWorkspace = () => {
 
 let manualInquiryId = "";
 let manualInquirySaved = null;
+let editingInquiryId = "";
+let editingInquiryReturn = "";
+let editingInquiryThreadId = "";
 const openManualInquiry = () => {
+  editingInquiryId = "";
+  editingInquiryReturn = "";
+  editingInquiryThreadId = "";
   manualInquiryId = crypto.randomUUID();
   manualInquirySaved = null;
   $("#manual-inquiry-form").reset();
+  $("#manual-inquiry-form [name=service]").querySelectorAll("option[data-inquiry-custom]").forEach(option => option.remove());
+  $("#inquiry-editor-title").textContent = "Add inquiry";
+  $("#inquiry-editor-help").textContent = "Enter a client directly. Only their name and email are required. Saving does not send an email.";
+  $("#save-inquiry-details").textContent = "Save inquiry";
+  $("#save-inquiry-proposal").hidden = false;
   setMessage($("#manual-inquiry-message"), "");
   $("#manual-inquiry-dialog").showModal();
+};
+
+const openEditInquiry = (id, returnTo) => {
+  const item = inquiries.find(inquiry => inquiry.id === id);
+  if (!item) return;
+  editingInquiryId = id;
+  editingInquiryReturn = returnTo;
+  editingInquiryThreadId = returnTo === "messages" ? activeThreadId : "";
+  const form = $("#manual-inquiry-form");
+  form.reset();
+  const serviceSelect = form.elements.namedItem("service");
+  serviceSelect.querySelectorAll("option[data-inquiry-custom]").forEach(option => option.remove());
+  if (item.service && ![...serviceSelect.options].some(option => option.value === item.service)) {
+    const option = new Option(item.service, item.service);
+    option.dataset.inquiryCustom = "true";
+    serviceSelect.add(option);
+  }
+  for (const [name, value] of Object.entries({
+    name: item.name, email: item.email, phone: item.phone, service: item.service,
+    eventType: item.celebrationType, eventDate: item.celebrationDate,
+    guestCount: item.guestCount, location: item.location, details: item.additionalInformation,
+  })) {
+    const control = form.elements.namedItem(name);
+    if (control && "value" in control) control.value = value ?? "";
+  }
+  $("#inquiry-editor-title").textContent = "Edit client information";
+  $("#inquiry-editor-help").textContent = "Update the inquiry and Client Hub contact details. Existing signed documents and sent messages keep their original record. Saving does not contact the client.";
+  $("#save-inquiry-details").textContent = "Save changes";
+  $("#save-inquiry-proposal").hidden = true;
+  setMessage($("#manual-inquiry-message"), "");
+  if (dialog.open) dialog.close();
+  $("#manual-inquiry-dialog").showModal();
+};
+
+const saveEditedInquiry = async (form) => {
+  const item = inquiries.find(inquiry => inquiry.id === editingInquiryId);
+  if (!item) throw new Error("This inquiry is no longer available. Refresh Admin and try again.");
+  const response = await fetch("/api/hmp-dashboard", {
+    method: "PATCH", credentials: "same-origin", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "edit-details", id: item.id, expectedVersion: item.updatedAt,
+      ...Object.fromEntries(new FormData(form)) }),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || "Client information could not be saved.");
+  inquiries = inquiries.map(inquiry => inquiry.id === item.id ? data.inquiry : inquiry);
+  renderMetrics(); renderServiceFilter(); renderServiceMix(); renderInquiries();
+  $("#manual-inquiry-dialog").close();
+  if (editingInquiryReturn === "messages") {
+    try { await loadMessages(); } catch { /* The inquiry is saved; the hub can refresh later. */ }
+    if (editingInquiryThreadId) openMessageThread(editingInquiryThreadId);
+  } else {
+    openInquiry(item.id);
+    setMessage($("#management-message"), "Client information saved. Existing signed records and sent messages were preserved.", true);
+  }
+  editingInquiryId = "";
 };
 
 const createManualInquiry = async (event) => {
@@ -948,6 +1016,10 @@ const createManualInquiry = async (event) => {
   buttons.forEach((button) => { button.disabled = true; });
   setMessage($("#manual-inquiry-message"), "Saving inquiry…");
   try {
+    if (editingInquiryId) {
+      await saveEditedInquiry(form);
+      return;
+    }
     if (!manualInquirySaved) {
       const response = await fetch("/api/hmp-dashboard", {
         method: "POST", credentials: "same-origin",
@@ -2596,6 +2668,10 @@ dialog.addEventListener("cancel", (event) => { if (inquiryBusy) event.preventDef
 $("#inquiry-storage-filter").addEventListener("change", (event) => { activeInquiryFilter = event.target.value; renderInquiries(); });
 for (const action of ["archive", "delete", "restore"]) $("#" + action + "-inquiry").addEventListener("click", () => moveInquiry(action));
 $("#inquiry-management-form").addEventListener("submit", saveInquiry);
+$("#edit-active-client").addEventListener("click", () => {
+  const thread = messageThreads.find(candidate => candidate.id === activeThreadId);
+  if (thread?.inquiryId) openEditInquiry(thread.inquiryId, "messages");
+});
 $("#create-conversation-link").addEventListener("click", createConversationLink);
 $("#copy-conversation-link").addEventListener("click", async () => {
   try {

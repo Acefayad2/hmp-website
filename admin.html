@@ -203,6 +203,7 @@
                   <header class="admin-conversation-heading">
                     <div><p class="kicker" id="admin-conversation-service"></p><h3 id="admin-conversation-name"></h3><p id="admin-conversation-email"></p></div>
                     <div class="conversation-heading-actions">
+                      <button class="secondary-button" id="edit-active-client" type="button">Edit client info</button>
                       <button class="secondary-button" id="open-event-checklist" type="button">Event Checklist</button>
                       <button class="secondary-button" id="open-proposal-editor" type="button">Send proposal</button>
                       <button class="secondary-button conversation-copy-link" id="copy-active-link" type="button">Copy client link</button>
@@ -602,7 +603,7 @@
     <dialog class="proposal-editor-dialog" id="manual-inquiry-dialog">
       <form id="manual-inquiry-form">
         <div class="dialog-heading">
-          <div><p class="kicker">Client care</p><h2>Add inquiry</h2><p>Enter a client directly. Only their name and email are required. Saving does not send an email.</p></div>
+          <div><p class="kicker">Client care</p><h2 id="inquiry-editor-title">Add inquiry</h2><p id="inquiry-editor-help">Enter a client directly. Only their name and email are required. Saving does not send an email.</p></div>
           <button id="close-manual-inquiry" type="button">Close</button>
         </div>
         <div class="proposal-form-body">
@@ -619,7 +620,7 @@
           </div>
           <div class="proposal-form-actions">
             <p class="form-message" id="manual-inquiry-message" role="status"></p>
-            <div><button class="secondary-button" type="submit" value="save">Save inquiry</button><button class="primary-button" type="submit" value="proposal">Save &amp; create proposal</button></div>
+            <div><button class="secondary-button" id="save-inquiry-details" type="submit" value="save">Save inquiry</button><button class="primary-button" id="save-inquiry-proposal" type="submit" value="proposal">Save &amp; create proposal</button></div>
           </div>
         </div>
       </form>
