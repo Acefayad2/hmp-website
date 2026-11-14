@@ -1193,6 +1193,7 @@ const openMessageThread = (threadId) => {
   $("#copy-active-link").disabled = !thread.active;
   setMessage($("#admin-message-status"), "");
   renderAdminMessages(thread);
+  void loadScheduledReplies(thread.id);
   if (changedThread && activeHubSection === "activity") void loadClientActivity();
   if (threadId !== $("#hub-form-select").dataset.threadId) loadHubForms(thread);
   document.querySelectorAll("[data-thread-id]").forEach((button) => {
@@ -1592,6 +1593,73 @@ const deleteActiveConversation = async () => {
     button.disabled = false;
   }
 };
+
+const loadScheduledReplies = async (conversationId) => {
+  const list = $("#scheduled-reply-list");
+  try {
+    const response = await fetch(`/api/hmp-scheduled-messages?conversationId=${encodeURIComponent(conversationId)}`, {credentials:"same-origin",cache:"no-store"});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Scheduled messages could not be loaded.");
+    if (activeThreadId !== conversationId) return;
+    list.replaceChildren();
+    for (const entry of data.entries || []) {
+      const item = document.createElement("div"); item.className = "scheduled-reply-item";
+      const heading = document.createElement("strong");
+      heading.textContent = `${entry.channel === "text" ? "Text" : "Email"} · ${formatDate(entry.scheduled_at, true)} · ${entry.status}`;
+      const recipient = document.createElement("span"); recipient.textContent = entry.recipient;
+      const body = document.createElement("span"); body.textContent = entry.body;
+      item.append(heading, recipient, body);
+      if (entry.detail) { const detail = document.createElement("small"); detail.textContent = entry.detail; item.append(detail); }
+      if (entry.status === "pending") {
+        const cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel scheduled send";
+        cancel.addEventListener("click", async () => {
+          if (!window.confirm("Cancel this scheduled message?")) return;
+          cancel.disabled = true;
+          try {
+            const result = await fetch("/api/hmp-scheduled-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"cancel",id:entry.id,conversationId})});
+            const responseData = await result.json().catch(() => ({}));
+            if (!result.ok) throw new Error(responseData.error || "Scheduled send could not be cancelled.");
+            await loadScheduledReplies(conversationId);
+            setMessage($("#scheduled-reply-status"), "Scheduled send cancelled.", true);
+          } catch (error) { cancel.disabled = false; setMessage($("#scheduled-reply-status"), error.message); }
+        }); item.append(cancel);
+      }
+      list.append(item);
+    }
+    if (!(data.entries || []).length) list.textContent = "No scheduled messages for this client.";
+  } catch (error) { if (activeThreadId === conversationId) setMessage($("#scheduled-reply-status"), error.message); }
+};
+
+const scheduleAdminReply = async (channel) => {
+  const thread = messageThreads.find((candidate) => candidate.id === activeThreadId);
+  const input = $("#admin-message-input");
+  const message = input.value.trim();
+  const dateValue = $("#scheduled-reply-time").value;
+  const status = $("#scheduled-reply-status");
+  if (!thread || !message) return setMessage(status, "Choose a client and enter a message first.");
+  if (pendingFiles($("#admin-message-attachments")).length) return setMessage(status, "Send attachments with Send reply now. Remove them before scheduling this draft.");
+  if (channel === "text" && !thread.clientPhone) return setMessage(status, "This client has no mobile number on the inquiry.");
+  const scheduled = new Date(dateValue);
+  if (!dateValue || !Number.isFinite(scheduled.getTime()) || scheduled.getTime() < Date.now() + 60_000) return setMessage(status, "Choose a future date and time at least one minute from now.");
+  const destination = channel === "text" ? thread.clientPhone : thread.clientEmail;
+  if (!window.confirm(`Schedule this ${channel} to ${destination} for ${formatDate(scheduled.toISOString(), true)}?`)) return;
+  const button = $(channel === "text" ? "#schedule-admin-text" : "#schedule-admin-email");
+  button.disabled = true; setMessage(status, "Saving scheduled send…");
+  try {
+    const response = await fetch("/api/hmp-scheduled-messages", {method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},body:JSON.stringify({action:"schedule",conversationId:thread.id,channel,message,formatting:channel === "email" ? richFieldFormatting(input) : [],scheduledAt:scheduled.toISOString(),requestId:crypto.randomUUID()})});
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.error || "Scheduled send could not be saved.");
+    input.value = "";
+    $("#scheduled-reply-time").value = "";
+    await loadScheduledReplies(thread.id);
+    setMessage(status, `${channel === "text" ? "Text" : "Email"} scheduled for ${formatDate(scheduled.toISOString(), true)}.`, true);
+  } catch (error) { setMessage(status, error.message); }
+  finally { button.disabled = false; }
+};
+
+$("#scheduled-reply-zone").textContent = `Times use ${Intl.DateTimeFormat().resolvedOptions().timeZone || "your device time zone"}.`;
+$("#schedule-admin-email").addEventListener("click", () => void scheduleAdminReply("email"));
+$("#schedule-admin-text").addEventListener("click", () => void scheduleAdminReply("text"));
 
 const formatMoney = (value) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
