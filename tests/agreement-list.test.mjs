@@ -74,7 +74,9 @@ test("single list markup retains five columns, templates, creation and both clic
   const html=readFileSync(new URL("../admin.html",import.meta.url),"utf8");
   assert.doesNotMatch(html,/id="agreement-list"|<h3>Agreement records<\/h3>/);
   assert.match(html,/<span>Agreement<\/span><span>Client<\/span><span>Event date<\/span><span>Value<\/span><span>Status<\/span>/);
-  assert.match(html,/id="create-contract-button"[^>]*>Create new agreement/);
+  assert.match(html,/id="create-service-agreement-button"[^>]*>Create new service agreement/);
+  assert.match(html,/id="create-general-agreement-button"[^>]*>Create new agreement/);
+  assert.match(html,/id="create-contract-button"[^>]*>Create printable agreement/);
   assert.match(html,/id="agreement-template-list"/);
   for(const file of ["admin.js","agreement-admin.js"]){
     assert.match(readFileSync(new URL(`../src/${file}`,import.meta.url),"utf8"),/\$\("#contract-list"\)\.addEventListener\("click"/);
