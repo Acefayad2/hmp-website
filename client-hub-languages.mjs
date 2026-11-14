@@ -25,13 +25,15 @@ export function splitTranslationText(value, limit = 2400) {
 
 export function collectTranslatableText(roots) {
   const nodes = [];
+  const seen = new Set();
   for (const root of roots) {
     if (!root) continue;
     const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
       const node = walker.currentNode;
       const value = node.textContent?.trim();
-      if (!value || !node.parentElement || node.parentElement.closest("input, textarea, script, style, .document-print-original, .client-hub-controls")) continue;
+      if (!value || !node.parentElement || seen.has(node) || node.parentElement.closest("input, textarea, script, style, a[href^='mailto:'], #client-hub-language-options")) continue;
+      seen.add(node);
       nodes.push(node);
     }
   }
