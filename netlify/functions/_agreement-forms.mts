@@ -45,6 +45,19 @@ export function withCurrentDraftFields(row: any) {
   return {...row, snapshot:{...snapshot, adminFields:fields}, admin_answers:{...row.admin_answers,...moneyTablePaymentAmounts(row.admin_answers?.serviceFee,row.admin_answers?.retainerPercent)}};
 }
 export function editableSnapshot(snapshot: any, body: any) {
+  if (body.extraFields !== undefined) {
+    if (snapshot.kind === "information" || !Array.isArray(body.extraFields) || body.extraFields.length > 8)
+      throw new Error("Add up to eight agreement detail boxes.");
+    const seen = new Set<string>();
+    const fields = body.extraFields.map((item: any, index: number) => {
+      const label = typeof item?.label === "string" ? item.label.trim() : "";
+      if (!/^extra[1-8]$/.test(item?.id || "") || seen.has(item.id) || !label || label.length > 120)
+        throw validationError([{field:`extraLabel${item?.id || index + 1}`, message:`Additional box ${index + 1}: enter a unique title (maximum 120 characters).`}]);
+      seen.add(item.id);
+      return {id:item.id, label, type:"textarea", required:false, hideEmpty:true};
+    });
+    snapshot = {...snapshot, adminFields:[...snapshot.adminFields.filter((field: any) => !/^extra[1-8]$/.test(field.id)), ...fields]};
+  }
   if (body.clientEntersSignerName !== undefined) {
     if (typeof body.clientEntersSignerName !== "boolean") throw new Error("Choose whether the client enters their own signer name.");
     snapshot = {...snapshot,clientEntersSignerName:body.clientEntersSignerName};
