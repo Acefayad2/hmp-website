@@ -531,6 +531,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .contract-intro { max-width: 690px; margin: 0; color: var(--muted); line-height: 1.65; }
 .contract-parties { padding-top: 32px; }
 .contract-section { padding: 28px 0; border-top: 1px solid var(--line); }
+.contract-extra-box { margin: 18px 0; padding: 18px; border: 1px solid var(--line); border-radius: 10px; }
+.contract-extra-box label { display: block; margin-bottom: 12px; }
+.contract-extra-box label > span { display: block; margin-bottom: 7px; color: var(--muted); font-size: 8px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
+.contract-extra-box input, .contract-extra-box textarea { border-color: var(--line); }
 .contract-section > label { display: block; }
 .contract-section > label + label { margin-top: 22px; }
 .contract-section label > span, .contract-financial-grid label > span:first-child, .contract-signatures label > span { display: block; margin: 0 0 7px; color: var(--muted); font-size: 8px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; }
@@ -754,6 +758,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
   .contract-financial-grid > label { align-items: flex-start; flex-direction: column; }
 }
 @media print {
+  body.printing-contract .contract-extra-box:not([data-filled="true"]), body.printing-contract #contract-add-extra-box, body.printing-contract .contract-extra-box button { display: none !important; }
   body:not(.printing-contract) > :not(#invoice-editor-dialog) { display: none !important; }
   body:not(.printing-contract) #invoice-editor-dialog { position: static; width: 100%; max-width: none; height: auto; max-height: none; margin: 0; padding: 0; overflow: visible; border: 0; border-radius: 0; background: #fff; }
   body:not(.printing-contract) #invoice-editor-dialog::backdrop { display: none; }

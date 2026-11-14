@@ -53,6 +53,7 @@ const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><he
         ${section("Payment terms", contract.payment_terms,contract.text_formatting?.paymentTerms)}
         ${section("Cancellation and rescheduling", contract.cancellation_terms,contract.text_formatting?.cancellationTerms)}
         ${section("Additional terms", contract.additional_terms,contract.text_formatting?.additionalTerms)}
+        ${(Array.isArray(contract.additional_boxes) ? contract.additional_boxes : []).filter((box: any) => box?.title && box?.details).map((box: any) => section(escapeHTML(box.title), box.details)).join("")}
         <div style="margin-top:30px;padding-top:22px;border-top:1px solid #5f3f41">
           <p style="margin:0 0 22px;line-height:1.65">By signing, both parties acknowledge that they reviewed this agreement and accept the services and terms stated above.</p>
           <table role="presentation" width="100%"><tr>

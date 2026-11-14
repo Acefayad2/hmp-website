@@ -1817,6 +1817,38 @@ const contractFormFields = {
   clientSignedAt: "#contract-client-signed-at",
 };
 
+const contractBoxContainer = () => $("#contract-extra-boxes");
+const contractBoxes = () => [...contractBoxContainer().querySelectorAll(".contract-extra-box")].map(row => ({
+  title: row.querySelector("input").value.trim(),
+  details: row.querySelector("textarea").value.trim(),
+}));
+const updateContractBoxControls = () => {
+  const current = contracts.find(row => row.id === activeContractId);
+  const locked = Boolean(current && current.status !== "Draft");
+  $("#contract-add-extra-box").disabled = locked || contractBoxContainer().children.length >= 8;
+  contractBoxContainer().querySelectorAll(".contract-extra-box button").forEach(button => { button.disabled = locked; });
+};
+const addContractBox = ({title = "", details = ""} = {}) => {
+  const container = contractBoxContainer();
+  if (container.children.length >= 8) return;
+  const row = document.createElement("div"); row.className = "contract-extra-box";
+  const titleLabel = document.createElement("label");
+  const titleCaption = document.createElement("span"); titleCaption.textContent = "Box title";
+  const titleInput = document.createElement("input"); titleInput.type = "text"; titleInput.maxLength = 120; titleInput.required = true; titleInput.value = title;
+  titleLabel.append(titleCaption, titleInput);
+  const detailsLabel = document.createElement("label");
+  const detailsCaption = document.createElement("span"); detailsCaption.textContent = "Details";
+  const detailsInput = document.createElement("textarea"); detailsInput.rows = 4; detailsInput.maxLength = 5000; detailsInput.value = details;
+  const updateFilled = () => { row.dataset.filled = detailsInput.value.trim() ? "true" : "false"; };
+  detailsInput.addEventListener("input", updateFilled); updateFilled();
+  detailsLabel.append(detailsCaption, detailsInput);
+  const remove = document.createElement("button"); remove.type = "button"; remove.className = "agreement-button secondary"; remove.textContent = "Remove box";
+  remove.addEventListener("click", () => { row.remove(); updateContractBoxControls(); });
+  row.append(titleLabel, detailsLabel, remove); container.append(row); updateContractBoxControls();
+  return titleInput;
+};
+$("#contract-add-extra-box").addEventListener("click", () => addContractBox()?.focus());
+
 const openContractEditor = (contract = null) => {
   activeContractId = contract?.id || "";
   const values = contract || {
@@ -1829,11 +1861,14 @@ const openContractEditor = (contract = null) => {
   Object.entries(contractFormFields).forEach(([key, selector]) => {
     $(selector).value = values[key] ?? "";
   });
+  contractBoxContainer().replaceChildren();
+  (values.additionalBoxes || []).forEach(box => addContractBox(box));
   $("#editor-contract-number").textContent = contract?.contractNumber || "New agreement";
   $("#contract-number-display").textContent = contract?.contractNumber || "Draft";
   $("#send-contract").textContent = "Send to Client Portal";
   setMessage($("#contract-editor-message"), "");
   lockIssuedDocumentControls($("#contract-form"),contract,"contract");
+  updateContractBoxControls();
   mountRichFields(contractFormFields,values.textFormatting);
   if(contract&&contract.status!=="Draft")setMessage($("#contract-editor-message"),"Issued content is preserved. Choose Create revision to change it.");
   mountDocumentVersions($("#contract-editor-dialog"),{kind:"contract",id:contract?.id,status:contract?.status,open:async(id,record)=>{await loadContracts();openContractEditor(record||contracts.find(item=>item.id===id));}});
@@ -1846,6 +1881,7 @@ const contractPayload = () => ({
   ...Object.fromEntries(
     Object.entries(contractFormFields).map(([key, selector]) => [key, $(selector).value]),
   ),
+  additionalBoxes: contractBoxes(),
 });
 
 const renderContracts = () => {
@@ -1934,6 +1970,7 @@ const saveContract = async ({ quiet = false } = {}) => {
   } finally {
     buttons.forEach((button) => { button.disabled = false; });
     lockIssuedDocumentControls(form,contracts.find(row=>row.id===activeContractId),"contract");
+    updateContractBoxControls();
   }
 };
 

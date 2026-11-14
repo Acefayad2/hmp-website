@@ -89,6 +89,14 @@ export function renderDocumentCard(copy, { showActions = true, expanded = false,
     term.textContent=label;if(copy.textFormatting?.[key])value.innerHTML=richTextHTML(copy[key],copy.textFormatting[key]);else value.textContent=String(copy[key]);fields.append(term,value);
   }
   content.append(fields);
+  if (copy.kind === "contract") {
+    for (const box of Array.isArray(copy.additional_boxes) ? copy.additional_boxes : []) {
+      if (!box?.title || !box?.details) continue;
+      const heading = document.createElement("h4"), details = document.createElement("p");
+      heading.textContent = String(box.title); details.textContent = String(box.details);
+      content.append(heading, details);
+    }
+  }
   if(copy.kind === "invoice") {
     const items=document.createElement("ol");items.className="sent-document-items";
     for(const item of Array.isArray(copy.items) ? copy.items : []) {
