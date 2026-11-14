@@ -281,6 +281,16 @@
                     <div class="attachment-previews" id="admin-message-attachment-previews" hidden></div>
                     <p class="attachment-draft-hint">Select multiple photos or add more files. Preview or remove them with × before clicking Send. Nothing uploads until you send.</p>
                     <div class="composer-submit"><p class="form-message" id="admin-message-status" role="status"></p><div class="composer-submit-buttons"><button class="text-send-button" id="send-admin-text" type="button" disabled>Send text</button><button class="primary-button" type="submit">Send reply</button></div></div>
+                    <details id="scheduled-reply-panel" class="admin-scheduled-replies">
+                      <summary>Schedule send</summary>
+                      <p>Send this draft later by email or text. Attachments must be sent right away. The message stays private until its scheduled time.</p>
+                      <label for="scheduled-reply-time">Send date and time (your device time zone)</label>
+                      <input id="scheduled-reply-time" type="datetime-local" />
+                      <p id="scheduled-reply-zone"></p>
+                      <div class="composer-submit-buttons"><button id="schedule-admin-email" type="button">Schedule email</button><button id="schedule-admin-text" type="button">Schedule text</button></div>
+                      <p class="form-message" id="scheduled-reply-status" role="status"></p>
+                      <div id="scheduled-reply-list"></div>
+                    </details>
                   </form>
                 </div>
               </section>
