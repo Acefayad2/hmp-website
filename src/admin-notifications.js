@@ -14,18 +14,18 @@ export function mountAdminNotifications({button, dialog, openDocument, fetchFn=f
     lastRender=next;list.replaceChildren();
     for(const row of rows) {
       const item=document.createElement("li");item.className="admin-notification";
-      const title=document.createElement("strong");title.textContent=`${row.read?"":"New · "}${row.clientName} ${row.kind==="agreement_signed"?"signed an agreement":"completed a form"}`;
+      const title=document.createElement("strong");title.textContent=`${row.read?"":"New · "}${row.clientName} ${row.kind==="agreement_signed"?"signed an agreement":row.kind==="review_submitted"?"submitted a review":"completed a form"}`;
       const detail=document.createElement("p");detail.textContent=row.title;
       const meta=document.createElement("p");meta.className="notification-meta";meta.textContent=`${new Date(row.createdAt).toLocaleString()} · ${row.emailStatus}`;
-      const open=document.createElement("button");open.type="button";open.className="secondary-button";open.textContent="View document";
+      const open=document.createElement("button");open.type="button";open.className="secondary-button";open.textContent=row.kind==="review_submitted"?"View review":"View document";
       open.addEventListener("click",async()=>{
         open.disabled=true;
         try {
           dialog.close();
-          if(!await openDocument(row)) throw new Error("Document could not be opened. Please try again.");
+          if(!await openDocument(row)) throw new Error("Submission could not be opened. Please try again.");
           await markRead(row);
         }
-        catch(error){if(!dialog.open)dialog.showModal();status.textContent=error.message || "Document could not be opened.";}
+        catch(error){if(!dialog.open)dialog.showModal();status.textContent=error.message || "Submission could not be opened.";}
         finally{open.disabled=false;}
       });
       item.append(title,detail,meta,open);
@@ -67,7 +67,7 @@ export function mountAdminNotifications({button, dialog, openDocument, fetchFn=f
       const response=await fetchFn("/api/hmp-notifications",{credentials:"same-origin",cache:"no-store"});
       if(!response.ok) throw new Error("Notifications could not be loaded. Please refresh.");
       rows=(await response.json()).notifications || [];render();
-      status.textContent=rows.length?"Showing up to 100 uncleared notifications. Read and cleared status are saved for your Admin account.":"No uncleared notifications. New form completions and signatures will appear here.";
+      status.textContent=rows.length?"Showing up to 100 uncleared notifications. Read and cleared status are saved for your Admin account.":"No uncleared notifications. New reviews, form completions, and signatures will appear here.";
     } catch(error){status.textContent=error.message;button.textContent="Notifications · unavailable";}
     finally{loading=false;controls();}
   }

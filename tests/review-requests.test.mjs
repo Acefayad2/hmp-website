@@ -19,6 +19,7 @@ function database(requests=[], reviews=[]) {
       select(){return this;},order(){return this;},limit(){return this;},
       range(){return this;},
       is(k,v){filters.push(row=>(row[k] ?? null)===v);return this;},
+      not(k,operator,v){filters.push(row=>operator==="is" ? (row[k] ?? null)!==v : true);return this;},
       eq(k,v){filters.push(row=>row[k]===v);return this;},
       insert(v){operation="insert";payload=v;return this;},
       upsert(v,opts){operation="insert";payload=v;ignore=opts?.ignoreDuplicates;return this;},
@@ -70,7 +71,7 @@ test("client submission stays unpublished even when spoofing approval; retry ins
   assert.equal((await h(request("hmp-client-review","POST",submission,token))).status,200);
   assert.equal(reviews.length,1);
 });
-test("landing-page API excludes pending reviews, admin approval publishes, and unpublishing hides them again",async()=>{
+test("client-submitted reviews stay immutable while Admin can approve or archive them",async()=>{
   const reviews=[{id,...reviewSubmission(submission),published:false,is_placeholder:false,source_request_id:id}];
   const db=database([],reviews),h=createReviewHandler({getUserFn:user,databaseFactory:()=>db});
   assert.equal((await (await h(request("hmp-reviews"))).json()).reviews.length,0);
@@ -78,9 +79,11 @@ test("landing-page API excludes pending reviews, admin approval publishes, and u
   const body={id,reviewerName:submission.reviewerName,reviewText:submission.reviewText,service:submission.services.join(", "),rating:5,published:true};
   const unauthorized=createReviewHandler({getUserFn:async()=>null,databaseFactory:()=>db});
   assert.equal((await unauthorized(request("hmp-reviews","PATCH",body))).status,401);
-  assert.equal((await h(request("hmp-reviews","PATCH",body))).status,200);
+  assert.equal((await h(request("hmp-reviews","PATCH",body))).status,409);
+  assert.equal((await (await h(request("hmp-reviews"))).json()).reviews.length,0);
+  assert.equal((await h(request("hmp-reviews","PATCH",{id,action:"approve"}))).status,200);
   assert.equal((await (await h(request("hmp-reviews"))).json()).reviews.length,1);
-  await h(request("hmp-reviews","PATCH",{...body,published:false}));
+  await h(request("hmp-reviews","PATCH",{id,action:"archive"}));
   assert.equal((await (await h(request("hmp-reviews"))).json()).reviews.length,0);
 });
 test("request retries keep one invitation and stable email key; successful delivery is not sent twice",async()=>{

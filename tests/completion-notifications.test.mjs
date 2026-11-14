@@ -21,6 +21,23 @@ test("email alerts use stable idempotency and escaped minimal content, never sig
   assert.equal(headers["Idempotency-Key"],`hmp-completion/${id}`);
   assert.ok(db.updates[0].email_accepted_at);assert.equal(db.updates[0].email_error,null);
 });
+test("client review submissions use the private alert queue without emailing review text",async()=>{
+  const reviewId="22222222-2222-4222-8222-222222222222";
+  const review={...row,agreement_id:null,review_id:reviewId,kind:"review_submitted",title:"Website review"};
+  let payload;
+  const db=database([review]);
+  assert.deepEqual(await deliverCompletionAlerts(db,async(_url,options)=>{payload=JSON.parse(options.body);return Response.json({id:"accepted"});}),{processed:1,accepted:1});
+  assert.match(payload.subject,/submitted a review/);
+  assert.doesNotMatch(payload.html,/A lovely experience|token=|<script>/);
+  const handler=createNotificationsHandler({getUserFn:async()=>({email:"admin@example.test"}),databaseFactory:()=>db});
+  const notifications=(await (await handler(new Request("https://hmpeds.com/api/hmp-notifications"))).json()).notifications;
+  assert.equal(notifications[0].reviewId,reviewId);
+  assert.equal(notifications[0].kind,"review_submitted");
+  const sql=readFileSync(new URL("../supabase/migrations/20261114194418_review_submission_alerts.sql",import.meta.url),"utf8");
+  assert.match(sql,/after insert on public\.hmp_admin_reviews/);
+  assert.match(sql,/new\.source_request_id is not null/);
+  assert.match(sql,/Client-submitted reviews cannot be edited/);
+});
 test("provider failures remain retryable without altering the completed document",async()=>{
   for(const send of [async()=>new Response("",{status:429}),async()=>{throw Error("network");}]) {
     const db=database();assert.deepEqual(await deliverCompletionAlerts(db,send),{processed:1,accepted:0});
