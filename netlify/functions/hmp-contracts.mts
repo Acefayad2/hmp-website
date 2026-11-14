@@ -51,6 +51,7 @@ export const normalizeContract = (record: Record<string, unknown>) => ({
   paymentTerms: record.payment_terms || "",
   cancellationTerms: record.cancellation_terms || "",
   additionalTerms: record.additional_terms || "",
+  additionalBoxes: Array.isArray(record.additional_boxes) ? record.additional_boxes : [],
   ...(record.text_formatting && Object.keys(record.text_formatting).length ? {textFormatting:record.text_formatting} : {}),
   hmpSignatureName: record.hmp_signature_name || "",
   hmpSignedAt: record.hmp_signed_at || "",
@@ -87,6 +88,17 @@ export const cleanPayload = (body: Record<string, unknown>) => {
     const candidate = text(value, 10);
     return candidate && datePattern.test(candidate) ? candidate : null;
   };
+  const boxes = body.additionalBoxes ?? [];
+  if (!Array.isArray(boxes) || boxes.length > 8) throw new Error("Use no more than eight additional boxes");
+  const titles = new Set<string>();
+  const additionalBoxes = boxes.map((box: any, index: number) => {
+    const title = typeof box?.title === "string" ? box.title.trim() : "";
+    const details = typeof box?.details === "string" ? box.details.trim() : "";
+    if (!title || title.length > 120 || details.length > 5000) throw new Error(`Additional box ${index + 1} needs a title of up to 120 characters and details of up to 5,000 characters`);
+    if (titles.has(title.toLowerCase())) throw new Error(`Additional box ${index + 1} has a duplicate title`);
+    titles.add(title.toLowerCase());
+    return {title, details};
+  });
   return {
     status,
     effective_date: effectiveDate,
@@ -104,6 +116,7 @@ export const cleanPayload = (body: Record<string, unknown>) => {
     payment_terms: text(body.paymentTerms, 5000) || null,
     cancellation_terms: text(body.cancellationTerms, 5000) || null,
     additional_terms: text(body.additionalTerms, 10000) || null,
+    additional_boxes: additionalBoxes,
     text_formatting: normalizeTextFormatting(body,{clientAddress:text(body.clientAddress,1000),eventLocation:text(body.eventLocation,500),services,scopeOfWork,paymentTerms:text(body.paymentTerms,5000),cancellationTerms:text(body.cancellationTerms,5000),additionalTerms:text(body.additionalTerms,10000)},["clientAddress","eventLocation","services","scopeOfWork","paymentTerms","cancellationTerms","additionalTerms"]).textFormatting || {},
     hmp_signature_name: text(body.hmpSignatureName, 200) || null,
     hmp_signed_at: optionalDate(body.hmpSignedAt),

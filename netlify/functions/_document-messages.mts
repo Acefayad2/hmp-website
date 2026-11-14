@@ -16,6 +16,7 @@ export const documentSnapshot = (kind: "invoice" | "contract", record: Record<st
     kind, id: record.id, number: record[`${kind}_number`],
     ...(record.revision_root_id ? {revisionRootId:record.revision_root_id} : {}),
     ...Object.fromEntries(fields.map(field => [field, record[field] ?? null])),
+    ...(kind === "contract" ? {additional_boxes:(Array.isArray(record.additional_boxes) ? record.additional_boxes : []).filter((box: any) => box?.title && box?.details).map((box: any) => ({title:box.title, details:box.details}))} : {}),
     ...(record.text_formatting ? {textFormatting:Object.fromEntries(Object.entries(record.text_formatting).map(([key,runs])=>[key.replace(/[A-Z]/g,c=>"_"+c.toLowerCase()),runs]))} : {}),
     ...(kind === "invoice" ? {
       ...(["Partially paid", "Paid"].includes(record.status) ? { payment_status: invoiceStatusLabel(record.status) } : {}),

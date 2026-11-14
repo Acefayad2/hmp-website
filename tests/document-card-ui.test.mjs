@@ -67,6 +67,13 @@ test("invoice and contract copies offer print at the bottom without changing the
     assert.deepEqual(copy,before);
   }
 }));
+test("custom agreement boxes appear on the client copy and escape their contents", () => withDOM(() => {
+  const card=renderDocumentCard({kind:"contract",number:"CON-TEST",additional_boxes:[{title:"Special setup",details:"Before doors open"},{title:"Blank",details:""},{title:"<script>",details:"<img>"}]});
+  assert.match(content(card),/Special setup/);
+  assert.doesNotMatch(content(card),/Blank/);
+  assert.match(card.innerHTML,/&lt;script&gt;/);
+  assert.doesNotMatch(card.innerHTML,/<script>|<img>/);
+}));
 
 test("print opens a full escaped copy and reports blocked popups", () => withDOM(() => {
   let html="",printed=false;

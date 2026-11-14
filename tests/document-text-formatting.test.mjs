@@ -38,6 +38,14 @@ test("invoice and agreement draft metadata reaches immutable sent copies and reo
   assert.deepEqual(normalizeContract(agreement).textFormatting,{scopeOfWork:marks});
   assert.deepEqual(documentSnapshot("contract",agreement).textFormatting,{scope_of_work:marks});
 });
+test("custom agreement boxes survive saving and omit empty details from the client copy",()=>{
+  const input={clientName:"Synthetic",clientEmail:"qa@example.test",effectiveDate:"2026-11-14",services:"Service",scopeOfWork:"Test",additionalBoxes:[{title:"Setup notes",details:"Arrive at 3 PM"},{title:"Internal pending detail",details:""}]};
+  const saved=contractPayload(input);
+  assert.deepEqual(normalizeContract(saved).additionalBoxes,input.additionalBoxes);
+  assert.deepEqual(documentSnapshot("contract",saved).additional_boxes,[input.additionalBoxes[0]]);
+  assert.throws(()=>contractPayload({...input,additionalBoxes:[{title:"",details:"Text"}]}),/title/);
+  assert.throws(()=>contractPayload({...input,additionalBoxes:Array(9).fill({title:"Box",details:"Text"})}),/eight/);
+});
 test("Money Bank additional information formatting stays in saved and issued snapshots",()=>{
   const template=snapshotFor("money-bank-verification");
   const field=template.adminFields.find(f=>f.type==="textarea");assert.ok(field);
