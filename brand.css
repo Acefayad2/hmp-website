@@ -108,6 +108,14 @@ h3,
   isolation: isolate;
 }
 
+/* The service detail heroes are light; give their shared glass navigation the
+   warm tone it has when layered over the dark Services overview hero. */
+:is(.celebration-accessories-page, .guest-seating-page, .money-table-page, .individual-service-page) .site-header {
+  background:
+    radial-gradient(circle at 18% -40%, rgba(255, 255, 255, 0.78), transparent 42%),
+    linear-gradient(135deg, rgba(222, 204, 197, 0.94), rgba(194, 173, 166, 0.88));
+}
+
 .site-header::before,
 .inner-page .site-header::before {
   content: "";
