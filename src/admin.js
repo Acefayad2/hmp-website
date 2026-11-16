@@ -1264,6 +1264,11 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation").hidden = false;
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = [thread.clientEmail, thread.clientPhone].filter(Boolean).join(" · ");
+  const eventTime = [thread.startTime, thread.endTime].filter(Boolean).map(formatEventTime).join(" – ");
+  $("#admin-conversation-event-details").textContent = [
+    `Event time: ${eventTime || "Not provided"}`,
+    `Event location: ${thread.eventLocation || "Not provided"}`,
+  ].join(" · ");
   $("#admin-client-access-expiry").textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt, true)}. Client access is disabled. Signed documents and financial records are preserved.` : clientAccessNotice(thread);
   mountDocumentReminders($("#hub-reminder-content"),{kind:"hub",id:thread.id,status:thread.active?"Sent":"Expired"});
   $("#delete-active-conversation").hidden = Boolean(thread.deletedAt);
@@ -1313,8 +1318,7 @@ const renderMessageThreads = () => {
     date.textContent = thread.lastMessageAt ? formatDate(thread.lastMessageAt, true) : "New link";
     top.append(name, date);
     const service = document.createElement("small");
-    const eventTime = [thread.startTime, thread.endTime].filter(Boolean).map(formatEventTime).join(" – ");
-    service.textContent = `${eventServiceLabel(thread.service)} · Event: ${formatDate(thread.celebrationDate)} · ${eventTime || "Time not set"}`;
+    service.textContent = `${eventServiceLabel(thread.service)} · ${formatDate(thread.celebrationDate)}`;
     const status = document.createElement("em");
     status.textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt)}` : thread.archivedAt ? "Archived · client access disabled" : thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
     button.append(top, service, status);
