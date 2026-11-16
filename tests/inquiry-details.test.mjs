@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {normalizeInquiry, createDashboardHandler} from "../netlify/functions/hmp-dashboard.mts";
-import {inquiryDetailFields, inquiryDetailsHTML} from "../src/inquiry-details.js";
+import {inquiryDetailFields, inquiryDetailsHTML, inquiryHubHTML} from "../src/inquiry-details.js";
 import {escape} from "../agreement-ui.mjs";
 
 const answers = {
@@ -30,6 +30,13 @@ const mapping = {
 const record = () => ({submission_id:"11111111-1111-4111-8111-111111111111",raw_payload:{...answers,subject:"Hidden transport metadata",unrecognized:"Do not expose"},
   ...Object.fromEntries(Object.entries(mapping).filter(([,keys])=>keys[1]).map(([key,keys])=>[keys[1],answers[key]]))});
 const render = item => inquiryDetailsHTML(item, {escapeHTML:escape,formatDate:value=>`date:${value}`});
+
+test("Admin Client Hub inquiry shows submitted event timing and contact details without management metadata", () => {
+  const html = inquiryHubHTML({email:"qa@example.test",phone:"555-0100",celebrationDate:"2026-11-07",startTime:"17:00",endTime:"22:00",service:"Guest Seating",status:"New",id:"private-id"}, {escapeHTML:escape,formatDate:value=>`date:${value}`});
+  for (const value of ["qa@example.test", "555-0100", "17:00", "22:00", "date:2026-11-07"]) assert.ok(html.includes(value));
+  for (const value of ["Guest Seating", "private-id", "Status"]) assert.ok(!html.includes(value));
+  assert.ok(!inquiryHubHTML({email:"<script>alert(1)</script>"}, {escapeHTML:escape,formatDate:value=>value}).includes("<script>"));
+});
 
 test("every public inquiry question is mapped and displayed in Admin, not transport metadata", () => {
   const html = readFileSync(new URL("../inquiry.html",import.meta.url),"utf8");

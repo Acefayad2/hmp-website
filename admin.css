@@ -294,6 +294,10 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .admin-conversation-heading .conversation-heading-actions button:hover { color:var(--plum); background:var(--rose); }
 .admin-conversation-heading .conversation-heading-actions button:focus-visible { outline:2px solid var(--plum); outline-offset:3px; }
 .hub-notes { padding: 24px 28px; }
+.hub-inquiry { padding: 24px 28px; }
+.hub-inquiry h3 { margin-top: 0; font: 600 28px var(--serif); }
+.hub-inquiry p { color: var(--muted); line-height: 1.6; }
+.hub-inquiry .detail-grid { margin: 18px 0 0; }
 .hub-notes h3 { margin-top: 0; font: 600 28px var(--serif); }
 .hub-notes p { color: var(--muted); line-height: 1.6; }
 .hub-notes label { display: block; margin-bottom: 10px; font-weight: 700; }
