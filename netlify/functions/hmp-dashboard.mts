@@ -4,6 +4,7 @@ import { getUser } from "./_admin-verification.mts";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { isSameOriginMutation, conversationToken, newNonce, tokenHash } from "./_conversation-security.mts";
 import { manualInquiryRecord } from "./_manual-inquiry.mts";
+import { inquiryEventFields } from "./_inquiry-event-fields.mts";
 
 const json = (body: unknown, status = 200) =>
   Response.json(body, {
@@ -187,7 +188,21 @@ export const createDashboardHandler = ({ getUserFn = getUser, databaseFactory = 
       try { details = editableInquiryDetails(body); }
       catch (cause) { return json({error:cause instanceof Error ? cause.message : "Invalid client information."},400); }
       const timestamp = new Date(Math.max(Date.now(), Date.parse(String(expectedVersion || "")) + 1 || 0)).toISOString();
-      let query = client.from("hmp_admin_inquiries").update({...details,updated_at:timestamp})
+      const {data:previous,error:previousError} = await client.from("hmp_admin_inquiries")
+        .select("raw_payload,updated_at").eq("submission_id",id).maybeSingle();
+      if (previousError) return json({error:"Inquiry details could not be loaded. Please try again."},502);
+      if (!previous || (previous.updated_at ?? null) !== expectedVersion)
+        return json({error:"This inquiry changed since you opened it. Refresh before saving."},409);
+      const raw = previous.raw_payload && typeof previous.raw_payload === "object" && !Array.isArray(previous.raw_payload)
+        ? previous.raw_payload as Record<string, unknown> : {};
+      let eventFields;
+      try { eventFields = inquiryEventFields(body); }
+      catch (cause) { return json({error:cause instanceof Error ? cause.message : "Invalid event details."},400); }
+      let query = client.from("hmp_admin_inquiries").update({...details,
+        second_date:eventFields["second-date"] || null,
+        start_time:eventFields["start-time"] || null,
+        end_time:eventFields["end-time"] || null,
+        raw_payload:{...raw,...eventFields},updated_at:timestamp})
         .eq("submission_id",id).neq("status","Deleted");
       query = expectedVersion === null ? query.is("updated_at",null) : query.eq("updated_at",expectedVersion);
       const {data,error} = await query.select("*").maybeSingle();
