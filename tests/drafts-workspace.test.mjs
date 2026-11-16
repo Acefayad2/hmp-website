@@ -55,8 +55,9 @@ test("Drafts groups saved records by type and excludes sent, archived, and delet
     forms: [{ id: "f", status: "Draft", template_id: "money-event-information" }, { id: "complete", status: "Completed", template_id: "money-event-information" }],
   });
   assert.deepEqual(groups.map(group => [group.title, group.rows.map(row => row.id)]), [
-    ["Proposals", ["p"]], ["Invoices", ["i"]], ["Payment receipts", ["r"]], ["Contracts", ["c"]], ["Client forms & agreements", ["f"]],
+    ["Proposals", ["p"]], ["Invoices", ["i"]], ["Payment receipts", ["r"]], ["Client forms & agreements", ["c", "f"]],
   ]);
+  assert.equal(groups.at(-1).rows[0].kind, "contract", "saved contract drafts stay reachable from the shared section");
 });
 
 test("proposal drafts are admin-only, private until sent, and editable after saving", async () => {

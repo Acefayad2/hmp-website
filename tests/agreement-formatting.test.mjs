@@ -89,6 +89,18 @@ test("bullet placeholders retain their list and inline formatting when issued", 
   assert.match(formattedPageHTML(result.text,result.formatting), /<ul class="agreement-bullet-list"><li class="agreement-align-left"><em>☐ 4 hours<\/em><\/li><\/ul>/);
 });
 
+test("indent controls persist as safe formatting through draft and issued agreement views", () => {
+  const snapshot = snapshotFor("guest-seating");
+  const pages = snapshot.pages.map((page, index) => index ? page : "Service details\nIndented sentence");
+  const start = pages[0].indexOf("Indented");
+  const runs = [[{start, end:pages[0].length, indent:2}], ...pages.slice(1).map(() => [])];
+  const saved = editableSnapshot(snapshot,{pages,pageFormatting:runs});
+  assert.deepEqual(editableSnapshot(saved,{}).pageFormatting,runs);
+  assert.match(termsHTML(issuedSnapshot(saved,{})),/agreement-indent-2/);
+  assert.equal(validatePageFormatting("safe",[{start:0,end:4,indent:999}])[0].indent,undefined);
+  assert.match(readFileSync(new URL("../src/agreement-text-editor.js",import.meta.url),"utf8"),/\["indent","Indent"\],\["outdent","Outdent"\]/);
+});
+
 test("reading list blocks keeps line boundaries without doubling the browser's break on toggle", () => {
   const element = (tagName,...childNodes) => ({nodeType:1,tagName,nodeName:tagName,childNodes,style:{textDecoration:""},classList:[],getAttribute:()=>null});
   const text = textContent => ({nodeType:3,nodeName:"#text",textContent});

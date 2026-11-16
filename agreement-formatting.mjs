@@ -7,7 +7,7 @@ export function validatePageFormatting(text, formatting = []) {
   return formatting.map(run => {
     if (!run || !Number.isInteger(run.start) || !Number.isInteger(run.end) || run.start < end || run.end <= run.start || run.end > text.length) throw new Error("Agreement formatting no longer matches the text. Reopen this draft and try again.");
     end = run.end;
-    return {start:run.start, end:run.end, ...(run.bold === true ? {bold:true} : {}), ...(run.italic === true ? {italic:true} : {}), ...(run.underline === true ? {underline:true} : {}), ...(alignments.includes(run.align) ? {align:run.align} : {}), ...(["bullet","number"].includes(run.list) ? {list:run.list} : {})};
+    return {start:run.start, end:run.end, ...(run.bold === true ? {bold:true} : {}), ...(run.italic === true ? {italic:true} : {}), ...(run.underline === true ? {underline:true} : {}), ...(alignments.includes(run.align) ? {align:run.align} : {}), ...(["bullet","number"].includes(run.list) ? {list:run.list} : {}), ...(Number.isInteger(run.indent) && run.indent >= 1 && run.indent <= 8 ? {indent:run.indent} : {})};
   });
 }
 export function formattedPageHTML(text, formatting = []) {
@@ -17,6 +17,7 @@ export function formattedPageHTML(text, formatting = []) {
     const start = offset, end = start + line.length;
     offset = end + 1;
     const alignment = runs.find(run => run.start <= end && run.end > start && run.align)?.align || "left";
+    const indent = runs.find(run => run.start <= end && run.end > start && run.indent)?.indent || 0;
     const boundaries = [...new Set([start, end, ...runs.flatMap(run => [run.start, run.end]).filter(n => n > start && n < end)])].sort((a,b) => a-b);
     const html = boundaries.slice(0,-1).map((from,i) => {
       const to = boundaries[i+1], run = runs.find(r => r.start <= from && r.end >= to);
@@ -31,7 +32,7 @@ export function formattedPageHTML(text, formatting = []) {
     const boundary = inList === listTag ? "" : `${inList ? `</${inList}>` : ""}${listTag ? `<${listTag} class="agreement-bullet-list">` : ""}`;
     inList = listTag;
     const tag = listTag ? "li" : "div";
-    return `${boundary}<${tag} class="agreement-align-${alignment}">${html || "<br>"}</${tag}>`;
+    return `${boundary}<${tag} class="agreement-align-${alignment}${indent ? ` agreement-indent-${indent}` : ""}">${html || "<br>"}</${tag}>`;
   }).join("");
   return result + (inList ? `</${inList}>` : "");
 }

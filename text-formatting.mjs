@@ -15,7 +15,7 @@ export function normalizeTextFormatting(source, normalized, keys) {
     const offset = text ? raw.indexOf(text) : 0;
     if (offset < 0) throw new Error(`Formatting no longer matches ${key}. Reopen the draft.`);
     const clipped = runs.map(run => ({...run,start:Math.max(0,run.start-offset),end:Math.min(text.length,run.end-offset)})).filter(run => run.end > run.start);
-    const marked = clipped.filter(run => run.bold || run.italic || run.underline || run.list || (run.align && run.align !== "left"));
+    const marked = clipped.filter(run => run.bold || run.italic || run.underline || run.list || run.indent || (run.align && run.align !== "left"));
     if (marked.length) result[key] = marked;
   }
   if (JSON.stringify(result).length > 40000) throw new Error("Too much text formatting. Simplify the formatting and try again.");

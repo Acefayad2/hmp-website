@@ -21,15 +21,14 @@ export function collectDraftGroups({ proposals = [], invoices = [], contracts = 
       client: row.clientName || "Client not selected", detail: row.eventName || row.payload?.reference || "Unfinished receipt",
       updatedAt: row.updatedAt || row.createdAt,
     })) },
-    { kind: "contract", title: "Contracts", rows: contracts.filter(activeDraft).map(row => ({
-      id: row.id, title: row.contractNumber || "Draft contract", client: row.clientName || "Client not named",
+    { kind: "form", title: "Client forms & agreements", rows: [...contracts.filter(activeDraft).map(row => ({
+      id: row.id, kind: "contract", title: row.contractNumber || "Draft contract", client: row.clientName || "Client not named",
       detail: row.eventName || "Event not named", updatedAt: row.updatedAt || row.createdAt,
-    })) },
-    { kind: "form", title: "Client forms & agreements", rows: forms.filter(row => row.status === "Draft" && formTitles.has(row.template_id)).map(row => ({
+    })), ...forms.filter(row => row.status === "Draft" && formTitles.has(row.template_id)).map(row => ({
       id: row.id, title: formTitles.get(row.template_id), client: row.client_name || "Client not named",
       detail: row.client_email || "Email not set", updatedAt: row.updated_at || row.created_at,
       informationForm: informationIds.has(row.template_id),
-    })) },
+    }))] },
   ];
   groups.forEach(group => group.rows.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""))));
   return groups;
@@ -65,7 +64,7 @@ export function renderDraftGroups(root, groups, openDraft) {
       const date = new Date(row.updatedAt || "");
       updated.textContent = Number.isNaN(date.getTime()) ? "Saved draft" : `Updated ${date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
       button.append(text, updated);
-      button.addEventListener("click", () => openDraft(group.kind, row));
+      button.addEventListener("click", () => openDraft(row.kind || group.kind, row));
       section.append(button);
     });
     root.append(section);
