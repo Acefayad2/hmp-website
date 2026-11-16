@@ -1,10 +1,29 @@
 import {test, expect} from '@playwright/test';
+import {build} from 'esbuild';
+import {fileURLToPath} from 'node:url';
+
+let richFieldModule;
+test.beforeAll(async () => {
+  // Keep testing the production dist server without exposing source files in dist.
+  const {outputFiles} = await build({
+    entryPoints: [fileURLToPath(new URL('../../src/rich-text-fields.js', import.meta.url))],
+    bundle: true,
+    write: false,
+    format: 'esm',
+    platform: 'browser',
+  });
+  richFieldModule = outputFiles[0].text;
+});
 
 test('agreement details save text and formatting from the same editor state', async ({page}) => {
+  await page.route('**/__test/rich-text-fields.js', route => route.fulfill({
+    contentType: 'application/javascript',
+    body: richFieldModule,
+  }));
   await page.goto('/agreement.html');
   await page.setContent('<form><textarea name="details">First line\nSecond line</textarea></form>');
   const result = await page.evaluate(async () => {
-    const {setRichField, collectRichFields} = await import('/src/rich-text-fields.js');
+    const {setRichField, collectRichFields} = await import('/__test/rich-text-fields.js');
     const field = document.querySelector('textarea');
     setRichField(field, [{start:0,end:10,bold:true}]);
     const editor = document.querySelector('[data-rich-field]');
