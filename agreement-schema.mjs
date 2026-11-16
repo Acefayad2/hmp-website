@@ -41,11 +41,7 @@ const moneyTableClient = [...eventFields, field("guestCount", "Estimated number 
 export const agreementTemplates = [
   {
     id: "custom-agreement", title: "Event Services Agreement",
-    adminFields: [
-      {...field("serviceDescription", "Scope of services or partnership", "textarea", false), hideEmpty:true},
-      {...field("serviceFee", "Service fee (USD)", "money", false), hideEmpty:true},
-      {...field("paymentTerms", "Payment terms", "textarea", false), hideEmpty:true},
-    ],
+    adminFields: [],
     clientFields: [field("clientName", "Signer full name"), field("email", "Email address", "email")],
   },
   {

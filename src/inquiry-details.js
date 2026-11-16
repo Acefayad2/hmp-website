@@ -45,3 +45,18 @@ export function inquiryDetailsHTML(item, {formatDate, escapeHTML}) {
       return `<div><dt>${escapeHTML(label)}</dt><dd>${escapeHTML(value)}</dd></div>`;
     }).join("");
 }
+
+export function inquiryHubHTML(item, helpers) {
+  const keys = new Set([
+    "receivedAt", "email", "phone", "celebrationType", "celebrationDate", "startTime", "endTime",
+    "location", "guestCount", "serviceStartTime", "serviceEndTime", "secondDate", "secondLocation",
+    "secondStartTime", "secondEndTime", "multipleServicesDetail", "otherServiceDetail",
+  ]);
+  const summary = inquiryDetailFields.filter(([, key]) => keys.has(key));
+  return summary.filter(([, key]) => item[key] !== "" && item[key] !== null && item[key] !== undefined)
+    .map(([label, key, includeTime]) => {
+      const value = key.toLowerCase().includes("date") || key === "receivedAt"
+        ? helpers.formatDate(item[key], includeTime) : item[key];
+      return `<div><dt>${helpers.escapeHTML(label)}</dt><dd>${helpers.escapeHTML(value)}</dd></div>`;
+    }).join("");
+}

@@ -218,6 +218,12 @@
                   </header>
                   <details id="hub-expiration-reminders" class="agreement-panel"><summary>Client Hub expiration reminders</summary><div id="hub-reminder-content"></div></details>
                   <nav class="hub-tabs admin-hub-tabs" id="admin-hub-tabs" aria-label="Client hub sections"></nav>
+                  <section class="hub-inquiry" id="hub-inquiry" aria-labelledby="hub-inquiry-title" hidden>
+                    <h3 id="hub-inquiry-title">Original inquiry</h3>
+                    <p>Private to HMP Admin staff. This is the information submitted with the initial inquiry.</p>
+                    <dl class="detail-grid" id="hub-inquiry-details"></dl>
+                    <p id="hub-inquiry-empty" hidden>No inquiry is linked to this Client Hub.</p>
+                  </section>
                   <section class="hub-notes" id="hub-notes" aria-labelledby="hub-notes-title" hidden>
                     <h3 id="hub-notes-title">Internal notes</h3>
                     <p>Private to HMP Admin staff for this client’s event. These are the same notes shown on the inquiry. They are never sent to the client.</p>
@@ -411,7 +417,7 @@
           <section class="invoice-workspace" id="contract-workspace" role="tabpanel" aria-labelledby="contracts-tab" tabindex="0" hidden>
             <section class="agreement-templates" aria-labelledby="agreement-templates-heading">
               <p class="kicker">Complete &amp; sign online</p>
-              <h2 id="agreement-templates-heading">Service agreement templates</h2>
+              <h2 id="agreement-templates-heading">Service-specific agreement templates</h2>
               <p>Prepare the service details and send a private signing link. All agreements and signed records appear in the Agreements list below.</p>
               <div class="agreement-grid" id="agreement-template-list"></div>
             </section>

@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import {readFileSync} from "node:fs";
 import { formattedPageHTML, replaceFormattedPage, validatePageFormatting } from "../agreement-formatting.mjs";
 import { editableSnapshot, issuedSnapshot, snapshotFor } from "../netlify/functions/_agreement-forms.mts";
 import { termsHTML } from "../agreement-ui.mjs";
@@ -32,6 +33,18 @@ test("draft formatting survives save/reopen without mutating the template or leg
   assert.equal(editableSnapshot(snapshot,{}).pageFormatting,undefined);
   assert.deepEqual(snapshot,original);
   assert.throws(() => editableSnapshot(snapshot,{pageFormatting:[]}),/match every page/);
+});
+
+test("Admin sends untrimmed detail text with its formatting so saved ranges remain valid", () => {
+  const source = readFileSync(new URL("../src/agreement-admin.js", import.meta.url), "utf8");
+  assert.match(source, /answers:values\.rawAdminAnswers, answerFormatting:values\.answerFormatting/);
+  const snapshot = snapshotFor("custom-agreement");
+  const saved = editableSnapshot(snapshot, {
+    extraFields:[{id:"extra1",label:"Scope"}],
+    answers:{extra1:"  Test terms  "},
+    answerFormatting:{extra1:[{start:2,end:12,bold:true}]},
+  });
+  assert.deepEqual(saved.answerFormatting.extra1,[{start:0,end:10,bold:true}]);
 });
 
 test("issuing formatted Money Table terms preserves marks through placeholder replacement", () => {

@@ -26,7 +26,7 @@ import { loadReviewRequests } from "./review-requests-admin.js";
 import { mountEventInventory } from "./inventory-admin.js";
 import { mountBlogHub } from "./blog-admin.js";
 import { inquiryGroups, inquiryFilterTitles, inquiryStatusGroup } from "./inquiry-filters.mjs";
-import { inquiryDetailsHTML } from "./inquiry-details.js";
+import { inquiryDetailsHTML, inquiryHubHTML } from "./inquiry-details.js";
 import "./admin-search.js";
 import { matchesSearch, searchText } from "../page-search.js";
 import { insertFormattedMessageSignature } from "./message-signature.mjs";
@@ -598,7 +598,8 @@ const getMessageSignature = (messages = []) => JSON.stringify(messages.map((mess
 
 const renderAdminMessages = (thread) => {
   const allMessages = thread.messages || [];
-  const signature = `${activeHubSection}:${getMessageSignature(allMessages)}`;
+  const inquiry = inquiries.find(item => item.id === thread.inquiryId);
+  const signature = `${activeHubSection}:${getMessageSignature(allMessages)}:${JSON.stringify(inquiry || null)}`;
   if (thread.id === renderedAdminThreadId && signature === renderedAdminMessageSignature) return;
   renderedAdminThreadId = thread.id;
   renderedAdminMessageSignature = signature;
@@ -608,17 +609,22 @@ const renderAdminMessages = (thread) => {
     activeHubSection = section;
     renderAdminMessages(thread);
     if (section === "activity") void loadClientActivity();
-  }, { showEmptySeating: true, showActivity: true, showNotes: true });
+  }, { showEmptySeating: true, showActivity: true, showNotes: true, showInquiry: Boolean(inquiry) });
+  $("#hub-inquiry").hidden = activeHubSection !== "inquiry";
+  if (activeHubSection === "inquiry") {
+    $("#hub-inquiry-details").innerHTML = inquiry ? inquiryHubHTML(inquiry, {formatDate, escapeHTML}) : "";
+    $("#hub-inquiry-empty").hidden = Boolean(inquiry);
+  }
   $("#hub-activity").hidden = activeHubSection !== "activity";
   $("#hub-notes").hidden = activeHubSection !== "notes";
-  $("#admin-message-form").hidden = ["activity", "notes"].includes(activeHubSection);
+  $("#admin-message-form").hidden = ["activity", "notes", "inquiry"].includes(activeHubSection);
   $("#hub-form-share").hidden = activeHubSection !== "forms";
   $("#hub-seating-share").hidden = activeHubSection !== "seating";
   if (focusedTab >= 0) $("#admin-hub-tabs").children[focusedTab]?.focus();
   const visible = hubMessages(allMessages, activeHubSection);
   const list = $("#admin-message-list");
   list.replaceChildren();
-  if (["activity", "notes"].includes(activeHubSection)) {
+  if (["activity", "notes", "inquiry"].includes(activeHubSection)) {
     list.hidden = true;
     $("#admin-message-empty").hidden = true;
     if (activeHubSection === "activity") renderClientActivity();
@@ -2490,6 +2496,8 @@ const loadDashboard = async () => {
   if (!response.ok) throw new Error("Dashboard data is unavailable.");
   const data = await response.json();
   inquiries = data.inquiries || [];
+  const selectedThread = messageThreads.find(thread => thread.id === activeThreadId);
+  if (selectedThread) renderAdminMessages(selectedThread);
   $("#viewer-email").textContent = data.viewer?.email || "HMP Admin";
   renderMetrics();
   renderServiceFilter();

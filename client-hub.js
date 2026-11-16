@@ -41,9 +41,9 @@ export const hubSectionFor = (message) => {
 export const hubMessages = (messages = [], section = "all") =>
   section === "all" ? latestPublishedDocuments(messages) : latestPublishedDocuments(messages).filter((message) => hubSectionFor(message) === section);
 
-export const renderHubTabs = (container, messages, selected, onSelect, { showEmptySeating = false, showActivity = false, showNotes = false } = {}) => {
+export const renderHubTabs = (container, messages, selected, onSelect, { showEmptySeating = false, showActivity = false, showNotes = false, showInquiry = false } = {}) => {
   container.replaceChildren();
-  const sections = [...hubSections, ...(showActivity ? [["activity", "Activity"]] : []), ...(showNotes ? [["notes", "Notes"]] : [])];
+  const sections = [...hubSections, ...(showInquiry ? [["inquiry", "Inquiry"]] : []), ...(showActivity ? [["activity", "Activity"]] : []), ...(showNotes ? [["notes", "Notes"]] : [])];
   for (const [section, label] of sections) {
     const count = hubMessages(messages, section).length;
     if (section === "seating" && !count && !showEmptySeating) continue;
@@ -51,7 +51,7 @@ export const renderHubTabs = (container, messages, selected, onSelect, { showEmp
     button.type = "button";
     button.className = "hub-tab";
     button.setAttribute("aria-pressed", String(selected === section));
-    button.textContent = ["activity", "notes"].includes(section) ? label : `${label} (${count})`;
+    button.textContent = ["inquiry", "activity", "notes"].includes(section) ? label : `${label} (${count})`;
     button.addEventListener("click", () => onSelect(section));
     container.append(button);
   }
