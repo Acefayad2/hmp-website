@@ -1,3 +1,5 @@
+import { inquiryEventFields } from "./_inquiry-event-fields.mts";
+
 const text = (value: unknown, limit: number) =>
   typeof value === "string" ? value.trim().slice(0, limit) : "";
 
@@ -16,6 +18,7 @@ export function manualInquiryRecord(body: Record<string, unknown>, owner: string
     throw new Error("Enter a valid event date.");
   if (guestCount !== null && (!Number.isInteger(guestCount) || guestCount < 0 || guestCount > 100000))
     throw new Error("Guest count must be a whole number between 0 and 100,000.");
+  const eventFields = inquiryEventFields(body);
   return {
     submission_id: id,
     client_name: name,
@@ -24,11 +27,15 @@ export function manualInquiryRecord(body: Record<string, unknown>, owner: string
     service: text(body.service, 200) || "To be confirmed",
     celebration_type: text(body.eventType, 200) || "To be confirmed",
     celebration_date: eventDate || null,
+    second_date: eventFields["second-date"] || null,
+    start_time: eventFields["start-time"] || null,
+    end_time: eventFields["end-time"] || null,
     location: text(body.location, 500) || "To be confirmed",
     guest_count: guestCount,
     additional_information: text(body.details, 5000) || null,
     source: "Manual",
     owner,
-    raw_payload: { entered_by: owner },
+    raw_payload: { entered_by: owner, ...eventFields },
   };
 }
+

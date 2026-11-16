@@ -985,9 +985,19 @@ const openEditInquiry = (id, returnTo) => {
     name: item.name, email: item.email, phone: item.phone, service: item.service,
     eventType: item.celebrationType, eventDate: item.celebrationDate,
     guestCount: item.guestCount, location: item.location, details: item.additionalInformation,
+    startTime: item.startTime, endTime: item.endTime, vendorExitTime: item.vendorExitTime,
+    serviceStartTime: item.serviceStartTime, serviceEndTime: item.serviceEndTime,
+    secondDate: item.secondDate, secondLocation: item.secondLocation, secondGuestCount: item.secondGuestCount,
+    secondStartTime: item.secondStartTime, secondEndTime: item.secondEndTime,
+    secondVendorExitTime: item.secondVendorExitTime, secondServiceStartTime: item.secondServiceStartTime,
+    secondServiceEndTime: item.secondServiceEndTime, totalServiceHours: item.totalServiceHours,
   })) {
     const control = form.elements.namedItem(name);
-    if (control && "value" in control) control.value = value ?? "";
+    if (control && "value" in control) {
+      const raw = String(value ?? "");
+      const match = control.type === "time" && raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+      control.value = match ? `${String((Number(match[1]) % 12) + (match[3].toUpperCase() === "PM" ? 12 : 0)).padStart(2, "0")}:${match[2]}` : raw;
+    }
   }
   $("#inquiry-editor-title").textContent = "Edit client information";
   $("#inquiry-editor-help").textContent = "Update the inquiry and Client Hub contact details. Existing signed documents and sent messages keep their original record. Saving does not contact the client.";

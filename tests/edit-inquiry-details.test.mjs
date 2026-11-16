@@ -5,7 +5,7 @@ import {createDashboardHandler, editableInquiryDetails} from "../netlify/functio
 globalThis.Netlify = {env:{get:key => key === "HMP_ADMIN_EMAILS" ? "admin@example.test" : null}};
 const id = "11111111-1111-4111-8111-111111111111";
 const version = "2026-11-14T20:00:00.000Z";
-const body = {id,action:"edit-details",expectedVersion:version,name:"New Name",email:"NEW@example.test",phone:"301-555-0100",service:"Money Table Services",eventType:"Wedding",eventDate:"2027-01-05",guestCount:"120",location:"Venue",details:"Updated details"};
+const body = {id,action:"edit-details",expectedVersion:version,name:"New Name",email:"NEW@example.test",phone:"301-555-0100",service:"Money Table Services",eventType:"Wedding",eventDate:"2027-01-05",guestCount:"120",location:"Venue",details:"Updated details",secondDate:"2027-01-06",secondStartTime:"10:00",totalServiceHours:"7.5"};
 const request = data => new Request("https://hmpeds.com/api/hmp-dashboard",{method:"PATCH",headers:{Origin:"https://hmpeds.com"},body:JSON.stringify(data)});
 
 test("client edits validate contact and event details", () => {
@@ -31,7 +31,9 @@ test("client edits preserve notes, status, records, and reject stale versions", 
   assert.equal(first.status,200);
   assert.equal((await first.json()).inquiry.name,"New Name");
   assert.equal(row.internal_notes,"Private note");
-  assert.deepEqual(row.raw_payload,{original_answer:"keep"});
+  assert.equal(row.raw_payload.original_answer,"keep");
+  assert.equal(row.raw_payload["second-start-time"],"10:00");
+  assert.equal(row.raw_payload["total-service-hours"],"7.5");
   assert.equal(row.status,"Booked");
   assert.equal((await handler(request(body))).status,409);
 });
