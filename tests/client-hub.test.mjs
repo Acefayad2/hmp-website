@@ -15,7 +15,7 @@ globalThis.Netlify = { env:{get:key => settings[key]} };
 function database() {
   const rows = {
     hmp_client_conversations:[{id:conversationId,inquiry_id:inquiryId,revoked_at:null,token_expires_at:"2099-01-01T00:00:00Z"}],
-    hmp_admin_inquiries:[{submission_id:inquiryId,email:"client@example.test",celebration_date:"2026-10-20"}],
+    hmp_admin_inquiries:[{submission_id:inquiryId,email:"client@example.test",celebration_date:"2026-10-20",start_time:"18:30",end_time:"22:00"}],
     hmp_client_agreements:[{id:formId,client_email:"client@example.test",status:"Sent",expires_at:"2099-01-01T00:00:00Z",token_nonce:"test-nonce",snapshot:{title:"Event details"}}],
     hmp_client_messages:[],
     hmp_seating_records:[
@@ -27,9 +27,9 @@ function database() {
   return {rows,from(table) {
     let filters=[],operation="read",value,sort=null,window=null;
     const query = {
-      select(){return this;},eq(key,expected){filters.push(row=>row[key]===expected);return this;},
+      select(){return this;},eq(key,expected){filters.push(row=>row[key]===expected);return this;},is(key,expected){filters.push(row=>(row[key] ?? null)===expected);return this;},
       like(key,pattern){const prefix=pattern.slice(0,-1);filters.push(row=>String(row[key]).startsWith(prefix));return this;},
-      order(key,{ascending=true}={}){sort={key,ascending};return this;},
+      order(key,{ascending=true}={}){sort={key,ascending};return this;},limit(){return this;},in(key,values){filters.push(row=>values.includes(row[key]));return this;},
       range(start,end){window={start,end};return this;},
       insert(payload){operation="insert";value=payload;return this;},
       update(payload){operation="update";value=payload;return this;},
@@ -75,6 +75,17 @@ test("hub expiry notice stays outside tabs and refreshes whenever the selected t
   assert.match(html,/<p class="client-access-expiry" id="admin-client-access-expiry"><\/p>\s*<\/header>\s*<details id="hub-expiration-reminders"[^>]*>.*?<\/details>\s*<nav/s);
   assert.ok(source.includes('$("#admin-client-access-expiry").textContent = thread.deletedAt ?'));
   assert.ok(source.includes(': clientAccessNotice(thread);'));
+});
+
+test("Admin Client Hub list receives and displays the event date and time", async () => {
+  const response = await handler(database())(new Request("https://hmpeds.com/api/hmp-messages"));
+  assert.equal(response.status,200);
+  const {threads} = await response.json();
+  assert.equal(threads[0].celebrationDate,"2026-10-20");
+  assert.equal(threads[0].startTime,"18:30");
+  assert.equal(threads[0].endTime,"22:00");
+  const source = readFileSync(new URL("../src/admin.js",import.meta.url),"utf8");
+  assert.match(source,/service\.textContent = `\$\{eventServiceLabel\(thread\.service\)\} · Event: /);
 });
 
 test("personalized client heading capitalizes Event Hub and uses textContent", () => {
