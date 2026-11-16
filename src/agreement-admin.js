@@ -231,7 +231,9 @@ function formValues() {
     ? active.snapshot.pages.map((text, i) => ({text, formatting:active.snapshot.pageFormatting?.[i] || []}))
     : [...document.querySelectorAll("#agreement-admin-form [data-agreement-editor]")].map(readAgreementEditor);
   pages.forEach((page,i) => {if (!page.text.trim() || page.text.length > 15000) throw new Error(`Agreement page ${i+1} must contain text and be no longer than 15,000 characters.`);});
-  return {title:values.documentTitle, clientEntersSignerName:values.clientEntersSignerName === "on", extraFields, fields, answerFormatting:collectRichFields(answerFields(fields),$("#agreement-admin-form")).textFormatting, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, ...(values["approval-label"] !== undefined ? {approvalWording:{label:values["approval-label"],approve:values["approval-approve"],decline:values["approval-decline"]}} : {}), rawAdminAnswers:Object.fromEntries(fields.map(field => [field.id, values[field.id] ?? ""])), adminAnswers:validateAnswers(fields, values, false)};
+  const richFields = collectRichFields(answerFields(fields),$("#agreement-admin-form"));
+  Object.assign(values,richFields.values);
+  return {title:values.documentTitle, clientEntersSignerName:values.clientEntersSignerName === "on", extraFields, fields, answerFormatting:richFields.textFormatting, pages:pages.map(page => page.text), pageFormatting:pages.map(page => page.formatting), clientName:values.clientName, clientEmail:values.clientEmail, ...(values["approval-label"] !== undefined ? {approvalWording:{label:values["approval-label"],approve:values["approval-approve"],decline:values["approval-decline"]}} : {}), rawAdminAnswers:Object.fromEntries(fields.map(field => [field.id, values[field.id] ?? ""])), adminAnswers:validateAnswers(fields, values, false)};
 }
 const answerFields=(fields=active.snapshot.adminFields)=>Object.fromEntries(fields.filter(field=>field.type==="textarea").map(field=>[field.id,`[name="${field.id}"]`]));
 async function perform(action, sharing = {}) {
