@@ -232,6 +232,13 @@ const formatDate = (value, includeTime = false) => {
     ...(includeTime ? { hour: "numeric", minute: "2-digit" } : {}),
   }).format(date);
 };
+const formatEventTime = (value) => {
+  const time = String(value || "").trim();
+  const match = /^([01]?\d|2[0-3]):([0-5]\d)$/.exec(time);
+  if (!match) return time;
+  const hour = Number(match[1]);
+  return `${hour % 12 || 12}:${match[2]} ${hour >= 12 ? "PM" : "AM"}`;
+};
 
 const setMessage = (element, message, success = false) => {
   element.textContent = message;
@@ -1294,7 +1301,7 @@ const renderMessageThreads = () => {
     button.type = "button";
     button.className = "thread-row";
     button.dataset.threadId = thread.id;
-    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.clientPhone, thread.service,
+    button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.clientPhone, thread.service, thread.celebrationDate, thread.startTime, thread.endTime,
       (thread.messages || []).map(message => [message.body, message.createdAt,
         (message.attachments || []).map(file => file.name), message.document?.number,
         message.document?.event_name, message.document?.notes]));
@@ -1306,7 +1313,8 @@ const renderMessageThreads = () => {
     date.textContent = thread.lastMessageAt ? formatDate(thread.lastMessageAt, true) : "New link";
     top.append(name, date);
     const service = document.createElement("small");
-    service.textContent = `${eventServiceLabel(thread.service)} · ${formatDate(thread.celebrationDate)}`;
+    const eventTime = [thread.startTime, thread.endTime].filter(Boolean).map(formatEventTime).join(" – ");
+    service.textContent = `${eventServiceLabel(thread.service)} · Event: ${formatDate(thread.celebrationDate)} · ${eventTime || "Time not set"}`;
     const status = document.createElement("em");
     status.textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt)}` : thread.archivedAt ? "Archived · client access disabled" : thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
     button.append(top, service, status);
