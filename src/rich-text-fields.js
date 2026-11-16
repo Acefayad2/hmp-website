@@ -57,5 +57,17 @@ export function mountRichFields(mapping, formatting = {}, root = document) {
   for (const [key,selector] of Object.entries(mapping)) setRichField(root.querySelector(selector),formatting[key] || []);
 }
 export function collectRichFields(mapping, root = document) {
-  return {textFormatting:Object.fromEntries(Object.entries(mapping).filter(([,selector]) => root.querySelector(selector)?.tagName === "TEXTAREA").map(([key,selector]) => [key,richFieldFormatting(root.querySelector(selector))]))};
+  const values = {}, textFormatting = {};
+  for (const [key,selector] of Object.entries(mapping)) {
+    const field = root.querySelector(selector);
+    if (field?.tagName !== "TEXTAREA") continue;
+    const state = editors.get(field);
+    if (!state) continue;
+    // Read the text and its ranges from the same DOM snapshot. FormData may
+    // normalize textarea newlines, leaving cached ranges out of sync.
+    const current = readAgreementEditor(state.editor);
+    values[key] = current.text;
+    textFormatting[key] = current.formatting;
+  }
+  return {values, textFormatting};
 }
