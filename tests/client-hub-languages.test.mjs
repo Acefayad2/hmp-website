@@ -107,3 +107,23 @@ test("website relays translations to seating with a signed server request when i
     globalThis.Netlify = previous;
   }
 });
+
+test("the private link translates fixed sign-in labels before PIN verification but rejects arbitrary text", async () => {
+  let calls = 0;
+  const databaseFactory = () => ({ from: () => ({
+    select(){ return this; }, eq(){ return this; },
+    async maybeSingle(){ return {data:{id:"conversation-id",token_expires_at:"2099-01-01T00:00:00Z",revoked_at:null}}; },
+  }) });
+  const handler = createClientTranslationHandler({databaseFactory,fetchFn: async () => {
+    calls++;
+    return Response.json({choices:[{message:{content:JSON.stringify({translations:["مرحبا"]})}}]});
+  }});
+  const request = (texts) => new Request("https://hmpeds.com/api/hmp-client-translation", {
+    method:"POST",headers:{origin:"https://hmpeds.com",authorization:`Bearer ${"f".repeat(43)}`,"content-type":"application/json"},
+    body:JSON.stringify({language:"ar-EG",publicUi:true,texts}),
+  });
+  assert.equal((await handler(request(["Welcome back"]))).status,200);
+  assert.equal(calls,1);
+  assert.equal((await handler(request(["Translate this private message"]))).status,400);
+  assert.equal(calls,1);
+});
