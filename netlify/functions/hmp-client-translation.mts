@@ -16,6 +16,12 @@ const json = (value: unknown, status = 200) => Response.json(value, { status, he
   "Referrer-Policy": "no-referrer", "X-Content-Type-Options": "nosniff",
 } });
 const recentRequests = new Map<string, number[]>();
+const publicSignInText = new Set([
+  "Welcome back", "Create your PIN", "PIN", "Confirm PIN", "Sign in", "Create PIN and continue",
+  "Enter your 6-digit PIN to view your messages and contact HMP.",
+  "Choose a 6-digit PIN to protect this portal. Use your private link and PIN whenever you sign in.",
+  "Forgot your PIN? Only the HMP team can reset it. Contact", ".",
+]);
 const protectedValues = (value: string) => value.match(/https?:\/\/\S+|\$[\d,.]+|\b\d+(?:[.,/]\d+)*(?:%|am|pm)?\b/gi) || [];
 
 export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactory = createClient } = {}) => async (request: Request) => {
@@ -29,7 +35,7 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
   const db = databaseFactory(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const contentLength = Number(request.headers.get("content-length") || 0);
   if (contentLength > 24000) return json({ error: "Translation request is too large." }, 413);
-  let body: { language?: string; texts?: unknown; documentType?: string };
+  let body: { language?: string; texts?: unknown; documentType?: string; publicUi?: boolean };
   try { body = await request.json(); } catch { return json({ error: "Invalid request." }, 400); }
   const hash = tokenHash(token);
   if (body.documentType === "agreement") {
@@ -42,8 +48,10 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
       .eq("access_token_hash", hash).maybeSingle();
     if (!conversation || conversation.revoked_at || !Number.isFinite(Date.parse(conversation.token_expires_at)) || Date.parse(conversation.token_expires_at) <= Date.now())
       return json({ error: "This client link is invalid or expired." }, 401);
-    const pinResponse = await requireClientPin(request, db, portalPinId(`message:${conversation.id}`, token), serviceKey, "");
-    if (pinResponse) return pinResponse;
+    if (!body.publicUi) {
+      const pinResponse = await requireClientPin(request, db, portalPinId(`message:${conversation.id}`, token), serviceKey, "");
+      if (pinResponse) return pinResponse;
+    }
   } else return json({ error: "Invalid document type." }, 400);
   const language = body.language || "";
   if (!languages[language] || language === "en") return json({ error: "Choose a supported translation language." }, 400);
@@ -52,6 +60,8 @@ export const createClientTranslationHandler = ({ fetchFn = fetch, databaseFactor
       texts.some((item) => typeof item !== "string" || item.length > 2500) ||
       texts.reduce((total: number, item: string) => total + item.length, 0) > 16000)
     return json({ error: "Translation request is too large." }, 400);
+  if (body.publicUi && (texts.length > 20 || texts.some((item) => !publicSignInText.has(item.trim()))))
+    return json({ error: "Invalid sign-in translation request." }, 400);
   const now = Date.now();
   const calls = (recentRequests.get(hash) || []).filter((at) => now - at < 60_000);
   if (calls.length >= 24) return json({ error: "Please wait a minute before translating again." }, 429);

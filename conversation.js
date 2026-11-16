@@ -93,7 +93,8 @@ const showPin = (code) => {
   $("#client-pin-confirm-group").hidden = pinMode !== "setup";
   $("#client-pin-confirm").required = pinMode === "setup";
   $("#client-pin-form").hidden = false;
-  $("#client-hub-controls").hidden = true;
+  $("#client-hub-controls").hidden = false;
+  $("#client-sign-out").hidden = true;
   translationVersion++;
   setTranslationStatus();
   $("#conversation-error").hidden = true;
@@ -110,6 +111,7 @@ const showPin = (code) => {
     $("#client-pin-status").textContent = "";
     $("#client-pin").focus();
   }
+  void translateHub();
 };
 
 const pinRequired = (data) => ["CLIENT_PIN_SETUP", "CLIENT_PIN_REQUIRED"].includes(data.code);
@@ -122,15 +124,16 @@ const setTranslationStatus = (message = "") => {
 
 const translateHub = async () => {
   const version = ++translationVersion;
-  const roots = [$(".conversation-header span"), $(".conversation-intro"), $(".conversation-panel-heading"),
+  const pinScreen = !$("#client-pin-form").hidden;
+  const roots = pinScreen ? [$("#conversation-title"), $("#client-pin-form")] : [$(".conversation-header span"), $(".conversation-intro"), $(".conversation-panel-heading"),
     $("#conversation-summary"), $("#client-hub-controls"), $("#client-hub-tabs"), $("#message-empty"), $("#message-form"),
     $("#message-list"), $("footer")];
-  const nodes = collectTranslatableText(roots);
+  const nodes = collectTranslatableText(roots).filter((node) => !pinScreen || !node.parentElement?.closest("#client-pin-status"));
   for (const node of nodes) {
     if (!sourceText.has(node)) sourceText.set(node, node.textContent);
     node.textContent = sourceText.get(node);
   }
-  const placeholders = [$("#client-hub-language-search"), $("#message-input")];
+  const placeholders = pinScreen ? [] : [$("#client-hub-language-search"), $("#message-input")];
   for (const input of placeholders) {
     if (!sourcePlaceholders.has(input)) sourcePlaceholders.set(input, input.placeholder);
     input.placeholder = sourcePlaceholders.get(input);
@@ -142,7 +145,7 @@ const translateHub = async () => {
   try {
     const segments = nodes.flatMap((node) => splitTranslationText(sourceText.get(node)).map((text) => ({ node, textContent: text })));
     for (const input of placeholders) segments.push({ node: input, textContent: sourcePlaceholders.get(input) });
-    segments.push({ node: null, textContent: referenceStatus });
+    if (!pinScreen) segments.push({ node: null, textContent: referenceStatus });
     for (const batch of translationBatches(segments)) {
       const originals = batch.map((segment) => segment.textContent);
       const pending = originals.filter((value) => !translationCache.has(`${activeLanguage}\0${value}`));
@@ -150,7 +153,7 @@ const translateHub = async () => {
         const response = await fetch("/api/hmp-client-translation", {
           method: "POST", credentials: "same-origin",
           headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ language: activeLanguage, texts: pending }),
+          body: JSON.stringify({ language: activeLanguage, texts: pending, ...(pinScreen ? { publicUi: true } : {}) }),
         });
         const data = await response.json().catch(() => ({}));
         if (pinRequired(data)) { showPin(data.code); return; }
@@ -194,7 +197,8 @@ const renderLanguageOptions = () => {
       $("#client-hub-language-search").value = "";
       renderLanguageOptions();
       renderedMessageSignature = "";
-      renderMessages(currentMessages);
+      if (!$("#client-pin-form").hidden) void translateHub();
+      else renderMessages(currentMessages);
     });
     list.append(button);
   }
@@ -289,7 +293,8 @@ const loadConversation = async ({ quiet = false } = {}) => {
     if (pinRequired(data)) { showPin(data.code); return; }
     if (!response.ok) throw new Error(data.error || "Conversation unavailable");
     $("#client-pin-form").hidden = true;
-  $("#client-hub-controls").hidden = false;
+    $("#client-hub-controls").hidden = false;
+    $("#client-sign-out").hidden = false;
     $("#conversation-title").textContent = `${data.conversation.clientName}’s Event Hub`;
     $("#summary-service").textContent = eventServiceLabel(data.conversation.service);
     $("#summary-date").textContent = formatDate(data.conversation.celebrationDate);
