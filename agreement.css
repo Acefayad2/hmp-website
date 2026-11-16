@@ -36,6 +36,14 @@
 .agreement-align-left { text-align:left; }
 .agreement-align-center { text-align:center; }
 .agreement-align-right { text-align:right; }
+.agreement-indent-1 { margin-inline-start:2em; }
+.agreement-indent-2 { margin-inline-start:4em; }
+.agreement-indent-3 { margin-inline-start:6em; }
+.agreement-indent-4 { margin-inline-start:8em; }
+.agreement-indent-5 { margin-inline-start:10em; }
+.agreement-indent-6 { margin-inline-start:12em; }
+.agreement-indent-7 { margin-inline-start:14em; }
+.agreement-indent-8 { margin-inline-start:16em; }
 .agreement-wide { grid-column:1/-1; }
 .agreement-templates h3 { margin:0; }
 .review-honey { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
