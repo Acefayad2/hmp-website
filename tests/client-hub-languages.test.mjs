@@ -72,6 +72,32 @@ test("a valid private form can receive a reference translation without changing 
   assert.equal(submitted.response_format.json_schema.strict, true);
 });
 
+test("the provider cannot rewrite protected amounts or times", async () => {
+  let submitted;
+  const handler = createClientTranslationHandler({
+    databaseFactory: () => ({ rpc: async () => ({ data: { status: "Sent", expires_at: "2099-01-01T00:00:00Z" }, error: null }) }),
+    fetchFn: async (_url, options) => {
+      submitted = JSON.parse(options.body);
+      const {texts} = JSON.parse(submitted.messages[1].content);
+      const translations = texts.map(text => text
+        .replace("Balance ", "الرصيد ")
+        .replace("Event starts at ", "تبدأ الفعالية الساعة ")
+        .replace("$6,000", "6,000 دولار")
+        .replace("6:30pm", "6:30 مساءً"));
+      return Response.json({ choices: [{ message: { content: JSON.stringify({ translations }) } }] });
+    },
+  });
+  const response = await handler(new Request("https://hmpeds.com/api/hmp-client-translation", {
+    method: "POST", headers: { origin: "https://hmpeds.com", authorization: `Bearer ${"g".repeat(43)}`, "content-type": "application/json" },
+    body: JSON.stringify({ documentType: "agreement", language: "ar-EG", texts: ["Balance $6,000", "Event starts at 6:30pm"] }),
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { translations: ["الرصيد $6,000", "تبدأ الفعالية الساعة 6:30pm"] });
+  const submittedTexts = JSON.parse(submitted.messages[1].content).texts;
+  assert.ok(submittedTexts.every(text => !text.includes("$6,000") && !text.includes("6:30pm")));
+  assert.ok(submittedTexts.every(text => /__HMP_KEEP_[A-Z]+__/.test(text)));
+});
+
 test("translation rejects a changed payment amount", async () => {
   const handler = createClientTranslationHandler({
     databaseFactory: () => ({ rpc: async () => ({ data: { status: "Sent", expires_at: "2099-01-01T00:00:00Z" }, error: null }) }),
