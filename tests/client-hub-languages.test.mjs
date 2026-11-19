@@ -66,6 +66,10 @@ test("a valid private form can receive a reference translation without changing 
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { translations: ["Condiciones de pago"] });
   assert.equal(submitted.messages[1].content, '{"texts":["Payment terms"]}');
+  assert.equal(submitted.model, "qwen/qwen3.8-27b");
+  assert.equal(submitted.reasoning_effort, "none");
+  assert.equal(submitted.response_format.type, "json_schema");
+  assert.equal(submitted.response_format.json_schema.strict, true);
 });
 
 test("translation rejects a changed payment amount", async () => {
