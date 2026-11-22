@@ -19,7 +19,7 @@ test("seating package descriptions match the approved screenshot copy", () => {
 });
 
 test("public footers omit admin login and the build does not reinsert it", () => {
-  const pages = ["index.html", "about.html", "services.html", "guest-seating.html", "celebration-accessories.html", "money-table.html", "inquiry.html", "service-option.html", "privacy.html", "404.html"];
+  const pages = ["index.html", "about.html", "services.html", "guest-seating.html", "money-table.html", "inquiry.html", "service-option.html", "privacy.html", "404.html"];
   let footerCount = 0;
   for (const page of pages) {
     const footers = read(page).match(/<footer\b[\s\S]*?<\/footer>/g) || [];
@@ -28,7 +28,7 @@ test("public footers omit admin login and the build does not reinsert it", () =>
       assert.doesNotMatch(footer, /Admin login|href=["']\/admin(?:["'/?#]|$)/i, page);
     }
   }
-  assert.equal(footerCount, 10);
+  assert.equal(footerCount, 9);
   assert.doesNotMatch(read("scripts/build-admin.mjs"), /Admin login|withAdminAccess/);
 });
 

@@ -298,15 +298,6 @@ const showServiceNotice = () => {
 };
 
 const inquiryServiceOptions = {
-  "Event Accessories": {
-    label: "Event accessory of interest",
-    placeholder: "Choose an accessory",
-    options: [
-      "Celebration Kit",
-      "Club Sign + Money Guns + Strobes",
-      "Lux-Framed Premium LED Welcome Sign",
-    ],
-  },
   "Guest Seating Experience": {
     label: "Guest seating service of interest",
     placeholder: "Choose a guest seating service",

@@ -34,9 +34,6 @@ test("old service labels remain compatible without changing client-written conte
   const script = read("script.js");
   assert.ok(script.includes('eventServiceLabel(inquiryParams.get("service"))'));
   assert.ok(script.includes('eventServiceLabel(inquiryParams.get("service-option"))'));
-  assert.ok(read("inquiry.html").includes("<option>Event Accessories</option>"));
-  assert.ok(read("celebration-accessories.html").includes("service=Event%20Accessories&amp;service-option=Celebration%20Kit"));
-  assert.ok(read("celebration-accessories.html").includes("<h3>Celebration Kit</h3>"));
-  assert.ok(read("service-option.js").includes('title: "Celebration Kit"'));
-  assert.ok(script.includes('"Celebration Kit",'));
+  assert.ok(!read("inquiry.html").includes("<option>Event Accessories</option>"));
+  assert.ok(!read("service-option.js").includes('category: "Event Accessories"'));
 });

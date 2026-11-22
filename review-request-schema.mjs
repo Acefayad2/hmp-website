@@ -1,4 +1,4 @@
-export const reviewServices = ["General HMP experience", "Event Accessories", "Guest Seating Experience", "Money Table Services", "Welcome Sign Services", "LED Signage"];
+export const reviewServices = ["General HMP experience", "Guest Seating Experience", "Money Table Services", "Welcome Sign Services", "LED Signage"];
 export const reviewConsent = "I allow HMP to display my review, chosen display name, rating, and service details on its website after admin approval. My email address will not be published.";
 const text = (value, max, label, required = true) => {
   const result = typeof value === "string" ? value.trim() : "";
