@@ -11,16 +11,9 @@
       name: "Event Services in Maryland",
       type: "CollectionPage",
       itemList: [
-        ["Event Accessories", "/celebration-accessories"],
         ["Guest Seating Experience", "/guest-seating"],
         ["Money Table Services", "/money-table"],
       ],
-    },
-    "/celebration-accessories": {
-      name: "Event Accessory Rentals in Maryland",
-      type: "Service",
-      description: "Club signs, strobes, Celebration Kits, card boxes, and premium LED welcome sign rentals for Maryland events.",
-      image: "/assets/celebration-accessories-hero-v2.webp",
     },
     "/guest-seating": {
       name: "Digital Guest Seating and Event Check-In",
@@ -103,7 +96,7 @@
 
   const breadcrumbItems = [{ name: "Home", url: `${origin}/` }];
   if (path !== "/") {
-    if (["/celebration-accessories", "/guest-seating", "/money-table"].includes(path)) {
+    if (["/guest-seating", "/money-table"].includes(path)) {
       breadcrumbItems.push({ name: "Services", url: `${origin}/services` });
     }
     breadcrumbItems.push({ name: page.name, url });
