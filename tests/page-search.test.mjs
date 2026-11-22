@@ -83,4 +83,7 @@ test("all Admin sections and the hub wire their search assets into the productio
   const hub = readFileSync(new URL("../dashboard.html", import.meta.url), "utf8");
   assert.match(hub, /id="hub-search"/);
   assert.match(hub, /src="dashboard-search.js/);
+  assert.match(hub, /<strong>HMP Admin<\/strong>/);
+  assert.match(hub, /<strong>G\.S\.E\. Admin<\/strong>/);
+  assert.ok(hub.indexOf("G.S.E. Admin") < hub.indexOf("Money Table Log Book"));
 });
