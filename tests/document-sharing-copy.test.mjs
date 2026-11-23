@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {beginDeferredClipboardCopy, copySharedLink, createInteractionGuard} from "../src/document-sharing.js";
+import {beginDeferredClipboardCopy, copySharedLink, createDocumentClientHub, createInteractionGuard} from "../src/document-sharing.js";
 
 const clientFormsSource = readFileSync(new URL("../src/client-forms.js", import.meta.url), "utf8");
 
@@ -49,6 +49,26 @@ test("rapid repeat clicks keep one sharing interaction in flight", () => {
   guard.end();
   assert.equal(guard.begin(), true, "a later intentional click can start after interruption or completion");
   guard.end();
+});
+
+test("a document send can create and extend a new Client Hub without emailing", async () => {
+  const calls = [];
+  const request = async (url, options) => {
+    const body = JSON.parse(options.body); calls.push([url, body]);
+    if (url === "/api/hmp-dashboard") return {inquiry:{id:body.id}};
+    if (body.action === "create-link") return {conversationId:"conversation",clientUrl:"private"};
+    return {ok:true};
+  };
+  const result = await createDocumentClientHub({
+    clientName:"New Client",clientEmail:"CLIENT@example.test",service:"Event agreement",
+    expirationDate:"2090-01-02",inquiryId:"11111111-1111-4111-8111-111111111111",request,
+  });
+  assert.equal(result.conversationId,"conversation");
+  assert.deepEqual(calls.map(([url,body])=>[url,body.action || "create",body.email || body.expirationDate]),[
+    ["/api/hmp-dashboard","create","client@example.test"],
+    ["/api/hmp-messages","create-link",undefined],
+    ["/api/hmp-messages","set-link-expiration","2090-01-02"],
+  ]);
 });
 
 test("copy falls back to a selected private input when clipboard access is blocked", async () => {

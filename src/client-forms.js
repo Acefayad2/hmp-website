@@ -4,6 +4,7 @@ import { informationSummary, printInformation, previewInformation } from "../inf
 import { loadBankVerificationForms } from "./agreement-admin.js";
 import {mountDocumentVersions} from "./document-versions.js";
 import {chooseDocumentSharing, copySharedLink, createInteractionGuard} from "./document-sharing.js";
+import {applyClientProfile, mountClientProfilePicker} from "./client-profile-picker.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -22,7 +23,7 @@ $("#client-google-forms").addEventListener("click", event => {
   if (preview) {previewInformation({snapshot:activeInformationTemplates.find(t => t.id === preview.dataset.informationPreview), status:"Draft", adminAnswers:{}}); return;}
   const button = event.target.closest("[data-information-template]");
   if (!button || busy) return;
-  active = {snapshot:activeInformationTemplates.find(t => t.id === button.dataset.informationTemplate), status:"Draft", clientName:"", clientEmail:"", adminAnswers:{}, clientAnswers:{}};
+  active = {snapshot:activeInformationTemplates.find(t => t.id === button.dataset.informationTemplate), status:"Draft", clientName:"", clientEmail:"", inquiryId:"", adminAnswers:{}, clientAnswers:{}};
   dirty = false; link = ""; render(); dialog.showModal();
 });
 
@@ -68,6 +69,17 @@ function render() {
     <div class="agreement-actions">${draft ? `<button type="submit" class="agreement-button secondary">Save draft</button><button type="button" class="agreement-button" data-information-action="share">Create private link</button>` : ""}${["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="send">Email client form</button>` : ""}${link ? `<a class="agreement-button secondary" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open client form</a>` : ""}${active.status === "Completed" ? `<button type="button" class="agreement-button secondary" id="information-print">Print / PDF</button>` : ""}${active.id && ["Draft","Sent"].includes(active.status) ? `<button type="button" class="agreement-button secondary" data-information-action="void">Void form</button>` : ""}</div><p id="information-status" class="agreement-status" role="status"></p></form>`;
   $("#information-close").onclick = () => {if (!busy && (!dirty || confirm("Discard unsaved changes?"))) {dirty = false; dialog.close();}};
   const form = $("#information-admin-form");
+  if (draft) mountClientProfilePicker(form, {
+    selectedInquiryId: active.inquiryId || "",
+    onSelect: profile => {
+      if (!profile) { active.inquiryId = ""; return; }
+      active.inquiryId = profile.inquiryId;
+      applyClientProfile(form, profile, {
+        clientName: '[name="clientName"]', clientEmail: '[name="clientEmail"]', eventName: '[name="eventName"]',
+      });
+      dirty = true;
+    },
+  });
   const richFields={description:'[name="documentDescription"]',...Object.fromEntries(active.snapshot.adminFields.filter(field=>field.type==="textarea").map(field=>[field.id,`[name="${field.id}"]`]))};
   if(draft)mountRichFields(richFields,{...active.snapshot.answerFormatting,...active.snapshot.textFormatting},form);
   const previewButton = document.createElement("button");
@@ -111,8 +123,10 @@ async function shareInformation(copy) {
   if (busy || (active.status === "Draft" && !checkFormInputs($("#information-admin-form"))) || !sharingInteraction.begin()) return;
   let preparedCopy = null;
   try {
-    const email = active.status === "Draft" ? $("#information-admin-form").elements.clientEmail.value : active.clientEmail;
-    const choice = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt,deferClipboardCopy:copy});
+    const editor = $("#information-admin-form");
+    const email = active.status === "Draft" ? editor.elements.clientEmail.value : active.clientEmail;
+    const name = active.status === "Draft" ? editor.elements.clientName.value : active.clientName;
+    const choice = await chooseDocumentSharing({copy,choosePortal:!copy,clientName:name,clientEmail:email,service:active.snapshot.title,expiresAt:active.expiresAt,deferClipboardCopy:copy});
     if (!choice) return;
     const selected = copy ? choice : {sharing:choice, preparedCopy:null};
     const sharing = selected.sharing; preparedCopy = selected.preparedCopy;

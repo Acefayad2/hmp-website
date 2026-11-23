@@ -34,6 +34,7 @@ import { appendLinkedText, normalizeCalendarUrl } from "../calendar-link.js";
 import { proposalEventType } from "./proposal-event-type.js";
 import { createProposalDirtyState } from "./proposal-dirty-state.js";
 import { parseCalendarDate } from "../calendar-date.mjs";
+import { applyClientProfile, mountClientProfilePicker } from "./client-profile-picker.js";
 import {
   acceptInvite,
   getUser,
@@ -1851,6 +1852,7 @@ const invoiceFormFields = {
   discountAmount: "#invoice-discount",
   taxRate: "#invoice-tax-rate",
 };
+let activeInvoiceInquiryId = "";
 
 const lockIssuedDocumentControls=(form,record,kind)=>{
   const locked=record&&record.status!=="Draft";
@@ -1866,6 +1868,7 @@ const lockIssuedDocumentControls=(form,record,kind)=>{
 
 const openInvoiceEditor = (invoice = null) => {
   activeInvoiceId = invoice?.id || "";
+  activeInvoiceInquiryId = invoice?.inquiryId || "";
   const values = invoice || {
     status: "Draft",
     issueDate: localDateValue(),
@@ -1892,6 +1895,19 @@ const openInvoiceEditor = (invoice = null) => {
   });
   if (inactive) setMessage($("#invoice-editor-message"), "Restore this invoice before editing or sending it.");
   if(!inactive)lockIssuedDocumentControls($("#invoice-form"),invoice,"invoice");
+  mountClientProfilePicker($("#invoice-form"), {
+    threads: messageThreads.length ? messageThreads.filter(thread => !thread.deletedAt) : undefined,
+    selectedInquiryId: activeInvoiceInquiryId,
+    disabled: inactive || Boolean(invoice && invoice.status !== "Draft"),
+    onSelect: profile => {
+      if (!profile) { activeInvoiceInquiryId = ""; return; }
+      activeInvoiceInquiryId = profile.inquiryId;
+      applyClientProfile($("#invoice-form"), profile, {
+        clientName: "#invoice-client-name", clientEmail: "#invoice-client-email", clientPhone: "#invoice-client-phone",
+        eventName: "#invoice-event-name", eventDate: "#invoice-event-date", eventAddress: "#invoice-event-address",
+      });
+    },
+  });
   mountRichFields(invoiceFormFields,values.textFormatting);
   if(invoice&&invoice.status!=="Draft"&&!inactive)setMessage($("#invoice-editor-message"),"Issued content is preserved. Choose Create revision to change it. Payment status can still be updated.");
   mountDocumentVersions($("#invoice-editor-dialog"),{kind:"invoice",id:invoice?.id,status:invoice?.status,open:async(id,record)=>{await loadInvoices();openInvoiceEditor(record||invoices.find(item=>item.id===id));}});
@@ -1901,6 +1917,7 @@ const openInvoiceEditor = (invoice = null) => {
 
 const invoicePayload = () => ({
   ...(activeInvoiceId ? { id: activeInvoiceId } : {}),
+  inquiryId: activeInvoiceInquiryId,
   ...Object.fromEntries(
     Object.entries(invoiceFormFields).map(([key, selector]) => [key, $(selector).value]),
   ),
@@ -1993,6 +2010,7 @@ const contractFormFields = {
   clientSignatureName: "#contract-client-signature-name",
   clientSignedAt: "#contract-client-signed-at",
 };
+let activeContractInquiryId = "";
 
 const contractBoxContainer = () => $("#contract-extra-boxes");
 const contractBoxes = () => [...contractBoxContainer().querySelectorAll(".contract-extra-box")].map(row => ({
@@ -2028,6 +2046,7 @@ $("#contract-add-extra-box").addEventListener("click", () => addContractBox()?.f
 
 const openContractEditor = (contract = null) => {
   activeContractId = contract?.id || "";
+  activeContractInquiryId = contract?.inquiryId || "";
   const values = contract || {
     status: "Draft",
     effectiveDate: localDateValue(),
@@ -2045,6 +2064,20 @@ const openContractEditor = (contract = null) => {
   $("#send-contract").textContent = "Send to Client Portal";
   setMessage($("#contract-editor-message"), "");
   lockIssuedDocumentControls($("#contract-form"),contract,"contract");
+  mountClientProfilePicker($("#contract-form"), {
+    threads: messageThreads.length ? messageThreads.filter(thread => !thread.deletedAt) : undefined,
+    selectedInquiryId: activeContractInquiryId,
+    disabled: Boolean(contract && contract.status !== "Draft"),
+    onSelect: profile => {
+      if (!profile) { activeContractInquiryId = ""; return; }
+      activeContractInquiryId = profile.inquiryId;
+      applyClientProfile($("#contract-form"), profile, {
+        clientName: "#contract-client-name", clientEmail: "#contract-client-email", clientPhone: "#contract-client-phone",
+        eventName: "#contract-event-name", eventDate: "#contract-event-date", eventLocation: "#contract-event-location",
+        services: "#contract-services", scopeOfWork: "#contract-scope",
+      });
+    },
+  });
   updateContractBoxControls();
   mountRichFields(contractFormFields,values.textFormatting);
   if(contract&&contract.status!=="Draft")setMessage($("#contract-editor-message"),"Issued content is preserved. Choose Create revision to change it.");
@@ -2054,6 +2087,7 @@ const openContractEditor = (contract = null) => {
 
 const contractPayload = () => ({
   ...(activeContractId ? { id: activeContractId } : {}),
+  inquiryId: activeContractInquiryId,
   ...collectRichFields(contractFormFields),
   ...Object.fromEntries(
     Object.entries(contractFormFields).map(([key, selector]) => [key, $(selector).value]),
