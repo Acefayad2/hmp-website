@@ -123,8 +123,10 @@ async function shareInformation(copy) {
   if (busy || (active.status === "Draft" && !checkFormInputs($("#information-admin-form"))) || !sharingInteraction.begin()) return;
   let preparedCopy = null;
   try {
-    const email = active.status === "Draft" ? $("#information-admin-form").elements.clientEmail.value : active.clientEmail;
-    const choice = await chooseDocumentSharing({copy,choosePortal:!copy,clientEmail:email,expiresAt:active.expiresAt,deferClipboardCopy:copy});
+    const editor = $("#information-admin-form");
+    const email = active.status === "Draft" ? editor.elements.clientEmail.value : active.clientEmail;
+    const name = active.status === "Draft" ? editor.elements.clientName.value : active.clientName;
+    const choice = await chooseDocumentSharing({copy,choosePortal:!copy,clientName:name,clientEmail:email,service:active.snapshot.title,expiresAt:active.expiresAt,deferClipboardCopy:copy});
     if (!choice) return;
     const selected = copy ? choice : {sharing:choice, preparedCopy:null};
     const sharing = selected.sharing; preparedCopy = selected.preparedCopy;
