@@ -29,4 +29,5 @@ test("all document-completion entry points mount the shared control", () => {
   for (const file of ["../src/admin.js","../agreement-client.mjs","../review-client.mjs"]) {
     assert.match(readFileSync(new URL(file, import.meta.url),"utf8"),/mountBackToTop/);
   }
+  assert.match(readFileSync(new URL("../scripts/build-admin.mjs", import.meta.url),"utf8"),/"src\/back-to-top\.js"/);
 });
