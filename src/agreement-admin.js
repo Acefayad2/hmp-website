@@ -5,6 +5,7 @@ import { agreementEditorHTML, mountAgreementEditors, readAgreementEditor } from 
 import {mountDocumentVersions} from "./document-versions.js";
 import {chooseDocumentSharing, copySharedLink, createInteractionGuard} from "./document-sharing.js";
 import {updateAgreementList} from "./agreement-list.js";
+import {applyClientProfile, mountClientProfilePicker} from "./client-profile-picker.js";
 
 const $ = selector => document.querySelector(selector);
 const endpoint = "/api/hmp-agreement-forms";
@@ -35,7 +36,7 @@ templateList.addEventListener("click", event => {
   startTemplate(template);
 });
 function startTemplate(template) {
-  active = {snapshot:newAgreementSnapshot(template,terms[template.id]), status:"Draft", adminAnswers:{}, clientName:"", clientEmail:""};
+  active = {snapshot:newAgreementSnapshot(template,terms[template.id]), status:"Draft", adminAnswers:{}, clientName:"", clientEmail:"", inquiryId:""};
   link = ""; dirty = false; renderEditor(); dialog.showModal();
 }
 $("#create-service-agreement-button").addEventListener("click", () => startTemplate(agreementTemplates.find(item => item.id === "custom-agreement")));
@@ -89,6 +90,19 @@ function renderEditor() {
     <div class="agreement-actions">${draft ? `<button class="agreement-button secondary" type="submit">Save draft</button><button class="agreement-button secondary" type="button" id="agreement-share">${active.snapshot.signatureMode === "on-site-three-signatures" ? "Open on-site signing link" : "Create private link"}</button>${active.snapshot.signatureMode === "on-site-three-signatures" ? "" : '<button class="agreement-button" type="button" id="agreement-send">Send client form</button>'}` : ""}${active.status === "Sent" && active.snapshot.signatureMode !== "on-site-three-signatures" ? '<button class="agreement-button" type="button" id="agreement-send">Retry email delivery</button>' : ""}${["Sent", "Completed"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-copy">Copy private link</button>' : ""}${link && active.snapshot.signatureMode === "on-site-three-signatures" ? `<a class="agreement-button" href="${escape(link)}" target="_blank" rel="noopener noreferrer">Open signing page on this device</a>` : ""}<button class="agreement-button secondary" type="button" id="agreement-print-button">Print / PDF</button>${active.id && ["Draft", "Sent"].includes(active.status) ? '<button class="agreement-button secondary" type="button" id="agreement-void">Void form</button>' : ""}</div><p class="agreement-status" id="agreement-editor-status" role="status"></p></form>`;
   $("#agreement-close").onclick = () => { if (!busy && (!dirty || confirm("Discard unsaved changes to this form?"))) {dirty = false; dialog.close();} };
   const form = $("#agreement-admin-form");
+  if (draft) mountClientProfilePicker(form, {
+    selectedInquiryId: active.inquiryId || "",
+    onSelect: profile => {
+      if (!profile) { active.inquiryId = ""; return; }
+      active.inquiryId = profile.inquiryId;
+      applyClientProfile(form, profile, {
+        clientName: '[name="clientName"]', clientEmail: '[name="clientEmail"]',
+        serviceStartTime: '[name="serviceStartTime"]', serviceEndTime: '[name="serviceEndTime"]',
+        services: '[name="selectedService"]', eventName: '[name="eventName"]',
+      });
+      dirty = true;
+    },
+  });
   const approval = active.snapshot.clientFields.find(field => field.id === "customizationApproval");
   if (draft && approval) {
     const panel = document.createElement("section");
