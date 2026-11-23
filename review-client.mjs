@@ -1,4 +1,6 @@
 import { reviewServices, reviewConsent, reviewSubmission } from "./review-request-schema.mjs";
+import {mountBackToTop} from "./src/back-to-top.js";
+if (typeof mountBackToTop === "function") mountBackToTop({label:"Back to top of review form"});
 const form=document.querySelector("#client-review-form"), message=document.querySelector("#review-message");
 const params=new URLSearchParams(location.hash.slice(1));
 const privateLink=params.has("token"), token=params.get("token") || "";

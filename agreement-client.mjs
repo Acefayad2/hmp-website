@@ -6,6 +6,8 @@ import {draftContext, readDraft, clearDraft} from "./agreement-draft.mjs";
 import {progressFields, cleanBankProgress} from "./agreement-progress.mjs";
 import {expiryLabel} from "./document-expiry.mjs";
 import {clientHubLanguages, clientHubLanguage, collectTranslatableText, translationBatches} from "./client-hub-languages.mjs";
+import {mountBackToTop} from "./src/back-to-top.js";
+if (typeof mountBackToTop === "function") mountBackToTop({label:"Back to top of document"});
 const token = new URLSearchParams(location.hash.slice(1)).get("token") || "";
 let activeLanguage = clientHubLanguage(new URLSearchParams(location.hash.slice(1)).get("lang"))[0];
 let translationVersion = 0;

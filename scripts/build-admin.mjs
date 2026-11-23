@@ -97,6 +97,7 @@ const productionFiles = [
   "assets/brand/hmp-logo-2026.png",
   "assets/brand/hmp-logo-header-2026.png",
   "src/agreement-text-editor.js",
+  "src/back-to-top.js",
   "src/rich-text-fields.js",
 ];
 
