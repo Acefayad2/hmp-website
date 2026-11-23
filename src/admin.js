@@ -35,6 +35,7 @@ import { proposalEventType } from "./proposal-event-type.js";
 import { createProposalDirtyState } from "./proposal-dirty-state.js";
 import { parseCalendarDate } from "../calendar-date.mjs";
 import { applyClientProfile, mountClientProfilePicker } from "./client-profile-picker.js";
+import { mountBackToTop } from "./back-to-top.js";
 import {
   acceptInvite,
   getUser,
@@ -65,6 +66,7 @@ import {
 } from "../proposal-ui.js";
 
 const $ = (selector) => document.querySelector(selector);
+mountBackToTop({label:"Back to top of document workspace"});
 installValidationSummaries(document);
 const eventServiceLabel = (value = "") => String(value || "").replace(/\bCelebration Accessories\b/g, "Event Accessories").replace(/\bEvent Kit\b/g, "Celebration Kit");
 const authShell = $("#auth-shell");
