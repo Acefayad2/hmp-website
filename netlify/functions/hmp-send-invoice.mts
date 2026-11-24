@@ -66,7 +66,7 @@ export const renderEmail = (invoice: Record<string, any>) => {
           <h1 style="margin:0;font-family:Georgia,serif;font-size:38px">${escapeHTML(invoice.invoice_number)}</h1>
         </div>
         <div style="padding:34px">
-          <p style="margin:0 0 8px;color:#756467;font-size:12px;text-transform:uppercase;letter-spacing:1px">Prepared for</p>
+          <p style="margin:0 0 8px;color:#756467;font-size:12px;text-transform:uppercase;letter-spacing:1px">For</p>
           <h2 style="margin:0 0 6px;font-family:Georgia,serif;font-size:30px">${escapeHTML(invoice.client_name)}</h2>
           <p style="margin:0;color:#756467">Issue date: ${date(invoice.issue_date)}<br>Due date: ${date(invoice.due_date)}</p>
           ${["Partially paid", "Paid"].includes(invoice.status) ? `<p><strong>Payment status: ${escapeHTML(invoiceStatusLabel(invoice.status))}</strong></p>` : ""}

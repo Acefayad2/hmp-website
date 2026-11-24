@@ -40,7 +40,7 @@ const renderEmail = (contract: Record<string, any>) => `<!doctype html><html><he
         <h1 style="margin:0;font-size:34px">${escapeHTML(contract.contract_number)}</h1>
       </div>
       <div style="padding:34px">
-        <p style="margin:0 0 8px;color:#756467;font-size:11px;letter-spacing:1px;text-transform:uppercase">Prepared for</p>
+        <p style="margin:0 0 8px;color:#756467;font-size:11px;letter-spacing:1px;text-transform:uppercase">For</p>
         <h2 style="margin:0 0 7px;font-size:30px">${escapeHTML(contract.client_name)}</h2>
         <p style="margin:0;color:#756467;line-height:1.6">Effective date: ${date(contract.effective_date)}<br>Event: ${escapeHTML(contract.event_name || "Not specified")}<br>Event date: ${date(contract.event_date)}<br>Location: ${escapeHTML(contract.event_location || "Not specified")}</p>
         ${section("Client address", contract.client_address,contract.text_formatting?.clientAddress)}

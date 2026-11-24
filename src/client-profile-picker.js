@@ -2,6 +2,9 @@ import { agreementRequest } from "../agreement-ui.mjs";
 
 let profilesPromise;
 
+export const currentClientProfiles = (threads = []) =>
+  threads.filter(thread => !thread.deletedAt && !thread.archivedAt);
+
 export const clientProfileValues = (thread = {}) => ({
   inquiryId: thread.inquiryId || "",
   conversationId: thread.id || "",
@@ -20,7 +23,7 @@ export const clientProfileValues = (thread = {}) => ({
 
 export const loadClientProfiles = async () => {
   profilesPromise ||= agreementRequest("/api/hmp-messages")
-    .then(data => (data.threads || []).filter(thread => !thread.deletedAt));
+    .then(data => currentClientProfiles(data.threads || []));
   try { return await profilesPromise; }
   catch (error) { profilesPromise = null; throw error; }
 };
@@ -39,7 +42,8 @@ export function mountClientProfilePicker(container, {
   const select = panel.querySelector("select");
   select.disabled = disabled;
   const status = panel.querySelector("[role=status]");
-  const populate = rows => {
+  const populate = input => {
+    const rows = currentClientProfiles(input);
     for (const thread of rows) {
       const option = document.createElement("option");
       option.value = thread.inquiryId || thread.id;

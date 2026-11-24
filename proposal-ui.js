@@ -135,7 +135,7 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
   logo.alt = "HMP Luxury Event Services";
   const heading = document.createElement("div");
   const eyebrow = document.createElement("p");
-  eyebrow.textContent = "Prepared service proposal";
+  eyebrow.textContent = "Service proposal";
   const title = document.createElement("h3");
   title.textContent = value.title;
   heading.append(eyebrow, title);
@@ -143,7 +143,7 @@ export const renderProposalCard = (proposal, { showActions = true } = {}) => {
 
   const prepared = document.createElement("p");
   prepared.className = "proposal-prepared-for";
-  prepared.textContent = `Prepared for ${value.clientName || "HMP client"}`;
+  prepared.textContent = `For ${value.clientName || "HMP client"}`;
 
   const details = document.createElement("dl");
   details.className = "proposal-event-details";
