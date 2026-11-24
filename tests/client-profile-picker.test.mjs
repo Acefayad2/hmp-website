@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { clientProfileValues } from "../src/client-profile-picker.js";
+import { clientProfileValues, currentClientProfiles } from "../src/client-profile-picker.js";
+
+test("client document pickers only offer current, non-archived Client Hubs", () => {
+  const current = { id: "current", clientName: "Current" };
+  assert.deepEqual(currentClientProfiles([
+    current,
+    { id: "archived", archivedAt: "2026-11-23T12:00:00Z" },
+    { id: "deleted", deletedAt: "2026-11-23T12:00:00Z" },
+  ]), [current]);
+});
 
 test("client document profiles expose editable contact and event defaults", () => {
   assert.deepEqual(clientProfileValues({
