@@ -6,7 +6,7 @@ import {expiryLabel} from "./document-expiry.mjs";
 export function informationClientHeading(record) {
   const intake = ["money-changing-details", "money-collecting-details"].includes(record.snapshot.id);
   const subtitle = !intake && record.snapshot.subtitle ? `<p>${escape(record.snapshot.subtitle)}</p>` : "";
-  return `${subtitle}<p>${intake ? "" : "Prepared for "}${escape(record.clientName)}${record.adminAnswers.eventName ? ` · ${escape(record.adminAnswers.eventName)}` : ""}</p>`;
+  return `${subtitle}<p>${intake ? "" : "For "}${escape(record.clientName)}${record.adminAnswers.eventName ? ` · ${escape(record.adminAnswers.eventName)}` : ""}</p>`;
 }
 
 export function renderInformationForm(record, headers) {
