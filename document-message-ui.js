@@ -3,7 +3,7 @@ import {richTextHTML} from "./text-formatting.mjs";
 import { expired, expiryLabel } from "./document-expiry.mjs";
 const money = value => new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(Number(value) || 0);
 const fieldLabels = {
-  client_name:"Prepared for",client_address:"Client address",issue_date:"Issue date",due_date:"Due date",effective_date:"Effective date",
+  client_name:"For",client_address:"Client address",issue_date:"Issue date",due_date:"Due date",effective_date:"Effective date",
   event_name:"Event",event_date:"Event date",event_address:"Event address",event_location:"Event location",
   services:"Services",scope_of_work:"Scope of services",payment_terms:"Payment terms",
   payment_status:"Payment status when shared",
