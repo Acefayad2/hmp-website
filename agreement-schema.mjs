@@ -56,7 +56,7 @@ export const agreementTemplates = [
   },
   {
     id: "guest-seating", title: "Guest Seating Experience Services Agreement",
-    adminFields: [field("selectedService", "Selected service / package", "select", true, ["Guest Arrival", "Arrival + Directory"]), field("guestListDue", "Final guest seating list due", "date"), ...setup, ...payment, ...representative],
+    adminFields: [field("selectedService", "Selected service / package", "select", true, ["Guest Arrival", "Arrival + Directory", "Guest Registration", "Guest Arrival+Registration+Directory"]), field("guestListDue", "Final guest seating list due", "date"), ...setup, ...payment, ...representative],
     clientFields: [...eventFields, field("guestCount", "Estimated number of guests", "number"), field("vendorAccess", "Venue vendor access time"), marketing],
   },
   {

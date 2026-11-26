@@ -7,7 +7,7 @@ import { fieldsHTML, answersHTML } from "../agreement-ui.mjs";
 test("Guest Seating packages render as a required dropdown with current offerings", () => {
   const field = getAgreementTemplate("guest-seating").adminFields[0];
   assert.equal(field.type, "select");
-  assert.deepEqual(field.options, ["Guest Arrival", "Arrival + Directory"]);
+  assert.deepEqual(field.options, ["Guest Arrival", "Arrival + Directory", "Guest Registration", "Guest Arrival+Registration+Directory"]);
   const html = fieldsHTML([field], {}, "admin-answer");
   assert.match(html, /<select[^>]*name="selectedService" required/);
   assert.match(html, /Choose an option/);
