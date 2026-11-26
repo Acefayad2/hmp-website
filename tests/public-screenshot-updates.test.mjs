@@ -13,9 +13,12 @@ test("seating package descriptions match the approved screenshot copy", () => {
   assert.deepEqual(descriptions, [
     "From arrival to seating, our interactive check-in experience guides guests and attendees with ease. They can quickly find their name, confirm their arrival, and display their assigned table number—all within a seamless, sophisticated experience designed to elevate the guest journey.",
     "Designed to make guest arrival effortless. This interactive experience allows guests to quickly find their name, confirm their arrival, and view the event’s floorplan which highlights their exact assigned table and seat —all while creating a seamless, organized, and elevated event experience.",
+    "Simplify on-site registration with an experience that blends innovative technology and refined hospitality. Our in-person registration service allows guests and attendees to register upon arrival through a seamless, organized, and welcoming process.",
+    "Designed to make guest arrival effortless, this interactive experience allows guests and attendees to register on-site, quickly find their names, confirm their arrival, and view an interactive floor plan highlighting their assigned table and seat—all while creating a seamless, organized, and elevated guest experience.",
   ]);
-  assert.match(html, /Starting price \$800/);
+  assert.equal((html.match(/Starting price \$800/g) || []).length, 2);
   assert.match(html, /Starting price \$1,450/);
+  assert.match(html, /Starting price \$1,950/);
 });
 
 test("public footers omit admin login and the build does not reinsert it", () => {

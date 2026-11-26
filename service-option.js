@@ -33,6 +33,40 @@ const offeringDetails = {
     image: "/assets/hmp-hero-welcome.webp",
     imageAlt: "Complete digital guest arrival and table directory experience",
   },
+  "guest-registration": {
+    category: "Guest Seating Experience",
+    parentUrl: "/guest-seating",
+    title: "Guest Registration",
+    summary: "Offer seamless on-site registration through innovative technology and refined hospitality.",
+    heading: "Make on-site registration feel effortless.",
+    description:
+      "Simplify on-site registration with an experience that blends innovative technology and refined hospitality. Our in-person registration service allows guests and attendees to register upon arrival through a seamless, organized, and welcoming process.",
+    price: "$800",
+    features: [
+      "In-person registration upon arrival",
+      "Organized, welcoming guest flow",
+      "Technology supported by refined hospitality",
+    ],
+    image: "/assets/modern-guest-arrival.webp",
+    imageAlt: "Welcoming on-site guest registration experience",
+  },
+  "arrival-registration-directory": {
+    category: "Guest Seating Experience",
+    parentUrl: "/guest-seating",
+    title: "Guest Arrival+Registration+Directory",
+    summary: "Combine on-site registration, arrival confirmation, and an interactive seating directory.",
+    heading: "One elevated journey from arrival to seat.",
+    description:
+      "Designed to make guest arrival effortless, this interactive experience allows guests and attendees to register on-site, quickly find their names, confirm their arrival, and view an interactive floor plan highlighting their assigned table and seat—all while creating a seamless, organized, and elevated guest experience.",
+    price: "$1,950",
+    features: [
+      "On-site registration and arrival confirmation",
+      "Interactive guest-name search",
+      "Floor plan with assigned table and seat",
+    ],
+    image: "/assets/hmp-hero-welcome.webp",
+    imageAlt: "Interactive guest arrival, registration, and seating directory",
+  },
   "money-collecting": {
     category: "Money Table Services",
     parentUrl: "/money-table",

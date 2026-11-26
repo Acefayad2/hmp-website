@@ -19,5 +19,6 @@ test("seating packages omit the retired guest-count and distance qualification",
   assert.doesNotMatch(html, /class="seating-price-note"/);
   assert.doesNotMatch(read("brand.css"), /\.guest-seating-page \.seating-price-note/);
   assert.match(html, /Starting price \$1,450/);
-  assert.equal((html.match(/Starting price \$800/g) || []).length, 1);
+  assert.equal((html.match(/Starting price \$800/g) || []).length, 2);
+  assert.match(html, /Starting price \$1,950/);
 });

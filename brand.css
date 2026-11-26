@@ -1779,6 +1779,7 @@ textarea:focus {
 
 .price-card h3 {
   text-transform: capitalize;
+  overflow-wrap: anywhere;
 }
 
 .service-detail-page .price-card h3 {

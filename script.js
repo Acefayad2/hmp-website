@@ -301,7 +301,7 @@ const inquiryServiceOptions = {
   "Guest Seating Experience": {
     label: "Guest seating service of interest",
     placeholder: "Choose a guest seating service",
-    options: ["Guest Arrival", "Arrival + Directory"],
+    options: ["Guest Arrival", "Arrival + Directory", "Guest Registration", "Guest Arrival+Registration+Directory"],
   },
   "Money Table Services": {
     label: "Money table service of interest — 4-hour minimum",
