@@ -301,7 +301,7 @@ const inquiryServiceOptions = {
   "Guest Seating Experience": {
     label: "Guest seating service of interest",
     placeholder: "Choose a guest seating service",
-    options: ["Guest Arrival", "Arrival + Directory", "Guest Registration", "Guest Arrival+Registration+Directory"],
+    options: ["Guest Arrival", "Guest Registration", "Guest Arrival+Directory", "Guest Arrival+Registration+Directory"],
   },
   "Money Table Services": {
     label: "Money table service of interest — 4-hour minimum",
@@ -371,7 +371,8 @@ const syncInquiryFields = () => {
 if (serviceSelect) {
   const inquiryParams = new URLSearchParams(window.location.search);
   const requestedService = eventServiceLabel(inquiryParams.get("service"));
-  const requestedServiceOption = eventServiceLabel(inquiryParams.get("service-option"));
+  const requestedServiceOption = eventServiceLabel(inquiryParams.get("service-option")) === "Arrival + Directory"
+    ? "Guest Arrival+Directory" : eventServiceLabel(inquiryParams.get("service-option"));
   if (
     requestedService &&
     [...serviceSelect.options].some(

@@ -15,7 +15,7 @@ globalThis.Netlify = { env:{get:key => settings[key]} };
 function database() {
   const rows = {
     hmp_client_conversations:[{id:conversationId,inquiry_id:inquiryId,revoked_at:null,token_expires_at:"2099-01-01T00:00:00Z"}],
-    hmp_admin_inquiries:[{submission_id:inquiryId,email:"client@example.test",celebration_date:"2026-10-20",start_time:"18:30",end_time:"22:00",location:"The Garden Hall"}],
+    hmp_admin_inquiries:[{submission_id:inquiryId,email:"client@example.test",celebration_date:"2026-10-20",second_date:"2026-10-21",start_time:"18:30",end_time:"22:00",location:"The Garden Hall",raw_payload:{"second-start-time":"10:00","second-end-time":"13:00","second-location":"The Terrace","private-field":"Do not expose"}}],
     hmp_client_agreements:[{id:formId,client_email:"client@example.test",status:"Sent",expires_at:"2099-01-01T00:00:00Z",token_nonce:"test-nonce",snapshot:{title:"Event details"}}],
     hmp_client_messages:[],
     hmp_seating_records:[
@@ -77,7 +77,7 @@ test("hub expiry notice stays outside tabs and refreshes whenever the selected t
   assert.ok(source.includes(': clientAccessNotice(thread);'));
 });
 
-test("Admin Client Hub list keeps the date while the open hub shows event time and location", async () => {
+test("Admin Client Hub shows both event schedules in its header and sidebar", async () => {
   const response = await handler(database())(new Request("https://hmpeds.com/api/hmp-messages"));
   assert.equal(response.status,200);
   const {threads} = await response.json();
@@ -85,9 +85,15 @@ test("Admin Client Hub list keeps the date while the open hub shows event time a
   assert.equal(threads[0].startTime,"18:30");
   assert.equal(threads[0].endTime,"22:00");
   assert.equal(threads[0].eventLocation,"The Garden Hall");
+  assert.equal(threads[0].secondDate,"2026-10-21");
+  assert.equal(threads[0].secondStartTime,"10:00");
+  assert.equal(threads[0].secondEndTime,"13:00");
+  assert.equal(threads[0].secondEventLocation,"The Terrace");
+  assert.ok(!("raw_payload" in threads[0]));
+  assert.ok(!JSON.stringify(threads[0]).includes("private-field"));
   const source = readFileSync(new URL("../src/admin.js",import.meta.url),"utf8");
-  assert.match(source,/service\.textContent = `\$\{eventServiceLabel\(thread\.service\)\} · \$\{formatDate\(thread\.celebrationDate\)\}`/);
-  assert.match(source,/admin-conversation-event-details/);
+  assert.match(source, /admin-conversation-event-details"\)\.textContent = eventScheduleLines\(thread\)\.join/);
+  assert.match(source, /button\.append\(top, service, \.\.\.eventLines, status\)/);
 });
 
 test("personalized client heading capitalizes Event Hub and uses textContent", () => {

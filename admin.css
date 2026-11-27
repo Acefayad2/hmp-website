@@ -277,7 +277,7 @@ dialog::backdrop { background: rgba(46,32,34,.62); backdrop-filter: blur(5px); }
 .thread-row strong { font: 600 18px/1 var(--serif); }
 .thread-row time { color: var(--muted); font-size: 8px; }
 .thread-row small,.thread-row em { display: block; margin-top: 6px; }
-.thread-row small { overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.thread-row small { color: var(--muted); line-height: 1.4; overflow-wrap: anywhere; }
 .thread-row em { color: var(--gold); font-size: 9px; font-style: normal; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .thread-empty { padding: 78px 24px; text-align: center; }
 .thread-empty > span { color: var(--gold); font-size: 28px; }
