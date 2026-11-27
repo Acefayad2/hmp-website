@@ -242,6 +242,17 @@ const formatEventTime = (value) => {
   const hour = Number(match[1]);
   return `${hour % 12 || 12}:${match[2]} ${hour >= 12 ? "PM" : "AM"}`;
 };
+const eventScheduleLines = (thread) => {
+  const hasSecond = Boolean(thread.secondDate || thread.secondStartTime || thread.secondEndTime || thread.secondEventLocation);
+  const line = (label, date, start, end, location) => [
+    `${label}: ${formatDate(date)}`,
+    [start, end].filter(Boolean).map(formatEventTime).join(" – "),
+    location || "",
+  ].filter(Boolean).join(" · ");
+  const lines = [line(hasSecond ? "First event" : "Event", thread.celebrationDate, thread.startTime, thread.endTime, thread.eventLocation)];
+  if (hasSecond) lines.push(line("Second event", thread.secondDate, thread.secondStartTime, thread.secondEndTime, thread.secondEventLocation));
+  return lines;
+};
 
 const setMessage = (element, message, success = false) => {
   element.textContent = message;
@@ -1277,11 +1288,7 @@ const openMessageThread = (threadId) => {
   $("#admin-conversation").hidden = false;
   $("#admin-conversation-name").textContent = thread.clientName;
   $("#admin-conversation-email").textContent = [thread.clientEmail, thread.clientPhone].filter(Boolean).join(" · ");
-  const eventTime = [thread.startTime, thread.endTime].filter(Boolean).map(formatEventTime).join(" – ");
-  $("#admin-conversation-event-details").textContent = [
-    `Event time: ${eventTime || "Not provided"}`,
-    `Event location: ${thread.eventLocation || "Not provided"}`,
-  ].join(" · ");
+  $("#admin-conversation-event-details").textContent = eventScheduleLines(thread).join(" · ");
   $("#admin-client-access-expiry").textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt, true)}. Client access is disabled. Signed documents and financial records are preserved.` : clientAccessNotice(thread);
   mountDocumentReminders($("#hub-reminder-content"),{kind:"hub",id:thread.id,status:thread.active?"Sent":"Expired"});
   $("#delete-active-conversation").hidden = Boolean(thread.deletedAt);
@@ -1320,6 +1327,7 @@ const renderMessageThreads = () => {
     button.className = "thread-row";
     button.dataset.threadId = thread.id;
     button.dataset.searchText = searchText(thread.clientName, thread.clientEmail, thread.clientPhone, thread.service, thread.celebrationDate, thread.startTime, thread.endTime,
+      thread.secondDate, thread.secondStartTime, thread.secondEndTime, thread.secondEventLocation,
       (thread.messages || []).map(message => [message.body, message.createdAt,
         (message.attachments || []).map(file => file.name), message.document?.number,
         message.document?.event_name, message.document?.notes]));
@@ -1331,10 +1339,15 @@ const renderMessageThreads = () => {
     date.textContent = thread.lastMessageAt ? formatDate(thread.lastMessageAt, true) : "New link";
     top.append(name, date);
     const service = document.createElement("small");
-    service.textContent = `${eventServiceLabel(thread.service)} · ${formatDate(thread.celebrationDate)}`;
+    service.textContent = eventServiceLabel(thread.service);
+    const eventLines = eventScheduleLines(thread).map((line) => {
+      const detail = document.createElement("small");
+      detail.textContent = line;
+      return detail;
+    });
     const status = document.createElement("em");
     status.textContent = thread.deletedAt ? `Deleted · recover before ${formatDate(thread.purgeAt)}` : thread.archivedAt ? "Archived · client access disabled" : thread.lastSender === "client" ? "New client reply" : thread.active ? "Private link active" : "Link expired";
-    button.append(top, service, status);
+    button.append(top, service, ...eventLines, status);
     list.append(button);
   });
 };

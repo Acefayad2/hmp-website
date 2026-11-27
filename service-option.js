@@ -19,11 +19,11 @@ const offeringDetails = {
   "arrival-directory": {
     category: "Guest Seating Experience",
     parentUrl: "/guest-seating",
-    title: "Arrival + Directory",
+    title: "Guest Arrival+Directory",
     summary: "Combine attendance confirmation and table lookup in one complete guest journey.",
     heading: "Guide guests from entrance to table.",
     description:
-      "Arrival + Directory brings check-in and seating lookup together so guests can confirm attendance and find their assigned table through one coordinated experience. HMP manages the presentation to support a smooth transition into the event.",
+      "Guest Arrival+Directory brings check-in and seating lookup together so guests can confirm attendance and find their assigned table through one coordinated experience. HMP manages the presentation to support a smooth transition into the event.",
     price: "$1,450",
     features: [
       "Attendance confirmation and seating lookup",

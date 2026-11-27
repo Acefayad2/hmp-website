@@ -215,7 +215,7 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const conversationIds = conversationRows.map((row) => row.id);
     const [{ data: inquiryRows, error: inquiryError }, { data: messageRows, error: messageError }] = await Promise.all([
       inquiryIds.length
-        ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,phone,service,celebration_date,start_time,end_time,location,status,internal_notes,updated_at").in("submission_id", inquiryIds)
+        ? client.from("hmp_admin_inquiries").select("submission_id,client_name,email,phone,service,celebration_date,second_date,start_time,end_time,location,raw_payload,status,internal_notes,updated_at").in("submission_id", inquiryIds)
         : Promise.resolve({ data: [], error: null }),
       readMessageHistory(client, conversationIds, "id,conversation_id,sender,sender_name,body,text_formatting,attachments,document,created_at,edited_at,email_notified_at,email_notification_error,revision_root_id"),
     ]);
@@ -230,6 +230,9 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
     const inquiryMap = new Map((inquiryRows || []).map((row) => [row.submission_id, row]));
     const threads = conversationRows.map((row) => {
       const inquiry = inquiryMap.get(row.inquiry_id) || {};
+      const raw = inquiry.raw_payload && typeof inquiry.raw_payload === "object" && !Array.isArray(inquiry.raw_payload)
+        ? inquiry.raw_payload as Record<string, unknown> : {};
+      const answer = (key: string) => typeof raw[key] === "string" ? raw[key].trim() : "";
       return {
         id: row.id,
         inquiryId: row.inquiry_id,
@@ -241,9 +244,13 @@ export const createMessagesHandler = ({getUserFn = getUser, databaseFactory = ge
         clientPhone: inquiry.phone || "",
         service: inquiry.service || "Event inquiry",
         celebrationDate: inquiry.celebration_date || "",
+        secondDate: inquiry.second_date || answer("second-date"),
         startTime: inquiry.start_time || "",
         endTime: inquiry.end_time || "",
         eventLocation: inquiry.location || "",
+        secondStartTime: answer("second-start-time"),
+        secondEndTime: answer("second-end-time"),
+        secondEventLocation: answer("second-location"),
         inquiryStatus: inquiry.status || "New",
         archivedAt: row.archived_at || null,
         deletedAt: row.deleted_at || null,

@@ -9,15 +9,15 @@ test("seating packages show all four approved services with their exact pricing 
   const cards = [...html.matchAll(/<a\s+class="price-card"[\s\S]*?<\/a>/g)].map(match => match[0]);
   assert.equal(cards.length, 4);
   assert.match(cards[0], /Guest Arrival[\s\S]*Starting price \$800/);
-  assert.match(cards[1], /Arrival \+ Directory[\s\S]*Starting price \$1,450/);
-  assert.match(cards[2], /Guest Registration[\s\S]*Simplify on-site registration with an experience that blends[\s\S]*Starting price \$800/);
+  assert.match(cards[1], /Guest Registration[\s\S]*Simplify on-site registration with an experience that blends[\s\S]*Starting price \$800/);
+  assert.match(cards[2], /Guest Arrival\+Directory[\s\S]*Starting price \$1,450/);
   assert.match(cards[3], /Guest Arrival\+Registration\+Directory[\s\S]*register on-site,[\s\S]*interactive floor plan highlighting their assigned table and[\s\S]*seat—all while[\s\S]*Starting price \$1,950/);
   assert.match(html, /Four ways to welcome/);
   assert.doesNotMatch(html, /Guest Directory|\$1,750/);
 });
 
 test("inquiries, agreements and detail pages include all four seating packages", () => {
-  assert.match(read("script.js"), /options: \["Guest Arrival", "Arrival \+ Directory", "Guest Registration", "Guest Arrival\+Registration\+Directory"\]/);
+  assert.match(read("script.js"), /options: \["Guest Arrival", "Guest Registration", "Guest Arrival\+Directory", "Guest Arrival\+Registration\+Directory"\]/);
   assert.doesNotMatch(read("script.js"), /"Guest Directory"/);
   assert.match(read("service-option.js"), /"arrival-directory": \{[\s\S]*?price: "\$1,450"/);
   assert.match(read("service-option.js"), /"guest-registration": \{[\s\S]*?price: "\$800"/);
